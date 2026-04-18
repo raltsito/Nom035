@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Acta de Constitución del Comité NOM-035 — {{ ciclo.anio }}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 11pt;
+    color: #1a1f36;
+    background: #fff;
+    padding: 0;
+  }
+
+  .page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 56px;
+  }
+
+  /* Header */
+  .doc-header {
+    text-align: center;
+    margin-bottom: 36px;
+    padding-bottom: 24px;
+    border-bottom: 3px solid #03C4CE;
+  }
+
+  .doc-header .label {
+    font-size: 9pt;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #03C4CE;
+    margin-bottom: 8px;
+  }
+
+  .doc-header h1 {
+    font-size: 18pt;
+    font-weight: 700;
+    color: #0B1120;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+
+  .doc-header h2 {
+    font-size: 13pt;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+
+  .doc-header .norma {
+    display: inline-block;
+    padding: 4px 14px;
+    background: rgba(3,196,206,0.10);
+    border: 1px solid rgba(3,196,206,0.30);
+    border-radius: 99px;
+    font-size: 9pt;
+    font-weight: 600;
+    color: #03C4CE;
+    margin-top: 8px;
+  }
+
+  /* Meta grid */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .meta-item .meta-label {
+    font-size: 8.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6B7280;
+    margin-bottom: 3px;
+  }
+
+  .meta-item .meta-value {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #0B1120;
+  }
+
+  /* Narrative */
+  .narrative {
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #374151;
+    margin-bottom: 28px;
+    text-align: justify;
+  }
+
+  .narrative strong {
+    color: #0B1120;
+    font-weight: 600;
+  }
+
+  /* Section title */
+  .section-title {
+    font-size: 10pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #0B1120;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+
+  /* Members table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 28px;
+    font-size: 10.5pt;
+  }
+
+  thead th {
+    background: #0B1120;
+    color: #fff;
+    font-weight: 600;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 12px;
+    text-align: left;
+  }
+
+  thead th:first-child { border-radius: 6px 0 0 6px; }
+  thead th:last-child  { border-radius: 0 6px 6px 0; }
+
+  tbody tr:nth-child(even) { background: #F8FAFC; }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #E2E8F0;
+    color: #374151;
+    vertical-align: middle;
+  }
+
+  .tipo-chip {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 99px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    background: rgba(3,196,206,0.12);
+    color: #02787F;
+    border: 1px solid rgba(3,196,206,0.25);
+  }
+
+  .tipo-presidente { background: rgba(14,168,112,0.12); color: #065f46; border-color: rgba(14,168,112,0.25); }
+  .tipo-secretario { background: rgba(124,58,237,0.10); color: #5b21b6; border-color: rgba(124,58,237,0.20); }
+
+  /* DC3 section */
+  .dc3-section { margin-bottom: 28px; }
+
+  .dc3-member { margin-bottom: 18px; }
+  .dc3-member-name {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #0B1120;
+    margin-bottom: 6px;
+  }
+
+  .dc3-table { font-size: 9.5pt; }
+  .dc3-table thead th { font-size: 8pt; }
+
+  /* Commitment */
+  .commitment {
+    font-size: 10.5pt;
+    line-height: 1.7;
+    color: #374151;
+    margin-bottom: 40px;
+    text-align: justify;
+  }
+
+  /* Signatures */
+  .signatures-title {
+    font-size: 10pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #0B1120;
+    margin-bottom: 32px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+
+  .signatures-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+    margin-bottom: 48px;
+  }
+
+  .sig-block { text-align: center; }
+
+  .sig-line {
+    border-bottom: 1.5px solid #374151;
+    margin-bottom: 8px;
+    height: 48px;
+  }
+
+  .sig-name {
+    font-size: 9.5pt;
+    font-weight: 700;
+    color: #0B1120;
+    margin-bottom: 2px;
+  }
+
+  .sig-tipo {
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: #03C4CE;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+  }
+
+  .sig-puesto {
+    font-size: 8pt;
+    color: #6B7280;
+  }
+
+  /* Footer */
+  .doc-footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid #E2E8F0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8pt;
+    color: #9CA3AF;
+  }
+
+  @media print {
+    .page { padding: 20px 40px; }
+    body  { font-size: 10pt; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="doc-header">
+    <div class="label">Documento oficial</div>
+    <h1>Acta de Constitucion</h1>
+    <h2>Comite de Seguridad y Salud en el Trabajo</h2>
+    <span class="norma">NOM-035-STPS-2018</span>
+  </div>
+
+  <!-- Meta info -->
+  <div class="meta-grid">
+    <div class="meta-item">
+      <div class="meta-label">Empresa</div>
+      <div class="meta-value">{{ tenant.nombre }}</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">RFC</div>
+      <div class="meta-value">{{ tenant.rfc }}</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Ciclo</div>
+      <div class="meta-value">{{ ciclo.anio }}</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Fecha de constitucion</div>
+      <div class="meta-value">{{ comite.fecha_constitucion }}</div>
+    </div>
+    {% if comite.numero_acta %}
+    <div class="meta-item">
+      <div class="meta-label">Numero de acta</div>
+      <div class="meta-value">{{ comite.numero_acta }}</div>
+    </div>
+    {% endif %}
+    <div class="meta-item">
+      <div class="meta-label">Giro</div>
+      <div class="meta-value">{{ tenant.giro }}</div>
+    </div>
+  </div>
+
+  <!-- Narrative -->
+  <p class="narrative">
+    En la ciudad de Mexico, el dia <strong>{{ comite.fecha_constitucion }}</strong>, en las
+    instalaciones de <strong>{{ tenant.nombre }}</strong> con RFC <strong>{{ tenant.rfc }}</strong>,
+    se reunieron los trabajadores que a continuacion se mencionan para constituir el
+    <strong>Comite de Seguridad y Salud en el Trabajo</strong>, en cumplimiento de lo
+    establecido en la Norma Oficial Mexicana <strong>NOM-035-STPS-2018</strong>, Factores de
+    Riesgo Psicosocial en el Trabajo — Identificacion, Analisis y Prevencion.
+  </p>
+
+  <!-- Members table -->
+  <div class="section-title">Integrantes del Comite</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:32px">#</th>
+        <th>Nombre completo</th>
+        <th>Puesto</th>
+        <th>Rol en el comite</th>
+        <th>Email</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in miembros %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td><strong>{{ m.nombre }}</strong></td>
+        <td>{{ m.puesto }}</td>
+        <td>
+          <span class="tipo-chip tipo-{{ m.tipo }}">{{ m.get_tipo_display }}</span>
+        </td>
+        <td>{{ m.email|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" style="text-align:center;color:#9CA3AF;font-style:italic;">
+          No se registraron miembros.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- DC3 section (only if any member has capacitaciones) -->
+  {% with has_dc3=False %}
+  {% for m in miembros %}{% if m.capacitaciones.all %}{% with has_dc3=True %}{% endwith %}{% endif %}{% endfor %}
+  {% endwith %}
+
+  {% for m in miembros %}
+  {% if m.capacitaciones.all %}
+  {% if forloop.first %}
+  <div class="section-title">Constancias de Capacitacion DC3</div>
+  {% endif %}
+  <div class="dc3-member">
+    <div class="dc3-member-name">{{ m.nombre }} — {{ m.get_tipo_display }}</div>
+    <table class="dc3-table">
+      <thead>
+        <tr>
+          <th>Tipo de capacitacion</th>
+          <th>Fecha</th>
+          <th>Horas</th>
+          <th>Instructor</th>
+          <th>Num. DC3</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dc3 in m.capacitaciones.all %}
+        <tr>
+          <td>{{ dc3.tipo_capacitacion }}</td>
+          <td>{{ dc3.fecha }}</td>
+          <td>{{ dc3.horas }}h</td>
+          <td>{{ dc3.instructor|default:"—" }}</td>
+          <td>{{ dc3.numero_dc3|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  <!-- Commitment -->
+  {% if comite.observaciones %}
+  <p class="commitment"><strong>Observaciones:</strong> {{ comite.observaciones }}</p>
+  {% endif %}
+
+  <p class="commitment">
+    Los integrantes del comite constituido en el presente documento se comprometen a cumplir
+    con las funciones y responsabilidades asignadas, asi como a participar activamente en la
+    identificacion, analisis y prevencion de factores de riesgo psicosocial, conforme a lo
+    establecido en la NOM-035-STPS-2018.
+  </p>
+
+  <!-- Signatures -->
+  <div class="signatures-title">Firmas de los Integrantes</div>
+  <div class="signatures-grid">
+    {% for m in miembros %}
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div class="sig-name">{{ m.nombre }}</div>
+      <div class="sig-tipo">{{ m.get_tipo_display }}</div>
+      <div class="sig-puesto">{{ m.puesto }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <span>{{ tenant.nombre }} &mdash; RFC: {{ tenant.rfc }}</span>
+    <span>NOM-035-STPS-2018 &mdash; Ciclo {{ ciclo.anio }}</span>
+  </div>
+
+</div>
+</body>
+</html>

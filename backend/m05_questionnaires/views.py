@@ -1,0 +1,175 @@
+from rest_framework import viewsets, status
+from rest_framework.decorators import action, api_view
+from rest_framework.decorators import permission_classes as deco_perms
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from django.db import transaction
+
+from accounts.permissions import IsTenantAdmin
+from m00_onboarding.models import CicloNOM, Trabajador
+from .models import Cuestionario, Aplicacion, RespuestaPregunta, Pregunta
+from .serializers import (
+    CuestionarioSerializer, CuestionarioListSerializer,
+    AplicacionSerializer, AplicacionPublicaSerializer,
+    SubmitRespuestasSerializer,
+)
+
+
+def _wrap(data, meta=None, errors=None, status_code=status.HTTP_200_OK):
+    return Response({'data': data, 'meta': meta or {}, 'errors': errors}, status=status_code)
+
+
+class CuestionarioViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = (IsAuthenticated,)
+    queryset = Cuestionario.objects.prefetch_related('dominios__preguntas').all()
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return CuestionarioListSerializer
+        return CuestionarioSerializer
+
+    def list(self, request, *args, **kwargs):
+        serializer = CuestionarioListSerializer(self.get_queryset(), many=True)
+        return _wrap(serializer.data, {'count': self.get_queryset().count()})
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return _wrap(CuestionarioSerializer(instance).data)
+
+
+class AplicacionViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsTenantAdmin,)
+    serializer_class = AplicacionSerializer
+
+    def get_queryset(self):
+        qs = Aplicacion.objects.select_related(
+            'trabajador', 'cuestionario', 'ciclo'
+        ).prefetch_related('respuestas')
+
+        ciclo_id = self.request.query_params.get('ciclo_id')
+        if ciclo_id:
+            qs = qs.filter(ciclo_id=ciclo_id)
+
+        estado = self.request.query_params.get('estado')
+        if estado:
+            qs = qs.filter(estado=estado)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        serializer = AplicacionSerializer(qs, many=True)
+        return _wrap(serializer.data, {'count': qs.count()})
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return _wrap(AplicacionSerializer(instance).data)
+
+    def destroy(self, request, *args, **kwargs):
+        self.get_object().delete()
+        return _wrap(None)
+
+    @action(detail=False, methods=['post'], url_path='crear-masivo')
+    @transaction.atomic
+    def crear_masivo(self, request):
+        ciclo_id = request.data.get('ciclo_id')
+        if not ciclo_id:
+            return _wrap(None, errors={'ciclo_id': ['Este campo es requerido.']},
+                         status_code=status.HTTP_400_BAD_REQUEST)
+
+        tenant = request.user.tenant
+        try:
+            ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
+        except CicloNOM.DoesNotExist:
+            return _wrap(None, errors={'ciclo_id': ['Ciclo no encontrado.']},
+                         status_code=status.HTTP_404_NOT_FOUND)
+
+        n = tenant.num_trabajadores
+        clave = 'I' if n <= 15 else ('III' if n <= 50 else 'V')
+
+        try:
+            cuestionario = Cuestionario.objects.get(clave=clave)
+        except Cuestionario.DoesNotExist:
+            return _wrap(None,
+                errors={'cuestionario': [f'Guia {clave} no encontrada. Ejecuta seed_cuestionarios.']},
+                status_code=status.HTTP_404_NOT_FOUND)
+
+        trabajadores = Trabajador.objects.filter(tenant=tenant, activo=True)
+        if not trabajadores.exists():
+            return _wrap(None, errors={'trabajadores': ['No hay trabajadores activos registrados.']},
+                         status_code=status.HTTP_400_BAD_REQUEST)
+
+        creadas = existentes = 0
+        for t in trabajadores:
+            _, created = Aplicacion.objects.get_or_create(
+                tenant=tenant, ciclo=ciclo, cuestionario=cuestionario, trabajador=t,
+            )
+            if created:
+                creadas += 1
+            else:
+                existentes += 1
+
+        return _wrap(None,
+            meta={'creadas': creadas, 'ya_existian': existentes, 'total': creadas + existentes},
+            status_code=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path='limpiar-respuestas')
+    def limpiar_respuestas(self, request, pk=None):
+        instance = self.get_object()
+        instance.respuestas.all().delete()
+        instance.estado = 'pendiente'
+        instance.fecha_completado = None
+        instance.save(update_fields=['estado', 'fecha_completado'])
+        return _wrap(AplicacionSerializer(instance).data)
+
+
+@api_view(['GET'])
+@deco_perms([AllowAny])
+def aplicacion_publica(request, token):
+    aplicacion = get_object_or_404(Aplicacion, token=token)
+    return Response({'data': AplicacionPublicaSerializer(aplicacion).data, 'meta': {}, 'errors': None})
+
+
+@api_view(['POST'])
+@deco_perms([AllowAny])
+@transaction.atomic
+def responder_aplicacion(request, token):
+    aplicacion = get_object_or_404(Aplicacion, token=token)
+
+    if aplicacion.estado == 'completado':
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'detalle': 'Este cuestionario ya fue completado.'}},
+            status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = SubmitRespuestasSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({'data': None, 'meta': {}, 'errors': serializer.errors},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    respuestas_data = serializer.validated_data['respuestas']
+    total_preguntas = Pregunta.objects.filter(dominio__cuestionario=aplicacion.cuestionario).count()
+
+    for item in respuestas_data:
+        try:
+            pregunta = Pregunta.objects.get(
+                id=item['pregunta_id'], dominio__cuestionario=aplicacion.cuestionario)
+        except Pregunta.DoesNotExist:
+            continue
+        RespuestaPregunta.objects.update_or_create(
+            aplicacion=aplicacion, pregunta=pregunta,
+            defaults={'valor': item['valor'], 'tenant': aplicacion.tenant},
+        )
+
+    respondidas = aplicacion.respuestas.count()
+    if respondidas >= total_preguntas:
+        aplicacion.marcar_completado()
+    elif aplicacion.estado == 'pendiente':
+        aplicacion.estado = 'en_progreso'
+        aplicacion.save(update_fields=['estado'])
+
+    return Response({'data': {
+        'estado': aplicacion.estado,
+        'respondidas': respondidas,
+        'total': total_preguntas,
+    }, 'meta': {}, 'errors': None})

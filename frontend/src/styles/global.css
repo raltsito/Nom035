@@ -1,0 +1,242 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+body {
+  font-family: var(--nom-font-body);
+  font-size: var(--nom-text-base);
+  font-weight: var(--nom-font-regular);
+  color: var(--nom-text);
+  background-color: var(--nom-bg);
+  transition: background-color var(--nom-t-slow), color var(--nom-t-slow);
+  letter-spacing: -0.011em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--nom-font-display);
+  font-weight: var(--nom-font-bold);
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+  color: var(--nom-text);
+}
+
+/* Orbs de fondo — ambiente */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 15% -10%, rgba(3, 196, 206, 0.09) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 85% 105%, rgba(99, 120, 240, 0.07) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(ellipse 70% 55% at 15% -10%, rgba(3, 196, 206, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 85% 105%, rgba(60, 80, 180, 0.09) 0%, transparent 60%);
+}
+
+/* ==========================================================================
+   Scrollbar
+   ========================================================================== */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--nom-border-solid);
+  border-radius: var(--nom-radius-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--nom-text-muted); }
+
+/* ==========================================================================
+   Focus & Selection
+   ========================================================================== */
+
+::selection {
+  background: var(--nom-accent-subtle);
+  color: var(--nom-accent-dark);
+}
+
+:focus-visible {
+  outline: 2px solid var(--nom-accent);
+  outline-offset: 3px;
+  border-radius: var(--nom-radius-sm);
+}
+
+/* ==========================================================================
+   Keyframes globales
+   ========================================================================== */
+
+@keyframes nomFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nomFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes nomScaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes nomSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes nomPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.55; transform: scale(0.82); }
+}
+
+/* aliases para compat */
+@keyframes nom-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nom-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Utility classes
+   ========================================================================== */
+
+.nom-animate-in {
+  animation: nomFadeUp 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.nom-spin {
+  animation: nomSpin 0.85s linear infinite;
+}
+
+/* Modal overlay — usar con createPortal para evitar stacking context */
+.nom-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.55);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  animation: nomFadeIn 0.18s ease both;
+}
+
+/* Glass card */
+.nom-glass {
+  background: var(--nom-glass-bg);
+  backdrop-filter: var(--nom-glass-blur);
+  -webkit-backdrop-filter: var(--nom-glass-blur);
+  border: 1px solid var(--nom-glass-border);
+  box-shadow: var(--nom-glass-shadow);
+}
+
+.nom-card {
+  background: var(--nom-glass-bg);
+  backdrop-filter: var(--nom-glass-blur);
+  -webkit-backdrop-filter: var(--nom-glass-blur);
+  border: 1px solid var(--nom-glass-border);
+  box-shadow: var(--nom-glass-shadow);
+  border-radius: var(--nom-radius-xl);
+  padding: var(--nom-space-6);
+  transition: transform var(--nom-t-base), box-shadow var(--nom-t-base);
+}
+
+.nom-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--nom-shadow-lg);
+}
+
+/* Buttons */
+.nom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--nom-space-2);
+  padding: 10px 22px;
+  border-radius: var(--nom-radius-full);
+  font-family: var(--nom-font-body);
+  font-size: var(--nom-text-sm);
+  font-weight: var(--nom-font-semibold);
+  cursor: pointer;
+  border: none;
+  transition: all var(--nom-t-fast);
+  white-space: nowrap;
+  letter-spacing: 0.008em;
+  line-height: 1;
+}
+
+.nom-btn-primary {
+  background: var(--nom-text);
+  color: var(--nom-text-inverse);
+}
+
+.nom-btn-primary:hover {
+  opacity: 0.82;
+  transform: translateY(-1px);
+  box-shadow: var(--nom-shadow-md);
+}
+
+.nom-btn-primary:active { transform: translateY(0); }
+
+.nom-btn-accent {
+  background: var(--nom-accent);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--nom-accent-glow);
+}
+
+.nom-btn-accent:hover {
+  background: var(--nom-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--nom-accent-glow);
+}
+
+.nom-btn-ghost {
+  background: transparent;
+  color: var(--nom-text-secondary);
+  border: 1.5px solid var(--nom-border-solid);
+}
+
+.nom-btn-ghost:hover {
+  background: var(--nom-accent-subtle);
+  border-color: var(--nom-accent);
+  color: var(--nom-accent);
+}
+
+/* Input base */
+.nom-input {
+  width: 100%;
+  padding: 11px 16px;
+  background: var(--nom-surface);
+  border: 1.5px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-lg);
+  font-family: var(--nom-font-body);
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text);
+  transition: border-color var(--nom-t-fast), box-shadow var(--nom-t-fast), background var(--nom-t-fast);
+  outline: none;
+}
+
+.nom-input::placeholder { color: var(--nom-text-muted); }
+
+.nom-input:focus {
+  border-color: var(--nom-accent);
+  box-shadow: 0 0 0 3px var(--nom-accent-glow);
+}
+
+/* Loading placeholder */
+.nom-loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--nom-bg);
+  z-index: 9999;
+}

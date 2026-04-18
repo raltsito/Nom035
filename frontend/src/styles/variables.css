@@ -1,0 +1,158 @@
+/* ==========================================================================
+   Intra NOM-035 — Design Tokens
+   Prefijo: --nom- | Default: LIGHT MODE | Dark: [data-theme="dark"]
+   ========================================================================== */
+
+:root {
+  /* --- Acento y marca --- */
+  --nom-accent:           #03C4CE;
+  --nom-accent-hover:     #02A8B2;
+  --nom-accent-dark:      #027F88;
+  --nom-accent-subtle:    rgba(3, 196, 206, 0.10);
+  --nom-accent-glow:      rgba(3, 196, 206, 0.22);
+
+  /* --- Fondos MODO CLARO (default) --- */
+  --nom-bg:               #EEF2FA;
+  --nom-bg-2:             #E5EBF7;
+  --nom-surface:          #FFFFFF;
+  --nom-surface-2:        rgba(255, 255, 255, 0.72);
+  --nom-border:           rgba(180, 200, 230, 0.55);
+  --nom-border-solid:     #D4DFEF;
+
+  /* --- Glass MODO CLARO --- */
+  --nom-glass-bg:         rgba(255, 255, 255, 0.70);
+  --nom-glass-border:     rgba(255, 255, 255, 0.90);
+  --nom-glass-blur:       blur(18px);
+  --nom-glass-shadow:     0 4px 28px rgba(100, 130, 195, 0.13), 0 1px 4px rgba(100, 130, 195, 0.07);
+
+  /* --- Navbar / Sidebar --- */
+  --nom-nav-bg:           rgba(255, 255, 255, 0.82);
+  --nom-nav-border:       rgba(190, 210, 235, 0.45);
+  --nom-sidebar-bg:       rgba(255, 255, 255, 0.60);
+  --nom-sidebar-border:   rgba(190, 210, 235, 0.38);
+  --nom-sidebar-icon:     #7A96B4;
+  --nom-sidebar-active:   rgba(3, 196, 206, 0.11);
+  --nom-sidebar-active-icon: #03C4CE;
+
+  /* --- Texto MODO CLARO --- */
+  --nom-text:             #0D1526;
+  --nom-text-secondary:   #3D5068;
+  --nom-text-muted:       #6E8BAA;
+  --nom-text-inverse:     #FFFFFF;
+
+  /* --- Sombras MODO CLARO --- */
+  --nom-shadow-sm:  0 1px 3px rgba(80, 110, 170, 0.09);
+  --nom-shadow-md:  0 4px 16px rgba(80, 110, 170, 0.13);
+  --nom-shadow-lg:  0 8px 36px rgba(80, 110, 170, 0.17);
+  --nom-shadow-xl:  0 20px 64px rgba(80, 110, 170, 0.22);
+
+  /* --- Estados semanticos --- */
+  --nom-danger:           #E53E3E;
+  --nom-danger-subtle:    rgba(229, 62, 62, 0.09);
+  --nom-success:          #0EA870;
+  --nom-success-subtle:   rgba(14, 168, 112, 0.09);
+  --nom-warning:          #E8930A;
+  --nom-warning-subtle:   rgba(232, 147, 10, 0.09);
+  --nom-info:             #03C4CE;
+  --nom-info-subtle:      rgba(3, 196, 206, 0.09);
+
+  /* --- Riesgos NOM-035 --- */
+  --nom-riesgo-nulo:      #10B981;
+  --nom-riesgo-bajo:      #84CC16;
+  --nom-riesgo-medio:     #F59E0B;
+  --nom-riesgo-alto:      #EF4444;
+  --nom-riesgo-muy-alto:  #7C3AED;
+
+  /* --- Tipografia --- */
+  --nom-font-display:   'Plus Jakarta Sans', system-ui, sans-serif;
+  --nom-font-body:      'Inter', system-ui, sans-serif;
+  --nom-font-regular:   400;
+  --nom-font-medium:    500;
+  --nom-font-semibold:  600;
+  --nom-font-bold:      700;
+  --nom-font-extrabold: 800;
+
+  --nom-text-xs:   0.75rem;
+  --nom-text-sm:   0.875rem;
+  --nom-text-base: 1rem;
+  --nom-text-lg:   1.125rem;
+  --nom-text-xl:   1.25rem;
+  --nom-text-2xl:  1.5rem;
+  --nom-text-3xl:  1.875rem;
+  --nom-text-4xl:  2.25rem;
+  --nom-text-5xl:  3rem;
+
+  /* --- Espaciado --- */
+  --nom-space-1:  4px;
+  --nom-space-2:  8px;
+  --nom-space-3:  12px;
+  --nom-space-4:  16px;
+  --nom-space-5:  20px;
+  --nom-space-6:  24px;
+  --nom-space-8:  32px;
+  --nom-space-10: 40px;
+  --nom-space-12: 48px;
+  --nom-space-16: 64px;
+
+  /* --- Radios --- */
+  --nom-radius-sm:   6px;
+  --nom-radius-md:   10px;
+  --nom-radius-lg:   16px;
+  --nom-radius-xl:   22px;
+  --nom-radius-2xl:  32px;
+  --nom-radius-full: 9999px;
+
+  /* --- Transiciones --- */
+  --nom-ease:            cubic-bezier(0.4, 0, 0.2, 1);
+  --nom-ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --nom-t-fast:          150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --nom-t-base:          260ms cubic-bezier(0.4, 0, 0.2, 1);
+  --nom-t-slow:          420ms cubic-bezier(0.4, 0, 0.2, 1);
+  --nom-t-spring:        500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Aliases legacy */
+  --nom-transition-fast:   var(--nom-t-fast);
+  --nom-transition-base:   var(--nom-t-base);
+  --nom-transition-slow:   var(--nom-t-slow);
+  --nom-transition-spring: var(--nom-t-spring);
+  --nom-transition-smooth: 600ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* --- Layout --- */
+  --nom-nav-h:        64px;
+  --nom-sidebar-w:    62px;
+  --nom-topbar-height: 64px;
+  --nom-sidebar-width: 62px;
+  --nom-content-max-width: 1440px;
+}
+
+/* ==========================================================================
+   MODO OSCURO — Azul noche profundo (NO negro puro)
+   ========================================================================== */
+
+[data-theme="dark"] {
+  --nom-bg:               #0B1120;
+  --nom-bg-2:             #0E1628;
+  --nom-surface:          #131D33;
+  --nom-surface-2:        rgba(19, 29, 51, 0.82);
+  --nom-border:           rgba(255, 255, 255, 0.07);
+  --nom-border-solid:     #1E304F;
+
+  --nom-glass-bg:         rgba(15, 22, 42, 0.70);
+  --nom-glass-border:     rgba(255, 255, 255, 0.07);
+  --nom-glass-shadow:     0 4px 28px rgba(0, 0, 0, 0.38), 0 1px 4px rgba(0, 0, 0, 0.22);
+
+  --nom-nav-bg:           rgba(10, 16, 32, 0.88);
+  --nom-nav-border:       rgba(255, 255, 255, 0.06);
+  --nom-sidebar-bg:       rgba(10, 16, 32, 0.75);
+  --nom-sidebar-border:   rgba(255, 255, 255, 0.05);
+  --nom-sidebar-icon:     #4A6A8A;
+
+  --nom-text:             #E4EDF6;
+  --nom-text-secondary:   #A4BBCF;
+  --nom-text-muted:       #536F8A;
+
+  --nom-shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.28);
+  --nom-shadow-md:  0 4px 16px rgba(0, 0, 0, 0.38);
+  --nom-shadow-lg:  0 8px 36px rgba(0, 0, 0, 0.48);
+  --nom-shadow-xl:  0 20px 64px rgba(0, 0, 0, 0.56);
+}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Plan de Accion NOM-035 — {{ plan.ciclo.anio }}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', Arial, sans-serif; font-size: 10.5pt; color: #1a1f36; background: #fff; }
+  .page { max-width: 860px; margin: 0 auto; padding: 40px 56px; }
+
+  .doc-header { text-align: center; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 3px solid #03C4CE; }
+  .doc-header .label { font-size: 8.5pt; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #03C4CE; margin-bottom: 6px; }
+  .doc-header h1 { font-size: 17pt; font-weight: 700; color: #0B1120; letter-spacing: -0.02em; margin-bottom: 4px; }
+  .doc-header .norma { display: inline-block; padding: 3px 12px; background: rgba(3,196,206,0.10); border: 1px solid rgba(3,196,206,0.30); border-radius: 99px; font-size: 8.5pt; font-weight: 600; color: #03C4CE; margin-top: 6px; }
+
+  .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 16px; }
+  .meta-label { font-size: 8pt; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7280; margin-bottom: 2px; }
+  .meta-value { font-size: 10.5pt; font-weight: 600; color: #0B1120; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 28px; }
+  .stat-box { text-align: center; padding: 12px 8px; border-radius: 8px; border: 1px solid #E2E8F0; }
+  .stat-num { font-size: 18pt; font-weight: 700; color: #0B1120; line-height: 1; margin-bottom: 4px; }
+  .stat-lbl { font-size: 7.5pt; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #6B7280; }
+  .stat-box.completadas { background: rgba(14,168,112,0.08); border-color: rgba(14,168,112,0.25); }
+  .stat-box.completadas .stat-num { color: #065f46; }
+  .stat-box.en_progreso { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.25); }
+  .stat-box.en_progreso .stat-num { color: #92400e; }
+  .stat-box.pendientes  { background: rgba(100,116,139,0.08); border-color: rgba(100,116,139,0.20); }
+
+  .progress-wrap { margin-bottom: 28px; }
+  .progress-bar { height: 10px; background: #E2E8F0; border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #03C4CE, #0EA870); border-radius: 99px; }
+  .progress-label { font-size: 8.5pt; color: #6B7280; text-align: right; }
+
+  .section-title { font-size: 9.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #0B1120; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #E2E8F0; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 9.5pt; }
+  thead th { background: #0B1120; color: #fff; font-weight: 600; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.05em; padding: 9px 10px; text-align: left; }
+  thead th:first-child { border-radius: 5px 0 0 5px; }
+  thead th:last-child  { border-radius: 0 5px 5px 0; }
+  tbody tr:nth-child(even) { background: #F8FAFC; }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid #E2E8F0; color: #374151; vertical-align: top; }
+
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 8pt; font-weight: 600; }
+  .chip-preventiva { background: rgba(3,196,206,0.12); color: #02787F; }
+  .chip-correctiva  { background: rgba(229,62,62,0.10); color: #9b1c1c; }
+  .chip-mejora      { background: rgba(124,58,237,0.10); color: #5b21b6; }
+  .chip-alta   { background: rgba(229,62,62,0.10); color: #9b1c1c; }
+  .chip-media  { background: rgba(245,158,11,0.10); color: #92400e; }
+  .chip-baja   { background: rgba(100,116,139,0.10); color: #334155; }
+  .chip-pendiente   { background: rgba(100,116,139,0.10); color: #475569; }
+  .chip-en_progreso { background: rgba(245,158,11,0.10); color: #92400e; }
+  .chip-completado  { background: rgba(14,168,112,0.10); color: #065f46; }
+  .chip-cancelado   { background: rgba(229,62,62,0.08); color: #9b1c1c; }
+  .vencida { color: #dc2626; font-weight: 600; }
+
+  .doc-footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; font-size: 7.5pt; color: #9CA3AF; }
+  @media print { .page { padding: 20px 36px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="doc-header">
+    <div class="label">Documento oficial</div>
+    <h1>Plan de Accion y Seguimiento</h1>
+    <span class="norma">NOM-035-STPS-2018</span>
+  </div>
+
+  <div class="meta-grid">
+    <div>
+      <div class="meta-label">Empresa</div>
+      <div class="meta-value">{{ tenant.nombre }}</div>
+    </div>
+    <div>
+      <div class="meta-label">RFC</div>
+      <div class="meta-value">{{ tenant.rfc }}</div>
+    </div>
+    <div>
+      <div class="meta-label">Ciclo</div>
+      <div class="meta-value">{{ plan.ciclo.anio }}</div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="stat-num">{{ stats.total }}</div>
+      <div class="stat-lbl">Total</div>
+    </div>
+    <div class="stat-box completadas">
+      <div class="stat-num">{{ stats.completadas }}</div>
+      <div class="stat-lbl">Completadas</div>
+    </div>
+    <div class="stat-box en_progreso">
+      <div class="stat-num">{{ stats.en_progreso }}</div>
+      <div class="stat-lbl">En progreso</div>
+    </div>
+    <div class="stat-box pendientes">
+      <div class="stat-num">{{ stats.pendientes }}</div>
+      <div class="stat-lbl">Pendientes</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">{{ stats.pct_avance }}%</div>
+      <div class="stat-lbl">Avance</div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: {{ stats.pct_avance }}%"></div>
+    </div>
+    <div class="progress-label">{{ stats.pct_avance }}% completado</div>
+  </div>
+
+  <div class="section-title">Acciones y Medidas</div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Descripcion</th>
+        <th>Tipo</th>
+        <th>Factor de riesgo</th>
+        <th>Responsable</th>
+        <th>Fecha limite</th>
+        <th>Prioridad</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in acciones %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>
+          {{ a.descripcion }}
+          {% if a.avance_notas %}<br><small style="color:#6B7280;font-style:italic;">{{ a.avance_notas }}</small>{% endif %}
+        </td>
+        <td><span class="chip chip-{{ a.tipo }}">{{ a.get_tipo_display }}</span></td>
+        <td>{{ a.factor_riesgo|default:"—" }}</td>
+        <td>{{ a.responsable }}</td>
+        <td>{{ a.fecha_limite }}</td>
+        <td><span class="chip chip-{{ a.prioridad }}">{{ a.get_prioridad_display }}</span></td>
+        <td><span class="chip chip-{{ a.estado }}">{{ a.get_estado_display }}</span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" style="text-align:center;color:#9CA3AF;font-style:italic;">Sin acciones registradas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if plan.descripcion %}
+  <div class="section-title">Notas del plan</div>
+  <p style="font-size:10pt;color:#374151;line-height:1.6;margin-bottom:24px;">{{ plan.descripcion }}</p>
+  {% endif %}
+
+  <div class="doc-footer">
+    <span>{{ tenant.nombre }} &mdash; RFC: {{ tenant.rfc }}</span>
+    <span>NOM-035-STPS-2018 &mdash; Ciclo {{ plan.ciclo.anio }}</span>
+  </div>
+
+</div>
+</body>
+</html>
