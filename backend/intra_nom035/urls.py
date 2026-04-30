@@ -2,11 +2,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
 from rest_framework_simplejwt.views import TokenRefreshView
 from accounts.views import LoginView, LogoutView
 
 
 urlpatterns = [
+    path('health/', lambda request: HttpResponse('ok'), name='health'),
     path('admin/', admin.site.urls),
 
     # Auth
