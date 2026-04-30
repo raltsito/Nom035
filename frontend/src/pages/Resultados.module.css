@@ -75,6 +75,102 @@
   border: 1px solid rgba(232,147,10,0.22);
 }
 
+/* ---- Tabla colapsable ---- */
+.tablaSection {
+  margin-bottom: var(--nom-space-4);
+}
+
+.tablaToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--nom-space-3);
+  padding: var(--nom-space-3) var(--nom-space-4);
+  background: var(--nom-glass-bg);
+  backdrop-filter: var(--nom-glass-blur);
+  -webkit-backdrop-filter: var(--nom-glass-blur);
+  border: 1.5px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-lg);
+  cursor: pointer;
+  font-family: var(--nom-font-body);
+  font-size: var(--nom-text-sm);
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+  transition: background var(--nom-t-fast), border-color var(--nom-t-fast);
+  text-align: left;
+}
+
+.tablaToggle:hover {
+  background: var(--nom-accent-subtle);
+  border-color: var(--nom-accent);
+}
+
+.tablaToggleLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+}
+
+.tablaToggleIcon {
+  color: var(--nom-text-muted);
+  transition: transform var(--nom-t-base);
+  flex-shrink: 0;
+}
+
+.tablaToggleIconOpen {
+  transform: rotate(90deg);
+}
+
+.tablaCount {
+  font-size: var(--nom-text-xs);
+  font-weight: var(--nom-font-regular);
+  color: var(--nom-text-muted);
+  background: var(--nom-border-solid);
+  padding: 2px 8px;
+  border-radius: var(--nom-radius-full);
+}
+
+.tablaFilterBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--nom-text-xs);
+  font-weight: var(--nom-font-medium);
+  color: var(--nom-accent);
+  background: var(--nom-accent-subtle);
+  border: 1px solid var(--nom-accent-glow);
+  padding: 3px 10px;
+  border-radius: var(--nom-radius-full);
+}
+
+.tablaFilterClear {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--nom-accent);
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity var(--nom-t-fast);
+}
+
+.tablaFilterClear:hover { opacity: 1; }
+
+.tablaBody {
+  margin-top: var(--nom-space-2);
+  animation: nomFadeUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---- Separador entre tabla y dashboard ---- */
+.sectionDivider {
+  height: 1px;
+  background: var(--nom-border-solid);
+  margin: var(--nom-space-8) 0 var(--nom-space-6);
+  opacity: 0.6;
+}
+
 /* ---- Stats ---- */
 .statsSection { margin-bottom: var(--nom-space-6); }
 .statsRow {

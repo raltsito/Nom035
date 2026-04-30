@@ -9,12 +9,7 @@ import Cuestionarios from './pages/Cuestionarios';
 import Responder from './pages/Responder';
 import Resultados from './pages/Resultados';
 import Comite from './pages/Comite';
-import PlanAccion from './pages/PlanAccion';
-import Politica from './pages/Politica';
-import Difusion from './pages/Difusion';
-import Evidencias from './pages/Evidencias';
-import Asistencias from './pages/Asistencias';
-import Configuracion from './pages/Configuracion';
+import Calculadora from './pages/Calculadora';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -48,15 +43,10 @@ function AppRoutes() {
         <Route path="dashboard"    element={<Dashboard />} />
         <Route path="empresas"     element={<SuperAdminRoute><Empresas /></SuperAdminRoute>} />
         <Route path="comite"        element={<Comite />} />
-        <Route path="plan-accion"   element={<PlanAccion />} />
-        <Route path="politica"      element={<Politica />} />
-        <Route path="difusion"      element={<Difusion />} />
-        <Route path="evidencias"    element={<Evidencias />} />
-        <Route path="asistencias"    element={<Asistencias />} />
-        <Route path="configuracion"  element={<Configuracion />} />
         <Route path="trabajadores" element={<Trabajadores />} />
         <Route path="cuestionarios" element={<Cuestionarios />} />
         <Route path="resultados"    element={<Resultados />} />
+        <Route path="calculadora"   element={<Calculadora />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

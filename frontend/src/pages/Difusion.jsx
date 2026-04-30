@@ -189,12 +189,13 @@ export default function Difusion() {
             </select>
             <ChevronDown size={14} className={styles.selectIcon} />
           </div>
-          <button className="nom-btn-pill nom-btn-ghost" onClick={handleReporte} disabled={!cicloId}>
-            <FileDown size={15} />
+          <div className={styles.actionsDivider} />
+          <button className={styles.btnReporte} onClick={handleReporte} disabled={!cicloId}>
+            <FileDown size={15} strokeWidth={2} />
             Reporte
           </button>
-          <button className="nom-btn-pill nom-btn-primary" onClick={openCreate} disabled={!cicloId}>
-            <Plus size={15} />
+          <button className={styles.btnNueva} onClick={openCreate} disabled={!cicloId}>
+            <Plus size={15} strokeWidth={2.5} />
             Nueva actividad
           </button>
         </div>
@@ -403,17 +404,17 @@ export default function Difusion() {
               </div>
               {formErr && <p className={styles.formError}>{formErr}</p>}
               <div className={styles.modalActions}>
-                <button type="button" className="nom-btn-pill nom-btn-ghost" onClick={() => setModal(null)}>
+                <button type="button" className="nom-btn nom-btn-ghost" onClick={() => setModal(null)}>
                   Cancelar
                 </button>
-                <button type="submit" className="nom-btn-pill nom-btn-primary" disabled={saving}>
+                <button type="submit" className="nom-btn nom-btn-primary" disabled={saving}>
                   {saving ? <Loader2 size={14} className="nom-spin" /> : null}
                   {editTarget ? 'Guardar cambios' : 'Registrar actividad'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* Confirm delete modal */}
@@ -432,14 +433,14 @@ export default function Difusion() {
               </p>
             </div>
             <div className={styles.modalActions}>
-              <button className="nom-btn-pill nom-btn-ghost" onClick={() => setModal(null)}>Cancelar</button>
+              <button className="nom-btn nom-btn-ghost" onClick={() => setModal(null)}>Cancelar</button>
               <button className={styles.btnDanger} onClick={handleDelete} disabled={saving}>
                 {saving ? <Loader2 size={14} className="nom-spin" /> : null}
                 Eliminar
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

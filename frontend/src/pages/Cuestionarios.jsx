@@ -383,7 +383,7 @@ export default function Cuestionarios() {
               </>
             )}
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* Modal: Confirmar eliminar */}
@@ -402,7 +402,7 @@ export default function Cuestionarios() {
               <button className={`nom-btn ${styles.btnDanger}`} onClick={handleDelete}>Eliminar</button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* Modal: Confirmar limpiar */}
@@ -421,7 +421,7 @@ export default function Cuestionarios() {
               <button className={`nom-btn ${styles.btnDanger}`} onClick={handleLimpiar}>Limpiar</button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { resultadosService } from '../services/resultados';
 import { ciclosService } from '../services/trabajadores';
+import ResultadosDashboard from '../components/resultados/ResultadosDashboard';
 import styles from './Resultados.module.css';
 
 const CAT = {
@@ -18,10 +19,7 @@ const CAT = {
 function CatChip({ cat }) {
   const c = CAT[cat] || CAT.bajo;
   return (
-    <span
-      className={styles.catChip}
-      style={{ background: c.bg, color: c.color }}
-    >
+    <span className={styles.catChip} style={{ background: c.bg, color: c.color }}>
       {c.label}
     </span>
   );
@@ -31,28 +29,27 @@ function RiesgoBar({ pct, cat }) {
   const c = CAT[cat] || CAT.bajo;
   return (
     <div className={styles.riesgoBar}>
-      <div
-        className={styles.riesgoFill}
-        style={{ width: `${pct}%`, background: c.color }}
-      />
+      <div className={styles.riesgoFill} style={{ width: `${pct}%`, background: c.color }} />
     </div>
   );
 }
 
 export default function Resultados() {
-  const [ciclos, setCiclos]         = useState([]);
-  const [cicloId, setCicloId]       = useState('');
-  const [resultados, setResultados] = useState([]);
-  const [resumen, setResumen]       = useState(null);
-  const [loading, setLoading]       = useState(false);
+  const [ciclos, setCiclos]           = useState([]);
+  const [cicloId, setCicloId]         = useState('');
+  const [resultados, setResultados]   = useState([]);
+  const [resumen, setResumen]         = useState(null);
+  const [loading, setLoading]         = useState(false);
   const [calculating, setCalculating] = useState(false);
-  const [calcError, setCalcError]   = useState('');
-  const [detalle, setDetalle]       = useState(null);
-  const [catFilter, setCatFilter]   = useState('');
+  const [calcError, setCalcError]     = useState('');
+  const [detalle, setDetalle]         = useState(null);
+  const [catFilter, setCatFilter]     = useState('');
+  const [dashKey, setDashKey]         = useState(0);
+  const [tablaAbierta, setTablaAbierta] = useState(false);
 
   useEffect(() => {
     ciclosService.list().then(res => {
-      const data = res.data.data;
+      const data = res.data.data || [];
       setCiclos(data);
       if (data.length > 0) setCicloId(String(data[0].id));
     });
@@ -77,6 +74,25 @@ export default function Resultados() {
   }, [cicloId, catFilter]);
 
   useEffect(() => { fetchResultados(); }, [fetchResultados]);
+
+  const handleCalcular = async () => {
+    if (!cicloId) return;
+    setCalculating(true);
+    setCalcError('');
+    try {
+      await resultadosService.calcular({ ciclo_id: Number(cicloId) });
+      setDashKey(k => k + 1);
+      await fetchResultados();
+    } catch (err) {
+      const e = err.response?.data?.errors;
+      const msg = e && typeof e === 'object'
+        ? Object.values(e).flat().join(' ')
+        : 'Ocurrio un error al calcular.';
+      setCalcError(msg);
+    } finally {
+      setCalculating(false);
+    }
+  };
 
   const handleDescargar = () => {
     if (!cicloId) return;
@@ -106,24 +122,6 @@ export default function Resultados() {
       .catch(() => alert('Error al generar el informe. Verifica que existan resultados calculados.'));
   };
 
-  const handleCalcular = async () => {
-    if (!cicloId) return;
-    setCalculating(true);
-    setCalcError('');
-    try {
-      await resultadosService.calcular({ ciclo_id: Number(cicloId) });
-      await fetchResultados();
-    } catch (err) {
-      const e = err.response?.data?.errors;
-      const msg = e && typeof e === 'object'
-        ? Object.values(e).flat().join(' ')
-        : 'Ocurrió un error al calcular.';
-      setCalcError(msg);
-    } finally {
-      setCalculating(false);
-    }
-  };
-
   const openDetalle = async (r) => {
     if (r.dominios) { setDetalle(r); return; }
     try {
@@ -136,16 +134,17 @@ export default function Resultados() {
     ? resumen.total_completadas - resumen.total_resultados
     : 0;
 
-  const dist = resumen?.distribucion || {};
+  const dist      = resumen?.distribucion || {};
   const totalDist = Object.values(dist).reduce((a, b) => a + b, 0);
 
   return (
     <div className={styles.page}>
-      {/* Header */}
+
+      {/* ---- Header ---- */}
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>Resultados y Diagnóstico</h1>
-          <p className={styles.subtitle}>Análisis de factores de riesgo psicosocial por ciclo</p>
+          <h1 className={styles.title}>Resultados y Diagnostico</h1>
+          <p className={styles.subtitle}>Dashboard analitico NOM-035-STPS-2018</p>
         </div>
         <div className={styles.headerActions}>
           {ciclos.length > 0 && (
@@ -154,7 +153,7 @@ export default function Resultados() {
               <select
                 className={styles.select}
                 value={cicloId}
-                onChange={e => setCicloId(e.target.value)}
+                onChange={e => { setCicloId(e.target.value); setCatFilter(''); }}
               >
                 {ciclos.map(c => (
                   <option key={c.id} value={c.id}>Ciclo {c.anio}</option>
@@ -180,26 +179,26 @@ export default function Resultados() {
               ? <Loader2 size={15} className="nom-spin" />
               : <RefreshCw size={15} strokeWidth={2} />
             }
-            {calculating ? 'Calculando...' : 'Calcular diagnóstico'}
+            {calculating ? 'Calculando...' : 'Calcular diagnostico'}
           </button>
         </div>
       </div>
 
+      {/* ---- Banners ---- */}
       {calcError && (
         <div className={styles.errorBanner}>
           <AlertTriangle size={15} />
           {calcError}
         </div>
       )}
-
       {pendienteCalculo > 0 && (
         <div className={styles.warnBanner}>
           <AlertTriangle size={15} />
-          Hay {pendienteCalculo} aplicación(es) completada(s) sin diagnóstico calculado. Presiona "Calcular diagnóstico".
+          Hay {pendienteCalculo} aplicacion(es) completada(s) sin diagnostico calculado. Presiona "Calcular diagnostico".
         </div>
       )}
 
-      {/* Stats + distribución */}
+      {/* ---- Stats + distribucion ---- */}
       {resumen && (
         <div className={styles.statsSection}>
           <div className={styles.statsRow}>
@@ -207,7 +206,7 @@ export default function Resultados() {
               <div className={styles.statIcon}><BarChart2 size={18} strokeWidth={1.75} /></div>
               <div>
                 <div className={styles.statNum}>{resumen.total_resultados}</div>
-                <div className={styles.statLabel}>Con diagnóstico</div>
+                <div className={styles.statLabel}>Con diagnostico</div>
               </div>
             </div>
             <div className={`${styles.statCard} nom-card`}>
@@ -230,10 +229,9 @@ export default function Resultados() {
             </div>
           </div>
 
-          {/* Distribución visual */}
           {totalDist > 0 && (
             <div className={`${styles.distCard} nom-card`}>
-              <h3 className={styles.distTitle}>Distribución de riesgo</h3>
+              <h3 className={styles.distTitle}>Distribucion de riesgo</h3>
               <div className={styles.distBars}>
                 {Object.entries(CAT).map(([key, cfg]) => {
                   const count = dist[key] || 0;
@@ -260,10 +258,7 @@ export default function Resultados() {
                 })}
               </div>
               {catFilter && (
-                <button
-                  className={styles.clearFilter}
-                  onClick={() => setCatFilter('')}
-                >
+                <button className={styles.clearFilter} onClick={() => setCatFilter('')}>
                   <X size={12} /> Ver todos
                 </button>
               )}
@@ -272,70 +267,98 @@ export default function Resultados() {
         </div>
       )}
 
-      {/* Table */}
-      {loading ? (
-        <div className={styles.loadingWrap}><Loader2 size={28} className="nom-spin" /></div>
-      ) : !cicloId ? (
-        <div className={styles.empty}>
-          <BarChart2 size={40} strokeWidth={1.25} />
-          <p>Selecciona un ciclo para ver los resultados.</p>
-        </div>
-      ) : resultados.length === 0 ? (
-        <div className={styles.empty}>
-          <BarChart2 size={40} strokeWidth={1.25} />
-          <p>
-            {catFilter
-              ? 'No hay resultados para la categoría seleccionada.'
-              : 'No hay diagnósticos calculados para este ciclo. Completa cuestionarios y presiona "Calcular diagnóstico".'}
-          </p>
-        </div>
-      ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead className={styles.thead}>
-              <tr>
-                <th>Trabajador</th>
-                <th>Área</th>
-                <th>Guía</th>
-                <th>Puntaje</th>
-                <th>Nivel de riesgo</th>
-                <th>Calculado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody className={styles.tbody}>
-              {resultados.map(r => (
-                <tr key={r.id} onClick={() => openDetalle(r)} className={styles.trClickable}>
-                  <td>
-                    <div className={styles.nameCell}>{r.trabajador_nombre}</div>
-                  </td>
-                  <td className={styles.muteCell}>{r.trabajador_area}</td>
-                  <td>
-                    <span className={styles.guiaChip}>{r.cuestionario_clave}</span>
-                  </td>
-                  <td>
-                    <div className={styles.scoreCell}>
-                      <RiesgoBar pct={r.porcentaje} cat={r.categoria} />
-                      <span className={styles.scoreNum}>
-                        {r.puntaje_total}/{r.puntaje_max}
-                      </span>
-                    </div>
-                  </td>
-                  <td><CatChip cat={r.categoria} /></td>
-                  <td className={styles.muteCell}>
-                    {new Date(r.calculado_en).toLocaleDateString('es-MX')}
-                  </td>
-                  <td>
-                    <ChevronRight size={14} className={styles.rowArrow} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* ---- Tabla colapsable de resultados individuales ---- */}
+      {cicloId && (
+        <div className={styles.tablaSection}>
+          <button
+            className={styles.tablaToggle}
+            onClick={() => setTablaAbierta(v => !v)}
+          >
+            <span className={styles.tablaToggleLeft}>
+              <ChevronRight
+                size={16}
+                className={`${styles.tablaToggleIcon} ${tablaAbierta ? styles.tablaToggleIconOpen : ''}`}
+              />
+              Detalle por trabajador
+              {resultados.length > 0 && (
+                <span className={styles.tablaCount}>{resultados.length} registros</span>
+              )}
+            </span>
+            {catFilter && (
+              <span className={styles.tablaFilterBadge}>
+                Filtrando: {CAT[catFilter]?.label}
+                <button
+                  className={styles.tablaFilterClear}
+                  onClick={e => { e.stopPropagation(); setCatFilter(''); }}
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+          </button>
+
+          {tablaAbierta && (
+            <div className={styles.tablaBody}>
+              {loading ? (
+                <div className={styles.loadingWrap}><Loader2 size={24} className="nom-spin" /></div>
+              ) : resultados.length === 0 ? (
+                <div className={styles.empty}>
+                  <BarChart2 size={36} strokeWidth={1.25} />
+                  <p>
+                    {catFilter
+                      ? 'No hay resultados para la categoria seleccionada.'
+                      : 'No hay diagnosticos calculados. Completa cuestionarios y presiona "Calcular diagnostico".'}
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead className={styles.thead}>
+                      <tr>
+                        <th>Trabajador</th>
+                        <th>Area</th>
+                        <th>Guia</th>
+                        <th>Puntaje</th>
+                        <th>Nivel de riesgo</th>
+                        <th>Calculado</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody className={styles.tbody}>
+                      {resultados.map(r => (
+                        <tr key={r.id} onClick={() => openDetalle(r)} className={styles.trClickable}>
+                          <td><div className={styles.nameCell}>{r.trabajador_nombre}</div></td>
+                          <td className={styles.muteCell}>{r.trabajador_area}</td>
+                          <td><span className={styles.guiaChip}>{r.cuestionario_clave}</span></td>
+                          <td>
+                            <div className={styles.scoreCell}>
+                              <RiesgoBar pct={r.porcentaje} cat={r.categoria} />
+                              <span className={styles.scoreNum}>{r.puntaje_total}/{r.puntaje_max}</span>
+                            </div>
+                          </td>
+                          <td><CatChip cat={r.categoria} /></td>
+                          <td className={styles.muteCell}>
+                            {new Date(r.calculado_en).toLocaleDateString('es-MX')}
+                          </td>
+                          <td><ChevronRight size={14} className={styles.rowArrow} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Detalle modal */}
+      {/* ---- Separador ---- */}
+      {cicloId && resumen && <div className={styles.sectionDivider} />}
+
+      {/* ---- Dashboard analitico (Bento Grid) ---- */}
+      {cicloId && <ResultadosDashboard key={dashKey} cicloId={cicloId} />}
+
+      {/* ---- Modal detalle por trabajador ---- */}
       {detalle && (
         <Overlay onClick={() => setDetalle(null)}>
           <div className={`${styles.modal} nom-glass`} onClick={e => e.stopPropagation()}>
@@ -343,7 +366,7 @@ export default function Resultados() {
               <div>
                 <h2 className={styles.modalTitle}>{detalle.trabajador_nombre}</h2>
                 <p className={styles.modalSub}>
-                  {detalle.cuestionario_clave} — {detalle.trabajador_area}
+                  Guia {detalle.cuestionario_clave} — {detalle.trabajador_area}
                 </p>
               </div>
               <button className={styles.modalClose} onClick={() => setDetalle(null)}>
@@ -370,19 +393,14 @@ export default function Resultados() {
                     <div className={styles.dominioHeader}>
                       <span className={styles.dominioName}>{d.dominio_nombre}</span>
                       <div className={styles.dominioRight}>
-                        <span className={styles.dominioScore}>
-                          {d.puntaje}/{d.puntaje_max}
-                        </span>
+                        <span className={styles.dominioScore}>{d.puntaje}/{d.puntaje_max}</span>
                         <CatChip cat={d.categoria} />
                       </div>
                     </div>
                     <div className={styles.dominioBar}>
                       <div
                         className={styles.dominioFill}
-                        style={{
-                          width: `${d.porcentaje}%`,
-                          background: cfg.color,
-                        }}
+                        style={{ width: `${d.porcentaje}%`, background: cfg.color }}
                       />
                     </div>
                   </div>
@@ -390,7 +408,7 @@ export default function Resultados() {
               })}
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

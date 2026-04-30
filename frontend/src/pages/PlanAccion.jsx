@@ -400,7 +400,7 @@ export default function PlanAccion() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* ---- Modal Accion ---- */}
@@ -533,7 +533,7 @@ export default function PlanAccion() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* ---- Confirm delete ---- */}
@@ -555,7 +555,7 @@ export default function PlanAccion() {
               <button className={`nom-btn ${styles.btnDanger}`} onClick={handleDelete}>Eliminar</button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

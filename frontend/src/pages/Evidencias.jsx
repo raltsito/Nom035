@@ -202,12 +202,13 @@ export default function Evidencias() {
             </select>
             <ChevronDown size={14} className={styles.selectIcon} />
           </div>
+          <div className={styles.actionsDivider} />
           <button
-            className="nom-btn-pill nom-btn-primary"
+            className={styles.btnSubir}
             onClick={() => fileInputRef.current?.click()}
             disabled={!cicloId}
           >
-            <Upload size={15} />
+            <Upload size={15} strokeWidth={2} />
             Subir archivo
           </button>
           <input
@@ -421,7 +422,7 @@ export default function Evidencias() {
               )}
               {formErr && <p className={styles.formError}>{formErr}</p>}
               <div className={styles.modalActions}>
-                <button type="button" className="nom-btn-pill nom-btn-ghost" onClick={() => setModal(null)} disabled={saving}>
+                <button type="button" className="nom-btn nom-btn-ghost" onClick={() => setModal(null)} disabled={saving}>
                   Cancelar
                 </button>
                 <button type="submit" className="nom-btn-pill nom-btn-primary" disabled={saving}>
@@ -431,7 +432,7 @@ export default function Evidencias() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* Confirm delete modal */}
@@ -450,14 +451,14 @@ export default function Evidencias() {
               </p>
             </div>
             <div className={styles.modalActions}>
-              <button className="nom-btn-pill nom-btn-ghost" onClick={() => setModal(null)}>Cancelar</button>
+              <button className="nom-btn nom-btn-ghost" onClick={() => setModal(null)}>Cancelar</button>
               <button className={styles.btnDanger} onClick={handleDelete} disabled={saving}>
                 {saving ? <Loader2 size={14} className="nom-spin" /> : null}
                 Eliminar
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

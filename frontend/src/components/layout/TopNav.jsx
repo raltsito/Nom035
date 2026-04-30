@@ -15,7 +15,7 @@ const ROL_LABEL = {
 
 const NAV_LINKS = [
   { to: '/dashboard',    label: 'Dashboard' },
-  { to: '/empresas',     label: 'Empresas' },
+  { to: '/empresas',     label: 'Empresas',      roles: ['super_admin'] },
   { to: '/trabajadores', label: 'Trabajadores' },
   { to: '/cuestionarios', label: 'Cuestionarios' },
   { to: '/resultados',   label: 'Resultados' },
@@ -107,7 +107,7 @@ export default function TopNav() {
 
       {/* Links centrales */}
       <nav className={styles.links}>
-        {NAV_LINKS.map(({ to, label }) => (
+        {NAV_LINKS.filter(({ roles }) => !roles || roles.includes(user?.rol)).map(({ to, label }) => (
           <NavLink
             key={to}
             to={to}

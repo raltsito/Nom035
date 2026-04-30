@@ -6,7 +6,9 @@ env = environ.Env()
 
 # Raiz del proyecto (NOM035/) — un nivel arriba de backend/
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-environ.Env.read_env(_PROJECT_ROOT / '.env')
+_env_file = _PROJECT_ROOT / '.env'
+if _env_file.exists():
+    environ.Env.read_env(_env_file)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 

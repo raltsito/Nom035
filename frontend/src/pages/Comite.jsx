@@ -477,7 +477,7 @@ export default function Comite() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* ---- Modal Miembro ---- */}
@@ -558,7 +558,7 @@ export default function Comite() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* ---- Modal DC3 ---- */}
@@ -635,7 +635,7 @@ export default function Comite() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* ---- Confirm delete ---- */}
@@ -659,7 +659,7 @@ export default function Comite() {
               <button className={`nom-btn ${styles.btnDanger}`} onClick={handleDelete}>Eliminar</button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

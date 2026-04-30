@@ -421,7 +421,7 @@ export default function Asistencias() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* Asistente form modal */}
@@ -451,7 +451,7 @@ export default function Asistencias() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* Confirm delete modal */}
@@ -484,7 +484,7 @@ export default function Asistencias() {
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

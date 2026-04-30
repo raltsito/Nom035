@@ -298,7 +298,7 @@ export default function Empresas() {
       )}
 
       {/* ---- Detail Drawer ---- */}
-      {drawer && (
+      {drawer && createPortal(
         <div className={styles.drawerOverlay} onClick={closeDrawer}>
           <div className={styles.drawer} onClick={e => e.stopPropagation()}>
             {/* Drawer header */}
@@ -533,7 +533,8 @@ export default function Empresas() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ---- Modal crear/editar ---- */}

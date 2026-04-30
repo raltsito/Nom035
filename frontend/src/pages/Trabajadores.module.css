@@ -333,6 +333,132 @@
 }
 .btnDanger:hover { opacity: 0.85; transform: translateY(-1px); }
 
+/* ---- Ciclos NOM-035 ---- */
+.ciclosSection {
+  margin-top: var(--nom-space-10);
+  padding-top: var(--nom-space-8);
+  border-top: 1.5px solid var(--nom-border);
+}
+.ciclosHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--nom-space-5);
+}
+.ciclosHeadLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-3);
+}
+.ciclosIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--nom-radius-md);
+  background: var(--nom-accent-subtle);
+  color: var(--nom-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ciclosTitle {
+  font-size: var(--nom-text-base);
+  font-weight: var(--nom-font-bold);
+  color: var(--nom-text);
+  letter-spacing: -0.015em;
+}
+.ciclosSub {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  margin-top: 1px;
+}
+.ciclosEmpty {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+  padding: var(--nom-space-5) var(--nom-space-4);
+  border-radius: var(--nom-radius-lg);
+  border: 1.5px dashed var(--nom-border-solid);
+  color: var(--nom-text-muted);
+  font-size: var(--nom-text-sm);
+}
+.ciclosGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--nom-space-4);
+}
+.cicloCard {
+  padding: var(--nom-space-5);
+  border-radius: var(--nom-radius-xl);
+  border: 1.5px solid var(--nom-border);
+  background: var(--nom-glass-bg);
+  backdrop-filter: var(--nom-glass-blur);
+  display: flex;
+  flex-direction: column;
+  gap: var(--nom-space-3);
+  transition: border-color var(--nom-t-fast), box-shadow var(--nom-t-fast);
+}
+.cicloCard:hover {
+  border-color: var(--nom-accent);
+  box-shadow: 0 0 0 3px var(--nom-accent-glow);
+}
+.cicloYear {
+  font-family: var(--nom-font-display);
+  font-size: var(--nom-text-3xl);
+  font-weight: var(--nom-font-extrabold);
+  color: var(--nom-text);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.cicloMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+  flex-wrap: wrap;
+}
+.cicloEstado {
+  font-size: 11px;
+  font-weight: var(--nom-font-semibold);
+  padding: 3px 10px;
+  border-radius: var(--nom-radius-full);
+  text-transform: capitalize;
+}
+.estado_iniciado     { background: var(--nom-accent-subtle);  color: var(--nom-accent);  }
+.estado_en_progreso  { background: rgba(245,158,11,0.12);     color: #d97706;            }
+.estado_completado   { background: var(--nom-success-subtle); color: var(--nom-success); }
+.estado_cerrado      { background: var(--nom-danger-subtle);  color: var(--nom-danger);  }
+.cicloWorkers {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--nom-text-muted);
+}
+.cicloDate {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+}
+.cicloAvanzar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  padding: 6px 12px;
+  border-radius: var(--nom-radius-full);
+  font-size: var(--nom-text-xs);
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-accent);
+  background: var(--nom-accent-subtle);
+  border: none;
+  cursor: pointer;
+  transition: all var(--nom-t-fast);
+  align-self: flex-start;
+}
+.cicloAvanzar:hover {
+  background: var(--nom-accent);
+  color: #fff;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   .formGrid { grid-template-columns: 1fr; }

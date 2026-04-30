@@ -1,0 +1,274 @@
+/* =====================================================================
+   Resultados Dashboard — Bento Grid
+   ===================================================================== */
+
+/* --- Grid principal --- */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--nom-space-4);
+  animation: nomFadeUp 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* --- Filas del bento --- */
+/* Fila 1: KPIs */
+.cellGauge       { grid-column: span 4; }
+.cellCumplimiento{ grid-column: span 4; }
+.cellViolencia   { grid-column: span 4; }
+
+/* Fila 2: Analisis normativo */
+.cellRadar       { grid-column: span 5; }
+.cellDominios    { grid-column: span 7; }
+
+/* Fila 3: Demografico */
+.cellStacked     { grid-column: span 6; }
+.cellAreas       { grid-column: span 6; }
+
+/* Fila 4: ATS + Historica */
+.cellPieATS      { grid-column: span 3; }
+.cellTipologia   { grid-column: span 4; }
+.cellHistorica   { grid-column: span 5; }
+
+/* --- Animaciones escalonadas --- */
+.bento > *:nth-child(1)  { animation-delay: 0.04s; }
+.bento > *:nth-child(2)  { animation-delay: 0.08s; }
+.bento > *:nth-child(3)  { animation-delay: 0.12s; }
+.bento > *:nth-child(4)  { animation-delay: 0.16s; }
+.bento > *:nth-child(5)  { animation-delay: 0.20s; }
+.bento > *:nth-child(6)  { animation-delay: 0.24s; }
+.bento > *:nth-child(7)  { animation-delay: 0.28s; }
+.bento > *:nth-child(8)  { animation-delay: 0.32s; }
+.bento > *:nth-child(9)  { animation-delay: 0.36s; }
+.bento > *:nth-child(10) { animation-delay: 0.40s; }
+.bento > * { animation: nomFadeUp 0.44s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* --- ChartCard base --- */
+.chartCard {
+  display: flex;
+  flex-direction: column;
+  padding: var(--nom-space-5) !important;
+  border-radius: var(--nom-radius-xl) !important;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: var(--nom-space-4);
+}
+
+.cardTitle {
+  font-size: var(--nom-text-sm);
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+  letter-spacing: -0.01em;
+}
+
+.cardSubtitle {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+}
+
+.cardBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* --- Gauge --- */
+.gaugeWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nom-space-2);
+}
+
+.gaugeLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nom-space-2);
+  margin-top: -8px;
+}
+
+.gaugePct {
+  font-family: var(--nom-font-display);
+  font-size: var(--nom-text-3xl);
+  font-weight: var(--nom-font-extrabold);
+  color: var(--nom-text);
+  line-height: 1;
+}
+
+/* --- Donut shared --- */
+.donutWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donutPct {
+  font-family: var(--nom-font-display);
+  font-size: var(--nom-text-2xl);
+  font-weight: var(--nom-font-extrabold);
+  color: var(--nom-text);
+  line-height: 1;
+}
+
+.donutSub {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  margin-top: 3px;
+}
+
+/* --- Violencia --- */
+.violenciaWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nom-space-3);
+}
+
+.violenciaAlert {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+}
+
+.violenciaAlertLine {
+  width: 3px;
+  height: 28px;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+
+.violenciaAlertText {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  line-height: 1.4;
+}
+
+/* --- ATS note --- */
+.atsNote {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  line-height: 1.5;
+  margin-top: var(--nom-space-3);
+  border-top: 1px solid var(--nom-border);
+  padding-top: var(--nom-space-3);
+}
+
+/* --- Risk chip --- */
+.riskChip {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: var(--nom-radius-full);
+  font-size: 11px;
+  font-weight: var(--nom-font-semibold);
+  white-space: nowrap;
+}
+
+/* --- Tooltip --- */
+.tooltip {
+  background: var(--nom-surface);
+  border: 1px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-md);
+  padding: 10px 14px;
+  box-shadow: var(--nom-shadow-lg);
+  font-size: var(--nom-text-xs);
+}
+
+.tooltipLabel {
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+  margin-bottom: 6px;
+}
+
+.tooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--nom-text-secondary);
+}
+
+.tooltipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tooltipName { flex: 1; }
+.tooltipVal  { font-weight: var(--nom-font-semibold); color: var(--nom-text); }
+
+/* --- Empty state --- */
+.emptyChart {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nom-text-muted);
+  font-size: var(--nom-text-xs);
+  opacity: 0.6;
+  height: 160px;
+}
+
+/* --- Loading skeleton --- */
+.skeleton {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--nom-space-4);
+}
+
+.skeletonCell {
+  border-radius: var(--nom-radius-xl);
+  background: linear-gradient(
+    90deg,
+    var(--nom-border-solid) 25%,
+    var(--nom-border) 50%,
+    var(--nom-border-solid) 75%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.6s ease infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: -100% 50%; }
+}
+
+/* --- Responsive --- */
+@media (max-width: 1200px) {
+  .cellRadar       { grid-column: span 6; }
+  .cellDominios    { grid-column: span 6; }
+}
+
+@media (max-width: 900px) {
+  .cellGauge,
+  .cellCumplimiento,
+  .cellViolencia   { grid-column: span 6; }
+  .cellRadar,
+  .cellDominios,
+  .cellStacked,
+  .cellAreas,
+  .cellPieATS,
+  .cellTipologia,
+  .cellHistorica   { grid-column: span 12; }
+}
+
+@media (max-width: 600px) {
+  .cellGauge,
+  .cellCumplimiento,
+  .cellViolencia   { grid-column: span 12; }
+}

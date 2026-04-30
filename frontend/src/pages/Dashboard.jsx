@@ -6,11 +6,18 @@ import {
 } from 'lucide-react';
 import styles from './Dashboard.module.css';
 
-const KPI_CARDS = [
+const KPI_SUPER = [
   { label: 'Empresas activas',        value: '—', sub: 'tenants registrados',    icon: Building2,     color: 'accent'   },
   { label: 'Empleados totales',        value: '—', sub: 'en todos los tenants',   icon: Users,         color: 'blue'     },
   { label: 'Cuestionarios aplicados',  value: '—', sub: 'ciclo actual',           icon: ClipboardCheck,color: 'success'  },
   { label: 'Alertas pendientes',       value: '—', sub: 'requieren atencion',     icon: AlertTriangle, color: 'warning'  },
+];
+
+const KPI_TENANT = [
+  { label: 'Empleados registrados',    value: '—', sub: 'en tu empresa',          icon: Users,         color: 'blue'     },
+  { label: 'Cuestionarios aplicados',  value: '—', sub: 'ciclo actual',           icon: ClipboardCheck,color: 'success'  },
+  { label: 'Alertas pendientes',       value: '—', sub: 'requieren atencion',     icon: AlertTriangle, color: 'warning'  },
+  { label: 'Avance general',           value: '—', sub: 'cumplimiento NOM-035',   icon: TrendingUp,    color: 'accent'   },
 ];
 
 const MODULE_CARDS = [
@@ -27,6 +34,8 @@ const MODULE_CARDS = [
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const isSuperAdmin = user?.rol === 'super_admin';
+  const KPI_CARDS = isSuperAdmin ? KPI_SUPER : KPI_TENANT;
 
   return (
     <div className={styles.page}>
@@ -37,7 +46,9 @@ export default function Dashboard() {
             Hola, {user?.first_name}.
           </h1>
           <p className={styles.subtitle}>
-            Vista general del cumplimiento NOM-035-STPS-2018
+            {isSuperAdmin
+              ? 'Vista general de todos los tenants'
+              : 'Vista general del cumplimiento NOM-035-STPS-2018'}
           </p>
         </div>
         <div className={styles.statusBadge}>

@@ -3,8 +3,9 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Users, Plus, Search, Pencil, Trash2, ToggleLeft, ToggleRight,
   Loader2, X, CheckCircle2, AlertCircle, UserCheck, UserX,
+  Calendar, ChevronRight,
 } from 'lucide-react';
-import { trabajadoresService } from '../services/trabajadores';
+import { trabajadoresService, ciclosService } from '../services/trabajadores';
 import styles from './Trabajadores.module.css';
 
 const TIPO_LABELS = {
@@ -28,6 +29,46 @@ export default function Trabajadores() {
   const [saving, setSaving]             = useState(false);
   const [formError, setFormError]       = useState('');
   const [confirmDel, setConfirmDel]     = useState(null);
+
+  // Ciclos
+  const [ciclos, setCiclos]             = useState([]);
+  const [modalCiclo, setModalCiclo]     = useState(false);
+  const [cicloForm, setCicloForm]       = useState({ anio: new Date().getFullYear(), fecha_inicio: '', notas: '' });
+  const [savingCiclo, setSavingCiclo]   = useState(false);
+  const [cicloError, setCicloError]     = useState('');
+
+  const fetchCiclos = useCallback(async () => {
+    try {
+      const res = await ciclosService.list();
+      setCiclos(res.data.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchCiclos(); }, [fetchCiclos]);
+
+  const handleSaveCiclo = async (e) => {
+    e.preventDefault();
+    setSavingCiclo(true);
+    setCicloError('');
+    try {
+      await ciclosService.create(cicloForm);
+      setModalCiclo(false);
+      setCicloForm({ anio: new Date().getFullYear(), fecha_inicio: '', notas: '' });
+      fetchCiclos();
+    } catch (err) {
+      const errors = err.response?.data?.errors;
+      setCicloError(errors ? Object.values(errors).flat().join(' ') : 'Error al crear el ciclo.');
+    } finally {
+      setSavingCiclo(false);
+    }
+  };
+
+  const handleAvanzarCiclo = async (id) => {
+    try {
+      const res = await ciclosService.avanzarEstado(id);
+      setCiclos(prev => prev.map(c => c.id === id ? res.data.data : c));
+    } catch {}
+  };
 
   const fetchTrabajadores = useCallback(async (q = '', activos = false) => {
     setLoading(true);
@@ -262,6 +303,94 @@ export default function Trabajadores() {
         </div>
       )}
 
+      {/* Ciclos NOM-035 */}
+      <div className={styles.ciclosSection}>
+        <div className={styles.ciclosHeader}>
+          <div className={styles.ciclosHeadLeft}>
+            <div className={styles.ciclosIcon}><Calendar size={16} strokeWidth={1.75} /></div>
+            <div>
+              <h2 className={styles.ciclosTitle}>Ciclos NOM-035</h2>
+              <p className={styles.ciclosSub}>Periodos de evaluación por año</p>
+            </div>
+          </div>
+          <button className="nom-btn nom-btn-ghost" onClick={() => { setCicloError(''); setModalCiclo(true); }}>
+            <Plus size={14} strokeWidth={2.5} /> Nuevo ciclo
+          </button>
+        </div>
+
+        {ciclos.length === 0 ? (
+          <div className={styles.ciclosEmpty}>
+            <Calendar size={22} strokeWidth={1.25} />
+            <span>No hay ciclos creados aún</span>
+          </div>
+        ) : (
+          <div className={styles.ciclosGrid}>
+            {ciclos.map(c => (
+              <div key={c.id} className={styles.cicloCard}>
+                <div className={styles.cicloYear}>{c.anio}</div>
+                <div className={styles.cicloMeta}>
+                  <span className={`${styles.cicloEstado} ${styles[`estado_${c.estado}`]}`}>
+                    {c.estado.replace('_', ' ')}
+                  </span>
+                  <span className={styles.cicloWorkers}>
+                    <Users size={11} strokeWidth={2} /> {c.total_trabajadores} trabajadores
+                  </span>
+                </div>
+                {c.fecha_inicio && (
+                  <div className={styles.cicloDate}>Inicio: {c.fecha_inicio}</div>
+                )}
+                {c.estado !== 'cerrado' && (
+                  <button className={styles.cicloAvanzar} onClick={() => handleAvanzarCiclo(c.id)}>
+                    Avanzar estado <ChevronRight size={13} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal nuevo ciclo */}
+      {modalCiclo && (
+        <Overlay onClick={() => setModalCiclo(false)}>
+          <div className={`${styles.modal} ${styles.modalSm} nom-glass`} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>Nuevo ciclo NOM-035</h2>
+              <button className={styles.modalClose} onClick={() => setModalCiclo(false)}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSaveCiclo} className={styles.modalForm}>
+              <div className={styles.formGrid}>
+                <div className={styles.field}>
+                  <label className={styles.label}>Año *</label>
+                  <input className="nom-input" type="number" min="2020" max="2099"
+                    value={cicloForm.anio}
+                    onChange={e => setCicloForm(f => ({ ...f, anio: Number(e.target.value) }))} required />
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha de inicio *</label>
+                  <input className="nom-input" type="date"
+                    value={cicloForm.fecha_inicio}
+                    onChange={e => setCicloForm(f => ({ ...f, fecha_inicio: e.target.value }))} required />
+                </div>
+                <div className={`${styles.field} ${styles.fieldFull}`}>
+                  <label className={styles.label}>Notas</label>
+                  <input className="nom-input" placeholder="Opcional"
+                    value={cicloForm.notas}
+                    onChange={e => setCicloForm(f => ({ ...f, notas: e.target.value }))} />
+                </div>
+              </div>
+              {cicloError && <div className={styles.formError}>{cicloError}</div>}
+              <div className={styles.modalActions}>
+                <button type="button" className="nom-btn nom-btn-ghost" onClick={() => setModalCiclo(false)}>Cancelar</button>
+                <button type="submit" className="nom-btn nom-btn-primary" disabled={savingCiclo}>
+                  {savingCiclo ? <Loader2 size={15} className="nom-spin" /> : 'Crear ciclo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </Overlay>
+      )}
+
       {/* Modal crear / editar */}
       {modal && (
         <Overlay onClick={closeModal}>
@@ -329,7 +458,7 @@ export default function Trabajadores() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* Confirmar eliminación */}
@@ -348,7 +477,7 @@ export default function Trabajadores() {
               <button className={`nom-btn ${styles.btnDanger}`} onClick={handleDelete}>Eliminar</button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

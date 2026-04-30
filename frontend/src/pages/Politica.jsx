@@ -352,7 +352,7 @@ export default function Politica() {
               </div>
             </form>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* ---- Confirm aprobar ---- */}
@@ -378,7 +378,7 @@ export default function Politica() {
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
     </div>
   );

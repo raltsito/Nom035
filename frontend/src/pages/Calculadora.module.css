@@ -1,0 +1,422 @@
+.page {
+  animation: nomFadeUp 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.header {
+  margin-bottom: var(--nom-space-6);
+}
+.title {
+  font-size: var(--nom-text-3xl);
+  font-weight: var(--nom-font-extrabold);
+  color: var(--nom-text);
+  letter-spacing: -0.028em;
+  margin-bottom: var(--nom-space-1);
+}
+.subtitle {
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text-muted);
+  max-width: 600px;
+}
+
+/* ── Fórmula toggle ──────────────────────────────────────────────────────── */
+.formulaToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--nom-space-1) 0;
+  margin-bottom: var(--nom-space-4);
+  transition: color var(--nom-t-fast);
+}
+.formulaToggle:hover { color: var(--nom-accent); }
+
+/* ── Fórmula card ────────────────────────────────────────────────────────── */
+.formulaCard {
+  margin-bottom: var(--nom-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--nom-space-6);
+}
+@media (min-width: 768px) {
+  .formulaCard { flex-direction: row; align-items: center; }
+}
+
+.formulaMain {
+  display: flex;
+  justify-content: center;
+  padding: var(--nom-space-4) var(--nom-space-6);
+  background: rgba(3, 196, 206, 0.05);
+  border-radius: var(--nom-radius-lg);
+  border: 1px solid var(--nom-border-solid);
+  flex-shrink: 0;
+}
+.formulaDisplay {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-3);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+.formulaN {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--nom-text);
+}
+.formulaFrac {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.formulaNum, .formulaDen {
+  font-size: 0.92rem;
+  color: var(--nom-text);
+  white-space: nowrap;
+}
+.formulaNum { color: var(--nom-accent); font-weight: 600; }
+.formulaLine {
+  width: 100%;
+  height: 1.5px;
+  background: var(--nom-text);
+  margin: 2px 0;
+}
+
+.formulaParams {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nom-space-2);
+  flex: 1;
+}
+.paramItem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--nom-space-3);
+  font-size: var(--nom-text-sm);
+}
+.paramKey {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--nom-accent);
+  background: rgba(3, 196, 206, 0.10);
+  padding: 2px 8px;
+  border-radius: var(--nom-radius-sm);
+  min-width: 72px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.paramVal { color: var(--nom-text-muted); }
+
+/* ── Input card ──────────────────────────────────────────────────────────── */
+.inputCard {
+  margin-bottom: var(--nom-space-6);
+}
+.inputSection {
+  margin-bottom: var(--nom-space-6);
+}
+.inputLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+  font-size: var(--nom-text-sm);
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text-muted);
+  margin-bottom: var(--nom-space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-4);
+}
+.mainInput {
+  width: 220px;
+  padding: 14px 18px;
+  background: var(--nom-glass-bg);
+  backdrop-filter: var(--nom-glass-blur);
+  border: 1.5px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-lg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--nom-text);
+  outline: none;
+  transition: border-color var(--nom-t-fast), box-shadow var(--nom-t-fast);
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.mainInput::-webkit-outer-spin-button,
+.mainInput::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mainInput:focus {
+  border-color: var(--nom-accent);
+  box-shadow: 0 0 0 3px var(--nom-accent-glow);
+}
+.inputHint {
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text-muted);
+}
+
+/* ── Resultado ───────────────────────────────────────────────────────────── */
+.resultRow {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-8);
+  padding-top: var(--nom-space-4);
+  border-top: 1px solid var(--nom-border-solid);
+  flex-wrap: wrap;
+}
+.resultKpi {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-4);
+}
+.kpiNum {
+  font-size: 3rem;
+  font-weight: var(--nom-font-extrabold);
+  color: var(--nom-text);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.kpiLabel {
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text-muted);
+  margin-top: var(--nom-space-1);
+}
+.resultStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nom-space-2);
+}
+.statPill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+  font-size: var(--nom-text-xs);
+  font-weight: var(--nom-font-medium);
+  color: var(--nom-text-muted);
+  background: var(--nom-glass-bg);
+  border: 1px solid var(--nom-border-solid);
+  padding: 6px 12px;
+  border-radius: var(--nom-radius-full);
+}
+
+/* ── Estratificado card ──────────────────────────────────────────────────── */
+.estratoCard {
+  margin-bottom: var(--nom-space-6);
+}
+.estratoHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--nom-space-4);
+  margin-bottom: var(--nom-space-6);
+  flex-wrap: wrap;
+}
+.estratoTitle {
+  font-size: var(--nom-text-lg);
+  font-weight: var(--nom-font-bold);
+  color: var(--nom-text);
+  margin-bottom: var(--nom-space-1);
+}
+.estratoSub {
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text-muted);
+}
+.estratoActions {
+  display: flex;
+  gap: var(--nom-space-2);
+  flex-shrink: 0;
+}
+.estratoEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nom-space-4);
+  padding: var(--nom-space-12) var(--nom-space-4);
+  color: var(--nom-text-muted);
+  text-align: center;
+}
+.estratoEmpty p { max-width: 380px; font-size: var(--nom-text-sm); }
+
+/* ── Area rows ───────────────────────────────────────────────────────────── */
+.areaList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nom-space-3);
+  margin-bottom: var(--nom-space-4);
+}
+.areaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-3);
+  padding: var(--nom-space-3) var(--nom-space-4);
+  background: var(--nom-glass-bg);
+  border: 1px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-lg);
+  flex-wrap: wrap;
+  transition: border-color var(--nom-t-fast);
+}
+.areaRow:hover { border-color: var(--nom-border-strong); }
+.areaInputs {
+  display: flex;
+  gap: var(--nom-space-3);
+  flex: 1;
+  min-width: 280px;
+}
+.areaInput {
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-md);
+  font-family: var(--nom-font-body);
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text);
+  outline: none;
+  transition: border-color var(--nom-t-fast), box-shadow var(--nom-t-fast);
+  flex: 1;
+}
+.areaInput:focus {
+  border-color: var(--nom-accent);
+  box-shadow: 0 0 0 2px var(--nom-accent-glow);
+}
+.areaInput::placeholder { color: var(--nom-text-muted); }
+.areaNum { max-width: 140px; text-align: center; font-family: 'JetBrains Mono', monospace; }
+.areaNum::-webkit-outer-spin-button,
+.areaNum::-webkit-inner-spin-button { -webkit-appearance: none; }
+.areaMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+  flex-wrap: wrap;
+}
+.areaChip {
+  font-size: 11px;
+  font-weight: var(--nom-font-semibold);
+  background: var(--nom-glass-bg);
+  border: 1px solid var(--nom-border-solid);
+  color: var(--nom-text-muted);
+  padding: 3px 10px;
+  border-radius: var(--nom-radius-full);
+}
+.areaRemove {
+  color: var(--nom-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--nom-radius-sm);
+  display: flex;
+  align-items: center;
+  transition: color var(--nom-t-fast), background var(--nom-t-fast);
+  flex-shrink: 0;
+}
+.areaRemove:hover { color: var(--nom-error, #ef4444); background: rgba(239,68,68,0.08); }
+
+/* ── Total row ───────────────────────────────────────────────────────────── */
+.totalRow {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-4);
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text-muted);
+  padding: var(--nom-space-2) var(--nom-space-4);
+  border-radius: var(--nom-radius-md);
+  background: var(--nom-glass-bg);
+  margin-bottom: var(--nom-space-5);
+  flex-wrap: wrap;
+}
+.diffHint  { color: var(--nom-text-muted); }
+.diffError { color: #ef4444; font-weight: var(--nom-font-semibold); }
+.diffOk    { color: #10b981; font-weight: var(--nom-font-semibold); }
+.totalOk   { border: 1px solid rgba(16,185,129,0.3); }
+.totalError { border: 1px solid rgba(239,68,68,0.3); }
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.tableWrap {
+  overflow-x: auto;
+  border-radius: var(--nom-radius-lg);
+  border: 1px solid var(--nom-border-solid);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--nom-text-sm);
+}
+.table thead tr {
+  background: var(--nom-glass-bg);
+}
+.table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: var(--nom-font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--nom-text-muted);
+  border-bottom: 1px solid var(--nom-border-solid);
+  white-space: nowrap;
+}
+.table td {
+  padding: 10px 16px;
+  color: var(--nom-text);
+  border-bottom: 1px solid var(--nom-border-solid);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover td { background: var(--nom-glass-bg); }
+
+.tfootRow td {
+  background: rgba(3, 196, 206, 0.05);
+  border-top: 2px solid var(--nom-border-solid);
+  border-bottom: none;
+  font-weight: var(--nom-font-semibold);
+}
+
+.nResult {
+  color: var(--nom-accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+}
+.unnamed { color: var(--nom-text-muted); font-style: italic; }
+
+/* ── Bar cell ────────────────────────────────────────────────────────────── */
+.barCell {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+  min-width: 120px;
+}
+.barTrack {
+  flex: 1;
+  height: 6px;
+  background: var(--nom-border-solid);
+  border-radius: var(--nom-radius-full);
+  overflow: hidden;
+}
+.barFill {
+  height: 100%;
+  background: var(--nom-accent);
+  border-radius: var(--nom-radius-full);
+  opacity: 0.7;
+  transition: width 0.4s ease;
+}
+
+/* ── Nota ────────────────────────────────────────────────────────────────── */
+.nota {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--nom-space-2);
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  padding: var(--nom-space-4);
+  background: var(--nom-glass-bg);
+  border-radius: var(--nom-radius-md);
+  border: 1px solid var(--nom-border-solid);
+  line-height: 1.6;
+}
+.nota svg { flex-shrink: 0; margin-top: 1px; }

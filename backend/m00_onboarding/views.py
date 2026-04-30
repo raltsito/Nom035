@@ -14,14 +14,15 @@ class TrabajadorViewSet(viewsets.ModelViewSet):
     serializer_class   = TrabajadorSerializer
 
     def get_queryset(self):
-        qs = Trabajador.objects.all().order_by('apellido_paterno', 'apellido_materno', 'nombre')
-
-        # Super admin puede filtrar por tenant
-        tenant_id = self.request.query_params.get('tenant_id')
-        if tenant_id and self.request.user.is_super_admin:
-            qs = qs.filter(tenant_id=tenant_id)
-
-        return qs
+        user = self.request.user
+        if user.is_super_admin:
+            qs = Trabajador.objects.all()
+            tenant_id = self.request.query_params.get('tenant_id')
+            if tenant_id:
+                qs = qs.filter(tenant_id=tenant_id)
+        else:
+            qs = Trabajador.objects.filter(tenant=user.tenant)
+        return qs.order_by('apellido_paterno', 'apellido_materno', 'nombre')
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -102,7 +103,10 @@ class CicloNOMViewSet(viewsets.ModelViewSet):
     serializer_class   = CicloNOMSerializer
 
     def get_queryset(self):
-        return CicloNOM.objects.all()
+        user = self.request.user
+        if user.is_super_admin:
+            return CicloNOM.objects.all()
+        return CicloNOM.objects.filter(tenant=user.tenant)
 
     def get_serializer_class(self):
         if self.action == 'create':

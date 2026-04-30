@@ -9,6 +9,7 @@ INFORME*
 informe*
 diagnostico*
 DIAGNOSTICO*
+LEAR_*
 
 # Variables de entorno y secretos
 .env

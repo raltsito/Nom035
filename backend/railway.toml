@@ -1,0 +1,10 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+releaseCommand = "python manage.py migrate --noinput && python manage.py collectstatic --noinput"
+healthcheckPath = "/admin/"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
