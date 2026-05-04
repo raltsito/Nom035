@@ -95,7 +95,10 @@
       "PowerShell(docker compose version *)",
       "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; Start-Process -NoNewWindow -FilePath \".\\\\venv\\\\Scripts\\\\python.exe\" -ArgumentList \"manage.py runserver 8000\" -RedirectStandardOutput \"$env:TEMP\\\\django_out.txt\" -RedirectStandardError \"$env:TEMP\\\\django_err.txt\")",
       "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\frontend\"; Start-Process -NoNewWindow -FilePath \"cmd.exe\" -ArgumentList \"/c npm run dev > $env:TEMP\\\\vite_out.txt 2>&1\")",
-      "PowerShell(Get-Content *)"
+      "PowerShell(Get-Content *)",
+      "PowerShell(Invoke-RestMethod -Method POST -Uri \"http://localhost:8000/api/auth/login/\" -ContentType \"application/json\" -Body '{\"email\":\"admin@intra.mx\",\"password\":\"1234\"}' 2>&1)",
+      "PowerShell(Invoke-RestMethod -Method POST -Uri \"http://localhost:8000/api/v1/auth/login/\" -ContentType \"application/json\" -Body '{\"email\":\"admin@intra.mx\",\"password\":\"1234\"}' 2>&1)",
+      "PowerShell(Invoke-WebRequest -Method POST -Uri \"http://localhost:8000/api/v1/auth/login/\" -ContentType \"application/json\" -Body '{\"email\":\"admin@intra.mx\",\"password\":\"1234\"}' -UseBasicParsing 2>&1 | Select-Object StatusCode, Content)"
     ]
   }
 }
