@@ -71,7 +71,31 @@
       "Bash(netstat -ano)",
       "Bash(taskkill *)",
       "Bash(xargs ls *)",
-      "Bash(xargs cat *)"
+      "Bash(xargs cat *)",
+      "WebSearch",
+      "WebFetch(domain:docs.railway.com)",
+      "WebFetch(domain:station.railway.com)",
+      "Bash(venv\\\\Scripts\\\\python.exe -c \"from django.core.management.utils import get_random_secret_key; print\\(get_random_secret_key\\(\\)\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(python *)",
+      "Bash(railway status *)",
+      "Bash(railway whoami *)",
+      "Bash(railway list *)",
+      "Bash(railway link *)",
+      "Bash(railway service *)",
+      "Bash(railway variables *)",
+      "Bash(railway ps *)",
+      "Bash(railway --help)",
+      "Bash(railway variable *)",
+      "Bash(railway domain *)",
+      "Bash(railway redeploy *)",
+      "Bash(Select-String \".env\")",
+      "PowerShell(docker compose version *)",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; Start-Process -NoNewWindow -FilePath \".\\\\venv\\\\Scripts\\\\python.exe\" -ArgumentList \"manage.py runserver 8000\" -RedirectStandardOutput \"$env:TEMP\\\\django_out.txt\" -RedirectStandardError \"$env:TEMP\\\\django_err.txt\")",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\frontend\"; Start-Process -NoNewWindow -FilePath \"cmd.exe\" -ArgumentList \"/c npm run dev > $env:TEMP\\\\vite_out.txt 2>&1\")",
+      "PowerShell(Get-Content *)"
     ]
   }
 }
