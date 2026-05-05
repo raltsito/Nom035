@@ -1,10 +1,10 @@
 import Overlay from '../components/ui/Overlay';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ClipboardList, Plus, Loader2, X, CheckCircle2, Clock, PlayCircle,
-  Link2, Trash2, RotateCcw, ChevronDown, FileText,
+  ClipboardList, Loader2, X, CheckCircle2, Clock, PlayCircle,
+  Link2, Trash2, RotateCcw, ChevronDown, FileText, RefreshCw,
 } from 'lucide-react';
-import { aplicacionesService } from '../services/cuestionarios';
+import { aplicacionesService, guiaLinksService } from '../services/cuestionarios';
 import { ciclosService } from '../services/trabajadores';
 import styles from './Cuestionarios.module.css';
 
@@ -14,24 +14,29 @@ const ESTADO_CONFIG = {
   completado:  { label: 'Completado',  cls: 'chip_completado'  },
 };
 
+const GUIA_INFO = {
+  V:   { label: 'Guía V',   desc: 'Más de 50 trabajadores',  color: 'var(--nom-accent)'  },
+  III: { label: 'Guía III', desc: '16 a 50 trabajadores',    color: 'var(--nom-info)'    },
+  I:   { label: 'Guía I',   desc: 'Hasta 15 trabajadores',   color: 'var(--nom-success)' },
+};
+
 export default function Cuestionarios() {
   const [aplicaciones, setAplicaciones] = useState([]);
   const [ciclos, setCiclos]             = useState([]);
+  const [guiaLinks, setGuiaLinks]       = useState([]);
   const [loading, setLoading]           = useState(true);
   const [cicloFilter, setCicloFilter]   = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
-
-  const [modalMasivo, setModalMasivo]     = useState(false);
-  const [selectedCiclo, setSelectedCiclo] = useState('');
-  const [creating, setCreating]           = useState(false);
-  const [createResult, setCreateResult]   = useState(null);
-  const [createError, setCreateError]     = useState('');
+  const [generando, setGenerando]       = useState(false);
+  const [genError, setGenError]         = useState('');
+  const [copied, setCopied]             = useState(null);
 
   const [confirmDel, setConfirmDel]         = useState(null);
   const [confirmLimpiar, setConfirmLimpiar] = useState(null);
-  const [copied, setCopied]                 = useState(null);
 
   const cicloMap = Object.fromEntries(ciclos.map(c => [c.id, c]));
+
+  const cicloActivo = ciclos.find(c => c.estado !== 'cerrado') || ciclos[0];
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -39,12 +44,23 @@ export default function Cuestionarios() {
       const params = {};
       if (cicloFilter)  params.ciclo_id = cicloFilter;
       if (estadoFilter) params.estado   = estadoFilter;
+
       const [aplRes, ciclosRes] = await Promise.all([
         aplicacionesService.list(params),
         ciclosService.list(),
       ]);
       setAplicaciones(aplRes.data.data);
-      setCiclos(ciclosRes.data.data);
+      const fetchedCiclos = ciclosRes.data.data;
+      setCiclos(fetchedCiclos);
+
+      const cicloForLinks = cicloFilter
+        || fetchedCiclos.find(c => c.estado !== 'cerrado')?.id
+        || fetchedCiclos[0]?.id;
+
+      if (cicloForLinks) {
+        const linksRes = await guiaLinksService.list({ ciclo_id: cicloForLinks });
+        setGuiaLinks(linksRes.data.data);
+      }
     } finally {
       setLoading(false);
     }
@@ -52,38 +68,34 @@ export default function Cuestionarios() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const handleGenerarLinks = async () => {
+    const cicloId = cicloFilter || (cicloActivo ? cicloActivo.id : null);
+    if (!cicloId) return;
+    setGenerando(true);
+    setGenError('');
+    try {
+      const res = await guiaLinksService.crearLinks({ ciclo_id: Number(cicloId) });
+      setGuiaLinks(res.data.data);
+    } catch (err) {
+      const e = err.response?.data?.errors;
+      setGenError(e && typeof e === 'object' ? Object.values(e).flat().join(' ') : 'Error al generar links.');
+    } finally {
+      setGenerando(false);
+    }
+  };
+
+  const handleCopyGuiaLink = (token) => {
+    const url = `${window.location.origin}/guia/${token}`;
+    navigator.clipboard.writeText(url);
+    setCopied(token);
+    setTimeout(() => setCopied(null), 2500);
+  };
+
   const stats = {
     total:      aplicaciones.length,
     pendiente:  aplicaciones.filter(a => a.estado === 'pendiente').length,
     progreso:   aplicaciones.filter(a => a.estado === 'en_progreso').length,
     completado: aplicaciones.filter(a => a.estado === 'completado').length,
-  };
-
-  const openModalMasivo = () => {
-    const primer = ciclos.find(c => c.estado !== 'cerrado') || ciclos[0];
-    setSelectedCiclo(primer ? String(primer.id) : '');
-    setCreateResult(null);
-    setCreateError('');
-    setModalMasivo(true);
-  };
-
-  const handleCrearMasivo = async () => {
-    if (!selectedCiclo) return;
-    setCreating(true);
-    setCreateError('');
-    try {
-      const res = await aplicacionesService.crearMasivo({ ciclo_id: Number(selectedCiclo) });
-      setCreateResult(res.data.meta);
-      fetchData();
-    } catch (err) {
-      const e = err.response?.data?.errors;
-      const msg = e && typeof e === 'object'
-        ? Object.values(e).flat().join(' ')
-        : 'Ocurrió un error. Intenta de nuevo.';
-      setCreateError(msg);
-    } finally {
-      setCreating(false);
-    }
   };
 
   const handleDelete = async () => {
@@ -121,10 +133,74 @@ export default function Cuestionarios() {
           <h1 className={styles.title}>Motor de Cuestionarios</h1>
           <p className={styles.subtitle}>Aplicaciones NOM-035-STPS-2018 — Factores de Riesgo Psicosocial</p>
         </div>
-        <button className="nom-btn nom-btn-primary" onClick={openModalMasivo}>
-          <Plus size={16} strokeWidth={2.5} />
-          Crear aplicaciones
-        </button>
+      </div>
+
+      {/* Links de Guías */}
+      <div className={`${styles.linksSection} nom-card`}>
+        <div className={styles.linksSectionHeader}>
+          <div>
+            <h2 className={styles.linksSectionTitle}>Links de Guías</h2>
+            <p className={styles.linksSectionDesc}>
+              Comparte el link correspondiente con todos los trabajadores de cada guía.
+            </p>
+          </div>
+          <button
+            className="nom-btn nom-btn-primary"
+            onClick={handleGenerarLinks}
+            disabled={generando || !cicloActivo}
+          >
+            {generando
+              ? <Loader2 size={15} className="nom-spin" />
+              : <RefreshCw size={15} strokeWidth={2} />
+            }
+            {guiaLinks.length > 0 ? 'Regenerar links' : 'Generar links'}
+          </button>
+        </div>
+
+        {genError && <div className={styles.formError}>{genError}</div>}
+
+        {guiaLinks.length === 0 ? (
+          <div className={styles.linksEmpty}>
+            <Link2 size={28} strokeWidth={1.25} />
+            <p>
+              {cicloActivo
+                ? 'Genera los links para compartir los cuestionarios con los trabajadores.'
+                : 'No hay ciclos disponibles. Crea un ciclo primero.'}
+            </p>
+          </div>
+        ) : (
+          <div className={styles.linksGrid}>
+            {['V', 'III', 'I'].map(clave => {
+              const link = guiaLinks.find(l => l.cuestionario_clave === clave);
+              if (!link) return null;
+              const info = GUIA_INFO[clave];
+              const url  = `${window.location.origin}/guia/${link.token}`;
+              const isCopied = copied === link.token;
+              return (
+                <div key={clave} className={styles.linkCard}>
+                  <div className={styles.linkCardBadge} style={{ background: info.color }}>
+                    {info.label}
+                  </div>
+                  <div className={styles.linkCardDesc}>{info.desc}</div>
+                  <div className={styles.linkUrlRow}>
+                    <span className={styles.linkUrl}>{url}</span>
+                    <button
+                      className={`${styles.copyBtn} ${isCopied ? styles.copyBtnDone : ''}`}
+                      onClick={() => handleCopyGuiaLink(link.token)}
+                      title="Copiar link"
+                    >
+                      {isCopied
+                        ? <CheckCircle2 size={15} strokeWidth={2} />
+                        : <Link2 size={15} strokeWidth={2} />
+                      }
+                      {isCopied ? 'Copiado' : 'Copiar'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -202,14 +278,8 @@ export default function Cuestionarios() {
           <p>
             {estadoFilter || cicloFilter
               ? 'No hay aplicaciones para los filtros seleccionados.'
-              : 'Aún no hay aplicaciones. Crea la primera aplicación masiva.'}
+              : 'Aún no hay respuestas. Los trabajadores aparecerán aquí al identificarse con su número de empleado.'}
           </p>
-          {!estadoFilter && !cicloFilter && (
-            <button className="nom-btn nom-btn-accent" onClick={openModalMasivo}>
-              <Plus size={15} />
-              Crear aplicaciones masivas
-            </button>
-          )}
         </div>
       ) : (
         <div className={styles.tableWrap}>
@@ -275,7 +345,7 @@ export default function Cuestionarios() {
                           <button
                             className={`${styles.actionBtn} ${copied === a.token ? styles.actionCopied : ''}`}
                             onClick={() => handleCopyLink(a.token)}
-                            title={copied === a.token ? 'Enlace copiado' : 'Copiar enlace para el trabajador'}
+                            title={copied === a.token ? 'Enlace copiado' : 'Copiar enlace'}
                           >
                             {copied === a.token
                               ? <CheckCircle2 size={14} strokeWidth={1.75} />
@@ -307,83 +377,6 @@ export default function Cuestionarios() {
             </tbody>
           </table>
         </div>
-      )}
-
-      {/* Modal: Crear masivo */}
-      {modalMasivo && (
-        <Overlay onClick={() => !creating && setModalMasivo(false)}>
-          <div className={`${styles.modal} nom-glass`} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Crear aplicaciones masivas</h2>
-              {!creating && (
-                <button className={styles.modalClose} onClick={() => setModalMasivo(false)}>
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-
-            {createResult ? (
-              <div className={styles.resultBox}>
-                <div className={styles.resultIconWrap}><CheckCircle2 size={32} /></div>
-                <p className={styles.resultTitle}>Aplicaciones creadas exitosamente</p>
-                <p className={styles.resultSub}>
-                  Se crearon <strong>{createResult.creadas}</strong> nuevas aplicaciones.
-                  {createResult.ya_existian > 0 && (
-                    <> {createResult.ya_existian} ya existían y se omitieron.</>
-                  )}
-                </p>
-                <button className="nom-btn nom-btn-primary" onClick={() => setModalMasivo(false)}>
-                  Ver aplicaciones
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className={styles.modalDesc}>
-                  Se creará una aplicación por cada trabajador activo. La guía se selecciona automáticamente según el número de trabajadores del centro de trabajo.
-                </p>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Ciclo NOM-035 *</label>
-                  {ciclos.length === 0 ? (
-                    <p className={styles.noData}>
-                      No hay ciclos disponibles. Crea un ciclo en la sección de Trabajadores primero.
-                    </p>
-                  ) : (
-                    <div className={styles.selectWrapInline}>
-                      <ChevronDown size={14} className={styles.selectIconInline} />
-                      <select
-                        className="nom-input"
-                        value={selectedCiclo}
-                        onChange={e => setSelectedCiclo(e.target.value)}
-                      >
-                        {ciclos.map(c => (
-                          <option key={c.id} value={c.id}>
-                            Ciclo {c.anio} — {c.estado}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                {createError && <div className={styles.formError}>{createError}</div>}
-
-                <div className={styles.modalActions}>
-                  <button className="nom-btn nom-btn-ghost" onClick={() => setModalMasivo(false)}>
-                    Cancelar
-                  </button>
-                  <button
-                    className="nom-btn nom-btn-primary"
-                    onClick={handleCrearMasivo}
-                    disabled={creating || !selectedCiclo}
-                  >
-                    {creating ? <Loader2 size={15} className="nom-spin" /> : 'Crear aplicaciones'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </Overlay>
       )}
 
       {/* Modal: Confirmar eliminar */}

@@ -98,7 +98,22 @@
       "PowerShell(Get-Content *)",
       "PowerShell(Invoke-RestMethod -Method POST -Uri \"http://localhost:8000/api/auth/login/\" -ContentType \"application/json\" -Body '{\"email\":\"admin@intra.mx\",\"password\":\"1234\"}' 2>&1)",
       "PowerShell(Invoke-RestMethod -Method POST -Uri \"http://localhost:8000/api/v1/auth/login/\" -ContentType \"application/json\" -Body '{\"email\":\"admin@intra.mx\",\"password\":\"1234\"}' 2>&1)",
-      "PowerShell(Invoke-WebRequest -Method POST -Uri \"http://localhost:8000/api/v1/auth/login/\" -ContentType \"application/json\" -Body '{\"email\":\"admin@intra.mx\",\"password\":\"1234\"}' -UseBasicParsing 2>&1 | Select-Object StatusCode, Content)"
+      "PowerShell(Invoke-WebRequest -Method POST -Uri \"http://localhost:8000/api/v1/auth/login/\" -ContentType \"application/json\" -Body '{\"email\":\"admin@intra.mx\",\"password\":\"1234\"}' -UseBasicParsing 2>&1 | Select-Object StatusCode, Content)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\" -Recurse -Depth 2)",
+      "Bash(Select-Object -Property FullName)",
+      "Bash(ConvertTo-Json -Compress)",
+      "Bash(.\\\\venv\\\\Scripts\\\\python.exe manage.py makemigrations m05_questionnaires --name guialink)",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings\"; .\\\\venv\\\\Scripts\\\\python.exe manage.py makemigrations m05_questionnaires --name guialink)",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings.development\"; .\\\\venv\\\\Scripts\\\\python.exe manage.py makemigrations m05_questionnaires --name guialink 2>&1)",
+      "PowerShell(Test-Path \"C:\\\\Users\\\\carlo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-carlo-Documents-Freelancer-NOM035\\\\3f6322db-d296-4dbe-aa37-369d04217408\\\\tasks\\\\bsrhynzjw.output\"; if \\(Test-Path \"C:\\\\Users\\\\carlo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-carlo-Documents-Freelancer-NOM035\\\\3f6322db-d296-4dbe-aa37-369d04217408\\\\tasks\\\\bsrhynzjw.output\"\\) { \\(Get-Item \"C:\\\\Users\\\\carlo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-carlo-Documents-Freelancer-NOM035\\\\3f6322db-d296-4dbe-aa37-369d04217408\\\\tasks\\\\bsrhynzjw.output\"\\).Length })",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings.development\"; $result = & .\\\\venv\\\\Scripts\\\\python.exe manage.py makemigrations m05_questionnaires --name guialink 2>&1; Write-Output \"EXIT: $LASTEXITCODE\"; $result | ForEach-Object { Write-Output $_ })",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings.development\"; $result = & .\\\\venv\\\\Scripts\\\\python.exe manage.py migrate 2>&1; Write-Output $result)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/health/\" -TimeoutSec 3; Write-Output \"Backend UP: $\\($r.StatusCode\\)\" } catch { Write-Output \"Backend DOWN: $_\" })",
+      "Bash(Get-ChildItem -Recurse -Depth 3 -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(ConvertTo-Json)",
+      "Bash(docker)",
+      "Bash(config\")"
     ]
   }
 }

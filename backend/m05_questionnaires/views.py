@@ -8,11 +8,12 @@ from django.db import transaction
 
 from accounts.permissions import IsTenantAdmin
 from m00_onboarding.models import CicloNOM, Trabajador
-from .models import Cuestionario, Aplicacion, RespuestaPregunta, Pregunta
+from .models import Cuestionario, Aplicacion, RespuestaPregunta, Pregunta, GuiaLink
 from .serializers import (
     CuestionarioSerializer, CuestionarioListSerializer,
     AplicacionSerializer, AplicacionPublicaSerializer,
     SubmitRespuestasSerializer,
+    GuiaLinkSerializer, GuiaLinkPublicaSerializer,
 )
 
 
@@ -70,9 +71,43 @@ class AplicacionViewSet(viewsets.ModelViewSet):
         self.get_object().delete()
         return _wrap(None)
 
-    @action(detail=False, methods=['post'], url_path='crear-masivo')
+
+    @action(detail=True, methods=['delete'], url_path='limpiar-respuestas')
+    def limpiar_respuestas(self, request, pk=None):
+        instance = self.get_object()
+        instance.respuestas.all().delete()
+        instance.estado = 'pendiente'
+        instance.fecha_completado = None
+        instance.save(update_fields=['estado', 'fecha_completado'])
+        return _wrap(AplicacionSerializer(instance).data)
+
+
+class GuiaLinkViewSet(viewsets.ModelViewSet):
+    permission_classes = (IsTenantAdmin,)
+    serializer_class = GuiaLinkSerializer
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        qs = GuiaLink.objects.select_related('cuestionario', 'ciclo')
+        ciclo_id = self.request.query_params.get('ciclo_id')
+        if ciclo_id:
+            qs = qs.filter(ciclo_id=ciclo_id)
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        return _wrap(GuiaLinkSerializer(qs, many=True).data, {'count': qs.count()})
+
+    def retrieve(self, request, *args, **kwargs):
+        return _wrap(GuiaLinkSerializer(self.get_object()).data)
+
+    def destroy(self, request, *args, **kwargs):
+        self.get_object().delete()
+        return _wrap(None)
+
+    @action(detail=False, methods=['post'], url_path='crear-links')
     @transaction.atomic
-    def crear_masivo(self, request):
+    def crear_links(self, request):
         ciclo_id = request.data.get('ciclo_id')
         if not ciclo_id:
             return _wrap(None, errors={'ciclo_id': ['Este campo es requerido.']},
@@ -85,43 +120,37 @@ class AplicacionViewSet(viewsets.ModelViewSet):
             return _wrap(None, errors={'ciclo_id': ['Ciclo no encontrado.']},
                          status_code=status.HTTP_404_NOT_FOUND)
 
-        n = tenant.num_trabajadores
-        clave = 'I' if n <= 15 else ('III' if n <= 50 else 'V')
-
-        try:
-            cuestionario = Cuestionario.objects.get(clave=clave)
-        except Cuestionario.DoesNotExist:
+        cuestionarios = Cuestionario.objects.filter(clave__in=['V', 'III', 'I'])
+        if cuestionarios.count() < 3:
             return _wrap(None,
-                errors={'cuestionario': [f'Guia {clave} no encontrada. Ejecuta seed_cuestionarios.']},
+                errors={'cuestionarios': ['Faltan guias. Ejecuta seed_cuestionarios.']},
                 status_code=status.HTTP_404_NOT_FOUND)
 
-        trabajadores = Trabajador.objects.filter(tenant=tenant, activo=True)
-        if not trabajadores.exists():
-            return _wrap(None, errors={'trabajadores': ['No hay trabajadores activos registrados.']},
-                         status_code=status.HTTP_400_BAD_REQUEST)
-
-        creadas = existentes = 0
-        for t in trabajadores:
-            _, created = Aplicacion.objects.get_or_create(
-                tenant=tenant, ciclo=ciclo, cuestionario=cuestionario, trabajador=t,
+        links = []
+        creados = existentes = 0
+        for c in cuestionarios:
+            link, created = GuiaLink.objects.get_or_create(
+                ciclo=ciclo, cuestionario=c,
+                defaults={'tenant': tenant},
             )
+            links.append(link)
             if created:
-                creadas += 1
+                creados += 1
             else:
                 existentes += 1
 
-        return _wrap(None,
-            meta={'creadas': creadas, 'ya_existian': existentes, 'total': creadas + existentes},
-            status_code=status.HTTP_201_CREATED)
+        return _wrap(
+            GuiaLinkSerializer(links, many=True).data,
+            meta={'creados': creados, 'ya_existian': existentes},
+            status_code=status.HTTP_201_CREATED,
+        )
 
-    @action(detail=True, methods=['delete'], url_path='limpiar-respuestas')
-    def limpiar_respuestas(self, request, pk=None):
-        instance = self.get_object()
-        instance.respuestas.all().delete()
-        instance.estado = 'pendiente'
-        instance.fecha_completado = None
-        instance.save(update_fields=['estado', 'fecha_completado'])
-        return _wrap(AplicacionSerializer(instance).data)
+
+@api_view(['GET'])
+@deco_perms([AllowAny])
+def guia_link_publica(request, token):
+    link = get_object_or_404(GuiaLink, token=token, activo=True)
+    return Response({'data': GuiaLinkPublicaSerializer(link).data, 'meta': {}, 'errors': None})
 
 
 @api_view(['GET'])

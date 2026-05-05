@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cuestionario, Dominio, Pregunta, Aplicacion, RespuestaPregunta
+from .models import Cuestionario, Dominio, Pregunta, Aplicacion, RespuestaPregunta, GuiaLink
 
 
 class PreguntaSerializer(serializers.ModelSerializer):
@@ -86,6 +86,28 @@ class SubmitRespuestasSerializer(serializers.Serializer):
             if item['valor'] not in range(5):
                 raise serializers.ValidationError('El valor debe estar entre 0 y 4.')
         return value
+
+
+class GuiaLinkSerializer(serializers.ModelSerializer):
+    cuestionario_clave  = serializers.CharField(source='cuestionario.clave', read_only=True)
+    cuestionario_nombre = serializers.CharField(source='cuestionario.nombre', read_only=True)
+
+    class Meta:
+        model  = GuiaLink
+        fields = [
+            'id', 'ciclo', 'cuestionario', 'cuestionario_clave', 'cuestionario_nombre',
+            'token', 'activo', 'creado_en',
+        ]
+        read_only_fields = ['id', 'token', 'creado_en']
+
+
+class GuiaLinkPublicaSerializer(serializers.ModelSerializer):
+    cuestionario_clave  = serializers.CharField(source='cuestionario.clave', read_only=True)
+    cuestionario_nombre = serializers.CharField(source='cuestionario.nombre', read_only=True)
+
+    class Meta:
+        model  = GuiaLink
+        fields = ['cuestionario_clave', 'cuestionario_nombre', 'token', 'activo']
 
 
 class AplicacionPublicaSerializer(serializers.ModelSerializer):

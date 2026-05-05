@@ -7,17 +7,23 @@ export const cuestionariosService = {
 };
 
 export const aplicacionesService = {
-  list:            (params = {}) => api.get('/aplicaciones/', { params }),
-  get:             (id)          => api.get(`/aplicaciones/${id}/`),
-  delete:          (id)          => api.delete(`/aplicaciones/${id}/`),
-  crearMasivo:     (data)        => api.post('/aplicaciones/crear-masivo/', data),
-  limpiarRespuestas: (id)        => api.delete(`/aplicaciones/${id}/limpiar-respuestas/`),
+  list:             (params = {}) => api.get('/aplicaciones/', { params }),
+  get:              (id)          => api.get(`/aplicaciones/${id}/`),
+  delete:           (id)          => api.delete(`/aplicaciones/${id}/`),
+  limpiarRespuestas:(id)          => api.delete(`/aplicaciones/${id}/limpiar-respuestas/`),
+};
+
+export const guiaLinksService = {
+  list:        (params = {}) => api.get('/guia-links/', { params }),
+  crearLinks:  (data)        => api.post('/guia-links/crear-links/', data),
+  delete:      (id)          => api.delete(`/guia-links/${id}/`),
 };
 
 // Acceso público (sin JWT) para la pantalla de respuesta
 const publicApi = axios.create({ baseURL: '/api/v1' });
 
 export const publicService = {
+  getGuiaLink:   (token)        => publicApi.get(`/publica/guia/${token}/`),
   getAplicacion: (token)        => publicApi.get(`/publica/${token}/`),
   responder:     (token, data)  => publicApi.post(`/publica/${token}/responder/`, data),
 };

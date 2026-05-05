@@ -28,8 +28,15 @@ api.interceptors.response.use(
             `${import.meta.env.VITE_API_URL || '/api/v1'}/auth/token/refresh/`,
             { refresh }
           );
-          localStorage.setItem('access_token', data.data.access);
-          original.headers.Authorization = `Bearer ${data.data.access}`;
+          // TokenRefreshView devuelve { access, refresh } sin wrapper
+          const newAccess = data.access;
+          if (!newAccess) throw new Error('no_access');
+          localStorage.setItem('access_token', newAccess);
+          if (data.refresh) {
+            // ROTATE_REFRESH_TOKENS=True emite nuevo refresh — guardarlo
+            localStorage.setItem('refresh_token', data.refresh);
+          }
+          original.headers.Authorization = `Bearer ${newAccess}`;
           return api(original);
         } catch {
           localStorage.removeItem('access_token');

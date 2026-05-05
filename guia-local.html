@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Guía — Correr NOM-035 en Local</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background: white;
+      padding: 40px 48px;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 3px solid #1d4ed8;
+      padding-bottom: 16px;
+      margin-bottom: 28px;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1d4ed8;
+      letter-spacing: -0.3px;
+    }
+
+    header p {
+      color: #555;
+      margin-top: 4px;
+      font-size: 12px;
+    }
+
+    .req-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin-bottom: 28px;
+    }
+
+    .req-box strong {
+      color: #1d4ed8;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .req-box ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .req-box li::before {
+      content: "✓ ";
+      color: #16a34a;
+      font-weight: 700;
+    }
+
+    .step {
+      margin-bottom: 28px;
+      page-break-inside: avoid;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .step-num {
+      background: #1d4ed8;
+      color: white;
+      font-weight: 700;
+      font-size: 12px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111;
+    }
+
+    .step-body {
+      margin-left: 34px;
+    }
+
+    p {
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    code {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: #0f172a;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 14px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      margin: 10px 0;
+      overflow-x: auto;
+      line-height: 1.7;
+    }
+
+    pre .comment {
+      color: #64748b;
+    }
+
+    pre .cmd {
+      color: #7dd3fc;
+    }
+
+    .note {
+      background: #fefce8;
+      border-left: 3px solid #eab308;
+      padding: 10px 14px;
+      border-radius: 0 4px 4px 0;
+      margin: 10px 0;
+      font-size: 12px;
+      color: #713f12;
+    }
+
+    .success-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin-bottom: 28px;
+    }
+
+    .success-box strong {
+      color: #15803d;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .url-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .url-label {
+      font-weight: 600;
+      min-width: 80px;
+      color: #374151;
+    }
+
+    .url-link {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 24px 0;
+    }
+
+    .optional-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+
+    .env-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      margin: 10px 0;
+    }
+
+    .env-table th {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 6px 10px;
+      text-align: left;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .env-table td {
+      border: 1px solid #e2e8f0;
+      padding: 6px 10px;
+      vertical-align: top;
+    }
+
+    .env-table td:first-child {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #0f172a;
+      white-space: nowrap;
+    }
+
+    .env-table td:nth-child(2) {
+      color: #555;
+    }
+
+    footer {
+      margin-top: 36px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+    }
+
+    @media print {
+      body { padding: 20px 32px; }
+      .step { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Intra NOM-035 — Guía de instalación local</h1>
+    <p>Corre el sistema completo en tu máquina usando Docker.</p>
+  </header>
+
+  <div class="req-box">
+    <strong>Lo único que necesitas tener instalado:</strong>
+    <ul>
+      <li>Docker Desktop (Windows / Mac / Linux) — incluye Docker Compose</li>
+      <li>Git — para clonar el repositorio</li>
+    </ul>
+  </div>
+
+  <!-- PASO 1 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div class="step-title">Clona el repositorio</div>
+    </div>
+    <div class="step-body">
+      <p>Abre una terminal y ejecuta:</p>
+      <pre><span class="cmd">git clone &lt;URL-del-repositorio&gt;</span>
+<span class="cmd">cd NOM035</span></pre>
+    </div>
+  </div>
+
+  <!-- PASO 2 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div class="step-title">Crea el archivo <code>.env</code></div>
+    </div>
+    <div class="step-body">
+      <p>Copia el archivo de ejemplo y renómbralo:</p>
+      <pre><span class="comment"># En Windows (PowerShell)</span>
+<span class="cmd">copy .env.example .env</span>
+
+<span class="comment"># En Mac / Linux</span>
+<span class="cmd">cp .env.example .env</span></pre>
+
+      <p>Abre el archivo <code>.env</code> con cualquier editor y ajusta al menos estas tres líneas:</p>
+
+      <table class="env-table">
+        <tr>
+          <th>Variable</th>
+          <th>Valor para desarrollo local</th>
+        </tr>
+        <tr>
+          <td>DB_PASSWORD</td>
+          <td>Escribe cualquier contraseña, p. ej. <code>mi_password_local</code></td>
+        </tr>
+        <tr>
+          <td>DJANGO_SECRET_KEY</td>
+          <td>Cualquier cadena larga de texto aleatorio</td>
+        </tr>
+        <tr>
+          <td>DATABASE_URL</td>
+          <td>Deja el que ya trae, solo reemplaza la contraseña que pusiste arriba en el lugar correspondiente</td>
+        </tr>
+      </table>
+
+      <div class="note">
+        <strong>Ejemplo de DATABASE_URL:</strong><br>
+        <code>postgres://intra:mi_password_local@db:5432/intra_nom035</code><br>
+        Nota que el host es <code>db</code> (el nombre del servicio en Docker), no <code>localhost</code>.
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 3 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div class="step-title">Levanta todos los servicios</div>
+    </div>
+    <div class="step-body">
+      <p>Desde la carpeta raíz del proyecto, ejecuta:</p>
+      <pre><span class="cmd">docker compose up --build</span></pre>
+
+      <p>La primera vez esto descarga imágenes y construye el proyecto; puede tardar <strong>5–10 minutos</strong>. Las siguientes veces será mucho más rápido.</p>
+
+      <div class="note">
+        Verás logs de los cuatro servicios: <code>db</code>, <code>redis</code>, <code>backend</code> y <code>frontend</code>.
+        El sistema estará listo cuando veas algo como<br>
+        <code>[backend] Booting worker with pid: ...</code> y <code>[frontend] nginx: ready</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 4 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">4</div>
+      <div class="step-title">Abre el sistema en tu navegador</div>
+    </div>
+    <div class="step-body">
+      <div class="success-box">
+        <strong>Servicios disponibles:</strong>
+        <div class="url-row">
+          <span class="url-label">App web:</span>
+          <span class="url-link">http://localhost:8080</span>
+        </div>
+        <div class="url-row">
+          <span class="url-label">API (Django):</span>
+          <span class="url-link">http://localhost:8000/api/v1/</span>
+        </div>
+        <div class="url-row">
+          <span class="url-label">Admin Django:</span>
+          <span class="url-link">http://localhost:8000/admin/</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+  <div class="optional-title">Opcionales</div>
+
+  <!-- CREAR SUPERUSUARIO -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">A</div>
+      <div class="step-title">Crear un usuario administrador</div>
+    </div>
+    <div class="step-body">
+      <p>Con el sistema corriendo, abre otra terminal y ejecuta:</p>
+      <pre><span class="cmd">docker compose exec backend python manage.py createsuperuser</span></pre>
+      <p>Te pedirá correo y contraseña. Luego entra con ese usuario en <code>http://localhost:8080</code>.</p>
+    </div>
+  </div>
+
+  <!-- DETENER -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">B</div>
+      <div class="step-title">Detener el sistema</div>
+    </div>
+    <div class="step-body">
+      <p>Para detener sin borrar datos, presiona <code>Ctrl + C</code> en la terminal donde está corriendo, o ejecuta en otra terminal:</p>
+      <pre><span class="cmd">docker compose down</span></pre>
+      <p>Para <strong>borrar también la base de datos</strong> y empezar desde cero:</p>
+      <pre><span class="cmd">docker compose down -v</span></pre>
+    </div>
+  </div>
+
+  <!-- REINICIAR -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">C</div>
+      <div class="step-title">Volver a levantar (después de haberlo detenido)</div>
+    </div>
+    <div class="step-body">
+      <p>Si no hubo cambios en el código:</p>
+      <pre><span class="cmd">docker compose up</span></pre>
+      <p>Si hubo cambios en el código y necesitas reconstruir:</p>
+      <pre><span class="cmd">docker compose up --build</span></pre>
+    </div>
+  </div>
+
+  <footer>
+    Intra NOM-035 &nbsp;·&nbsp; Para guardar como PDF: abre este archivo en Chrome/Edge y usa Imprimir → Guardar como PDF
+  </footer>
+
+</body>
+</html>

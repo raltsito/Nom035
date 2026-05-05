@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-intra_nom035}
       POSTGRES_USER: ${DB_USER:-intra}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password_local}
     ports:
       - "5434:5432"
     volumes:
@@ -29,6 +29,58 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key-cambiar-en-produccion}
+      DJANGO_SETTINGS_MODULE: intra_nom035.settings.development
+      DB_NAME: ${DB_NAME:-intra_nom035}
+      DB_USER: ${DB_USER:-intra}
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password_local}
+      DB_HOST: db
+      DB_PORT: "5432"
+      DATABASE_URL: postgres://${DB_USER:-intra}:${DB_PASSWORD:-dev_password_local}@db:5432/${DB_NAME:-intra_nom035}
+      REDIS_URL: redis://redis:6379/0
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      CORS_ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      FRONTEND_URL: http://localhost:8080
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - media_data:/app/media
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn intra_nom035.wsgi:application
+             --bind 0.0.0.0:8000
+             --workers 2
+             --timeout 120
+             --access-logfile -
+             --error-logfile -"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000/api/v1
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:
   redis_data:
+  media_data:

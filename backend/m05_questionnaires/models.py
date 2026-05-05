@@ -4,6 +4,21 @@ from django.utils import timezone
 from core.models import TenantAwareModel
 
 
+class GuiaLink(TenantAwareModel):
+    ciclo        = models.ForeignKey('m00_onboarding.CicloNOM', on_delete=models.CASCADE, related_name='guia_links')
+    cuestionario = models.ForeignKey('Cuestionario', on_delete=models.PROTECT, related_name='guia_links')
+    token        = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    activo       = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('ciclo', 'cuestionario')
+        verbose_name        = 'Link de Guia'
+        verbose_name_plural = 'Links de Guia'
+
+    def __str__(self):
+        return f'Guia {self.cuestionario.clave} — {self.ciclo}'
+
+
 class Cuestionario(models.Model):
     clave       = models.CharField(max_length=5, unique=True)
     nombre      = models.CharField(max_length=200)
