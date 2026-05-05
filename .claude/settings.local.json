@@ -113,7 +113,12 @@
       "Bash(Select-Object FullName, PSIsContainer)",
       "Bash(ConvertTo-Json)",
       "Bash(docker)",
-      "Bash(config\")"
+      "Bash(config\")",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/health/\" -TimeoutSec 3; Write-Output \"Backend UP: $\\($r.StatusCode\\)\" } catch { Write-Output \"Backend DOWN\" })",
+      "PowerShell(Start-Process -FilePath \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\\\\venv\\\\Scripts\\\\python.exe\" -ArgumentList \"manage.py\", \"runserver\" -WorkingDirectory \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\" -WindowStyle Normal)",
+      "PowerShell(Start-Sleep -Seconds 4; try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/health/\" -TimeoutSec 3; Write-Output \"Backend UP: $\\($r.StatusCode\\)\" } catch { Write-Output \"Backend DOWN\" })",
+      "PowerShell(Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/k\", \"cd /d C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend && .\\\\venv\\\\Scripts\\\\python.exe manage.py runserver\" -WindowStyle Normal)",
+      "PowerShell(Start-Sleep -Seconds 6; try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/health/\" -TimeoutSec 3; Write-Output \"Backend UP: $\\($r.StatusCode\\)\" } catch { Write-Output \"Backend DOWN: $\\($_.Exception.Message\\)\" })"
     ]
   }
 }

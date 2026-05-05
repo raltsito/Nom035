@@ -1,0 +1,334 @@
+/* Mismas variables que Responder para consistencia */
+:root {
+  --r-accent:      #03C4CE;
+  --r-accent-sub:  rgba(3, 196, 206, 0.12);
+  --r-bg:          #F4F7FD;
+  --r-surface:     #FFFFFF;
+  --r-border:      #DDE5F0;
+  --r-text:        #0D1526;
+  --r-text2:       #3D5068;
+  --r-muted:       #7A96B4;
+  --r-success:     #0EA870;
+  --r-danger:      #E53E3E;
+  --r-danger-sub:  rgba(229, 62, 62, 0.10);
+  --r-shadow:      0 4px 24px rgba(80, 110, 170, 0.12);
+  --r-font-d:      'Plus Jakarta Sans', system-ui, sans-serif;
+  --r-font-b:      'Inter', system-ui, sans-serif;
+}
+
+.screen {
+  min-height: 100vh;
+  background: var(--r-bg);
+  font-family: var(--r-font-b);
+  color: var(--r-text);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Top bar ---- */
+.topbar {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--r-border);
+}
+.topbarInner {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.logo {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.topbarGuia {
+  font-size: 0.8125rem;
+  color: var(--r-muted);
+  font-weight: 500;
+}
+
+/* ---- Main ---- */
+.main {
+  flex: 1;
+  max-width: 520px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+  display: flex;
+  align-items: flex-start;
+}
+
+/* ---- Card ---- */
+.card {
+  width: 100%;
+  background: var(--r-surface);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: var(--r-shadow);
+  animation: idFadeUp 0.44s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes idFadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ---- Icon ---- */
+.iconWrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--r-accent-sub);
+  color: var(--r-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+/* ---- Títulos ---- */
+.title {
+  font-family: var(--r-font-d);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--r-text);
+  letter-spacing: -0.025em;
+  margin-bottom: 8px;
+}
+.desc {
+  font-size: 0.9375rem;
+  color: var(--r-text2);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+/* ---- Form ---- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--r-text2);
+}
+.input {
+  width: 100%;
+  padding: 14px 18px;
+  border: 1.5px solid var(--r-border);
+  border-radius: 12px;
+  font-family: var(--r-font-b);
+  font-size: 1.0625rem;
+  color: var(--r-text);
+  background: #fff;
+  outline: none;
+  transition: border-color 150ms;
+  box-sizing: border-box;
+}
+.input:focus  { border-color: var(--r-accent); }
+.input:disabled { opacity: 0.6; }
+
+/* ---- Error box ---- */
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--r-danger-sub);
+  color: var(--r-danger);
+  font-size: 0.875rem;
+}
+
+/* ---- Worker card (confirmación) ---- */
+.workerCard {
+  background: var(--r-accent-sub);
+  border: 1.5px solid rgba(3, 196, 206, 0.25);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.workerNum {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--r-accent);
+}
+.workerName {
+  font-family: var(--r-font-d);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--r-text);
+  letter-spacing: -0.02em;
+}
+.workerPuesto {
+  font-size: 0.875rem;
+  color: var(--r-text2);
+}
+
+/* ---- Botones ---- */
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  border-radius: 9999px;
+  border: none;
+  background: var(--r-text);
+  color: #fff;
+  font-family: var(--r-font-d);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 150ms, transform 150ms, box-shadow 150ms;
+  width: 100%;
+}
+.btnPrimary:hover:not(:disabled) {
+  background: #1a2640;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(10, 20, 50, 0.22);
+}
+.btnPrimary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 13px 22px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--r-border);
+  background: #fff;
+  color: var(--r-text2);
+  font-family: var(--r-font-b);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms;
+}
+.btnGhost:hover:not(:disabled) { border-color: var(--r-text2); color: var(--r-text); }
+.btnGhost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.confirmActions {
+  display: flex;
+  gap: 12px;
+}
+.confirmActions .btnGhost  { flex: 1; }
+.confirmActions .btnPrimary { flex: 2; }
+
+/* ---- Bloqueo ---- */
+.bloqueoBox {
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: #FFF5F5;
+  border: 1.5px solid rgba(229, 62, 62, 0.18);
+}
+.bloqueoOrden {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.bloqueoStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  position: relative;
+}
+.bloqueoGuia {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--r-muted);
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--r-border);
+  background: #fff;
+}
+.bloqueoStepReq .bloqueoGuia {
+  border-color: var(--r-danger);
+  color: var(--r-danger);
+  background: rgba(229,62,62,0.06);
+}
+.bloqueoStepCurrent .bloqueoGuia {
+  border-color: var(--r-muted);
+  color: var(--r-muted);
+  opacity: 0.5;
+}
+.bloqueoTag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--r-danger);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.bloqueoArrow {
+  font-size: 0.875rem;
+  color: var(--r-border);
+  align-self: center;
+  margin-bottom: 18px;
+}
+
+/* ---- Spinner ---- */
+.spin {
+  animation: idSpin 0.85s linear infinite;
+}
+@keyframes idSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Center (loading/error) ---- */
+.center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 24px;
+  text-align: center;
+}
+.centerTitle {
+  font-family: var(--r-font-d);
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--r-text);
+  letter-spacing: -0.02em;
+}
+.centerText {
+  font-size: 0.9375rem;
+  color: var(--r-text2);
+  max-width: 380px;
+  line-height: 1.6;
+}
+.errorIcon {
+  width: 68px;
+  height: 68px;
+  border-radius: 9999px;
+  background: var(--r-danger-sub);
+  color: var(--r-danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Mobile ---- */
+@media (max-width: 560px) {
+  .card { padding: 28px 20px; }
+  .main { padding: 24px 16px 60px; align-items: flex-start; }
+  .confirmActions { flex-direction: column; }
+  .confirmActions .btnGhost,
+  .confirmActions .btnPrimary { flex: unset; width: 100%; }
+}

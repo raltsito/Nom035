@@ -295,6 +295,18 @@
 .chip_en_progreso { background: var(--nom-accent-subtle);   color: var(--nom-accent);  }
 .chip_completado  { background: var(--nom-success-subtle);  color: var(--nom-success); }
 
+.chipNull {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--nom-radius-full);
+  font-size: 11px;
+  font-weight: var(--nom-font-semibold);
+  background: transparent;
+  color: var(--nom-text-muted);
+}
+
 .guiaChip {
   display: inline-flex;
   padding: 3px 9px;

@@ -81,6 +81,63 @@ class AplicacionViewSet(viewsets.ModelViewSet):
         instance.save(update_fields=['estado', 'fecha_completado'])
         return _wrap(AplicacionSerializer(instance).data)
 
+    @action(detail=False, methods=['get'], url_path='progreso')
+    def progreso(self, request):
+        ciclo_id = request.query_params.get('ciclo_id')
+        if not ciclo_id:
+            return _wrap(None, errors={'ciclo_id': ['Este campo es requerido.']},
+                         status_code=status.HTTP_400_BAD_REQUEST)
+
+        tenant = request.user.tenant
+        try:
+            ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
+        except CicloNOM.DoesNotExist:
+            return _wrap(None, errors={'ciclo_id': ['Ciclo no encontrado.']},
+                         status_code=status.HTTP_404_NOT_FOUND)
+
+        aplicaciones = Aplicacion.objects.filter(
+            tenant=tenant,
+            ciclo=ciclo,
+            cuestionario__clave__in=['V', 'III', 'I'],
+        ).select_related('trabajador', 'cuestionario')
+
+        # índice: {trabajador_id: {clave: estado}}
+        idx = {}
+        for apl in aplicaciones:
+            tid = apl.trabajador_id
+            if tid not in idx:
+                idx[tid] = {}
+            idx[tid][apl.cuestionario.clave] = apl.estado
+
+        trabajadores = Trabajador.objects.filter(tenant=tenant, activo=True).order_by(
+            'apellido_paterno', 'apellido_materno', 'nombre'
+        )
+
+        result = []
+        for t in trabajadores:
+            p = idx.get(t.id, {})
+            result.append({
+                'trabajador_id':     t.id,
+                'trabajador_nombre': t.nombre_completo,
+                'trabajador_area':   t.area,
+                'trabajador_puesto': t.puesto,
+                'num_empleado':      t.num_empleado,
+                'guia_V':            p.get('V'),
+                'guia_III':          p.get('III'),
+                'guia_I':            p.get('I'),
+            })
+
+        completados = sum(
+            1 for r in result
+            if r['guia_V'] == 'completado'
+            and r['guia_III'] == 'completado'
+            and r['guia_I'] == 'completado'
+        )
+        return _wrap(result, meta={
+            'total': len(result),
+            'completados_total': completados,
+        })
+
 
 class GuiaLinkViewSet(viewsets.ModelViewSet):
     permission_classes = (IsTenantAdmin,)
@@ -151,6 +208,98 @@ class GuiaLinkViewSet(viewsets.ModelViewSet):
 def guia_link_publica(request, token):
     link = get_object_or_404(GuiaLink, token=token, activo=True)
     return Response({'data': GuiaLinkPublicaSerializer(link).data, 'meta': {}, 'errors': None})
+
+
+@api_view(['POST'])
+@deco_perms([AllowAny])
+def identificar_trabajador(request, token):
+    link = get_object_or_404(GuiaLink, token=token, activo=True)
+    num_empleado = str(request.data.get('num_empleado', '')).strip()
+
+    if not num_empleado:
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'num_empleado': ['Este campo es requerido.']}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        trabajador = Trabajador.objects.get(
+            tenant=link.ciclo.tenant,
+            num_empleado=num_empleado,
+            activo=True,
+        )
+    except Trabajador.DoesNotExist:
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'num_empleado': ['Número de trabajador no encontrado.']}},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    return Response({'data': {
+        'trabajador_id':   trabajador.id,
+        'nombre_completo': trabajador.nombre_completo,
+        'num_empleado':    trabajador.num_empleado,
+        'puesto':          trabajador.puesto,
+    }, 'meta': {}, 'errors': None})
+
+
+_GUIA_PREVIA = {'III': 'V', 'I': 'III'}
+
+@api_view(['POST'])
+@deco_perms([AllowAny])
+@transaction.atomic
+def confirmar_trabajador(request, token):
+    link = get_object_or_404(GuiaLink, token=token, activo=True)
+    trabajador_id = request.data.get('trabajador_id')
+
+    if not trabajador_id:
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'trabajador_id': ['Este campo es requerido.']}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        trabajador = Trabajador.objects.get(
+            id=trabajador_id,
+            tenant=link.ciclo.tenant,
+            activo=True,
+        )
+    except Trabajador.DoesNotExist:
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'trabajador_id': ['Trabajador no válido.']}},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Validación secuencial: V → III → I
+    clave_actual = link.cuestionario.clave
+    clave_previa = _GUIA_PREVIA.get(clave_actual)
+    if clave_previa:
+        completada = Aplicacion.objects.filter(
+            tenant=link.ciclo.tenant,
+            ciclo=link.ciclo,
+            cuestionario__clave=clave_previa,
+            trabajador=trabajador,
+            estado='completado',
+        ).exists()
+        if not completada:
+            return Response(
+                {'data': None, 'meta': {}, 'errors': {
+                    'bloqueado':      True,
+                    'guia_requerida': clave_previa,
+                    'mensaje':        f'Debes completar primero la Guía {clave_previa}.',
+                }},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    aplicacion, _ = Aplicacion.objects.get_or_create(
+        tenant=link.ciclo.tenant,
+        ciclo=link.ciclo,
+        cuestionario=link.cuestionario,
+        trabajador=trabajador,
+    )
+
+    return Response({'data': {
+        'aplicacion_token': str(aplicacion.token),
+    }, 'meta': {}, 'errors': None})
 
 
 @api_view(['GET'])

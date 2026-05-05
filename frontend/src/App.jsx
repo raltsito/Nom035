@@ -7,6 +7,7 @@ import Empresas from './pages/Empresas';
 import Trabajadores from './pages/Trabajadores';
 import Cuestionarios from './pages/Cuestionarios';
 import Responder from './pages/Responder';
+import Identificacion from './pages/Identificacion';
 import Resultados from './pages/Resultados';
 import Comite from './pages/Comite';
 import Calculadora from './pages/Calculadora';
@@ -37,6 +38,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/guia/:token"       element={<Identificacion />} />
       <Route path="/responder/:token" element={<Responder />} />
       <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />

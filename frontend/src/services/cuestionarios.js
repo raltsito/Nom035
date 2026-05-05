@@ -11,6 +11,7 @@ export const aplicacionesService = {
   get:              (id)          => api.get(`/aplicaciones/${id}/`),
   delete:           (id)          => api.delete(`/aplicaciones/${id}/`),
   limpiarRespuestas:(id)          => api.delete(`/aplicaciones/${id}/limpiar-respuestas/`),
+  progreso:         (params = {}) => api.get('/aplicaciones/progreso/', { params }),
 };
 
 export const guiaLinksService = {
@@ -23,7 +24,9 @@ export const guiaLinksService = {
 const publicApi = axios.create({ baseURL: '/api/v1' });
 
 export const publicService = {
-  getGuiaLink:   (token)        => publicApi.get(`/publica/guia/${token}/`),
-  getAplicacion: (token)        => publicApi.get(`/publica/${token}/`),
-  responder:     (token, data)  => publicApi.post(`/publica/${token}/responder/`, data),
+  getGuiaLink:  (token)        => publicApi.get(`/publica/guia/${token}/`),
+  identificar:  (token, data)  => publicApi.post(`/publica/guia/${token}/identificar/`, data),
+  confirmar:    (token, data)  => publicApi.post(`/publica/guia/${token}/confirmar/`, data),
+  getAplicacion:(token)        => publicApi.get(`/publica/${token}/`),
+  responder:    (token, data)  => publicApi.post(`/publica/${token}/responder/`, data),
 };
