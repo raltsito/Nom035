@@ -55,10 +55,32 @@
 
 ---
 
-## Sprint 5 — Reportes y exportaciones actualizadas
+## Sprint 5 — Reportes y exportaciones actualizadas ✅ COMPLETADO
 
 **Objetivo:** Los reportes reflejan las 3 guías por trabajador.
 
-### Por hacer
-- [ ] Exportación con progreso por guía (columnas V, III, I)
-- [ ] Ajustes a gráficas si las hay
+### Cambios realizados
+- [x] Endpoint `GET /api/aplicaciones/exportar/?ciclo_id=X` — genera CSV con progreso por guía
+- [x] CSV con columnas `num_empleado`, `nombre`, `area`, `puesto`, `guia_V`, `guia_III`, `guia_I`
+- [x] Estados exportados por guía: `completado`, `en_progreso`, `pendiente` o `sin_iniciar`
+- [x] Frontend: botón "Exportar Excel" junto al selector de ciclo en `/cuestionarios`
+- [x] Servicio `aplicacionesService.exportar` con descarga como archivo CSV
+- [x] Exportación Excel `.xlsx` estilizada con encabezado, autofiltro, bordes, colores y estados resaltados
+- [x] No se encontraron gráficas que ajustar en la página de cuestionarios
+
+---
+
+## Sprint 6 - Cuestionarios oficiales, condicionales y scoring COMPLETADO
+
+**Objetivo:** Actualizar las guias desde el PDF actualizado y recalcular resultados con las reglas correctas.
+
+### Cambios realizados
+- [x] Guia V actualizada como datos del trabajador con 15 campos de captura
+- [x] Guia I actualizada con 20 preguntas si/no y condicionales por acontecimiento traumatico
+- [x] Guia III actualizada con 74 preguntas: 64 base, 2 preguntas condicionales y 8 preguntas dependientes
+- [x] Soporte backend para tipos de respuesta `frecuencia`, `si_no`, `texto` y `opcion`
+- [x] Soporte backend y frontend para preguntas condicionales con operador `any` / `all`
+- [x] Seed actualizado para crear, actualizar y limpiar preguntas/dominios obsoletos
+- [x] Calculo de resultados actualizado para Guia I y Guia III
+- [x] Guia V omitida del diagnostico de riesgo porque solo captura datos del trabajador
+- [x] Dashboard de resultados actualizado para categoria `nulo`, ademas de `bajo`, `medio`, `alto` y `muy_alto`

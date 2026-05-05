@@ -279,6 +279,8 @@ CUESTIONARIOS = [
     },
 ]
 
+from .cuestionarios_actualizados import CUESTIONARIOS
+
 
 class Command(BaseCommand):
     help = 'Siembra los cuestionarios NOM-035 (Guias I, III y V) en la base de datos.'
@@ -299,6 +301,9 @@ class Command(BaseCommand):
             status = 'CREADO' if created else 'ACTUALIZADO'
             self.stdout.write(f'  Guia {cuestionario.clave} [{status}]')
 
+            dominios_validos = set()
+            preguntas_por_ref = {}
+            condiciones_pendientes = []
             for dom_orden, dom_data in enumerate(data['dominios'], start=1):
                 dominio, _ = Dominio.objects.update_or_create(
                     cuestionario=cuestionario,
@@ -308,19 +313,41 @@ class Command(BaseCommand):
                         'nombre': dom_data['nombre'],
                     },
                 )
+                dominios_validos.add(dominio.id)
 
+                preguntas_validas = set()
                 for preg_orden, preg_data in enumerate(dom_data['preguntas'], start=1):
-                    Pregunta.objects.update_or_create(
+                    pregunta, _ = Pregunta.objects.update_or_create(
                         dominio=dominio,
                         orden=preg_orden,
                         defaults={
                             'texto':   preg_data['texto'],
                             'inversa': preg_data.get('inversa', False),
+                            'tipo_respuesta': preg_data.get('tipo_respuesta', 'frecuencia'),
+                            'opciones': preg_data.get('opciones', []),
+                            'condicion_pregunta': None,
+                            'condicion_valor': preg_data.get('condicion_valor'),
+                            'condicion_operador': preg_data.get('condicion_operador', 'all'),
                         },
                     )
+                    pregunta.condicion_preguntas.clear()
+                    preguntas_validas.add(pregunta.id)
+                    if preg_data.get('ref'):
+                        preguntas_por_ref[preg_data['ref']] = pregunta
+                    if preg_data.get('condicion_refs'):
+                        condiciones_pendientes.append((pregunta, preg_data['condicion_refs']))
+
+                Pregunta.objects.filter(dominio=dominio).exclude(id__in=preguntas_validas).delete()
 
                 total = len(dom_data['preguntas'])
                 self.stdout.write(f'    {dominio.clave}: {dominio.nombre} ({total} preguntas)')
+
+            Dominio.objects.filter(cuestionario=cuestionario).exclude(id__in=dominios_validos).delete()
+
+            for pregunta, refs in condiciones_pendientes:
+                pregunta.condicion_preguntas.set(
+                    preguntas_por_ref[ref] for ref in refs if ref in preguntas_por_ref
+                )
 
         total_preguntas = sum(
             len(p['preguntas'])

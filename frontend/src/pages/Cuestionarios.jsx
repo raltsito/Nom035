@@ -2,7 +2,7 @@ import Overlay from '../components/ui/Overlay';
 import { useState, useEffect, useCallback } from 'react';
 import {
   ClipboardList, Loader2, X, CheckCircle2, Clock, PlayCircle,
-  Link2, RotateCcw, ChevronDown, FileText, RefreshCw, Minus,
+  Link2, RotateCcw, ChevronDown, FileText, RefreshCw, Minus, Download, Copy,
 } from 'lucide-react';
 import { aplicacionesService, guiaLinksService } from '../services/cuestionarios';
 import { ciclosService } from '../services/trabajadores';
@@ -15,9 +15,9 @@ const ESTADO_CONFIG = {
 };
 
 const GUIA_INFO = {
-  V:   { label: 'Guía V',   color: 'var(--nom-accent)'  },
-  III: { label: 'Guía III', color: 'var(--nom-info)'    },
-  I:   { label: 'Guía I',   color: 'var(--nom-success)' },
+  V:   { label: 'Guía V',   orden: '01', color: 'var(--nom-accent)'  },
+  III: { label: 'Guía III', orden: '02', color: 'var(--nom-info)'    },
+  I:   { label: 'Guía I',   orden: '03', color: 'var(--nom-success)' },
 };
 
 function EstadoChip({ estado }) {
@@ -40,6 +40,7 @@ export default function Cuestionarios() {
   const [loading,     setLoading]    = useState(true);
   const [cicloFilter, setCicloFilter]= useState('');
   const [generando,   setGenerando]  = useState(false);
+  const [exportando,  setExportando] = useState(false);
   const [genError,    setGenError]   = useState('');
   const [copied,      setCopied]     = useState(null);
   const [confirmLimpiar, setConfirmLimpiar] = useState(null);
@@ -71,6 +72,7 @@ export default function Cuestionarios() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const cicloActivo = ciclos.find(c => c.estado !== 'cerrado') || ciclos[0];
+  const cicloSeleccionadoId = cicloFilter || cicloActivo?.id;
 
   const stats = {
     total:      progreso.length,
@@ -79,8 +81,16 @@ export default function Cuestionarios() {
     sinIniciar: progreso.filter(r => !r.guia_V && !r.guia_III && !r.guia_I).length,
   };
 
+  const guiaStats = ['V', 'III', 'I'].reduce((acc, clave) => {
+    acc[clave] = {
+      completados: progreso.filter(r => r[`guia_${clave}`] === 'completado').length,
+      total: progreso.length,
+    };
+    return acc;
+  }, {});
+
   const handleGenerarLinks = async () => {
-    const cicloId = cicloFilter || cicloActivo?.id;
+    const cicloId = cicloSeleccionadoId;
     if (!cicloId) return;
     setGenerando(true);
     setGenError('');
@@ -95,6 +105,26 @@ export default function Cuestionarios() {
     }
   };
 
+  const handleExportar = async () => {
+    const cicloId = cicloSeleccionadoId;
+    if (!cicloId) return;
+    setExportando(true);
+    try {
+      const res = await aplicacionesService.exportarExcel({ ciclo_id: cicloId });
+      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `aplicaciones_ciclo_${cicloId}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportando(false);
+    }
+  };
+
   const handleCopyGuiaLink = (token) => {
     navigator.clipboard.writeText(`${window.location.origin}/guia/${token}`);
     setCopied(token);
@@ -104,7 +134,7 @@ export default function Cuestionarios() {
   const handleLimpiar = async () => {
     if (!confirmLimpiar) return;
     try {
-      const cicloId = cicloFilter || cicloActivo?.id;
+      const cicloId = cicloSeleccionadoId;
       const aplRes  = await aplicacionesService.list({ ciclo_id: cicloId });
       const apls    = aplRes.data.data.filter(a => a.trabajador === confirmLimpiar.trabajador_id);
       await Promise.all(apls.map(a => aplicacionesService.limpiarRespuestas(a.id)));
@@ -127,11 +157,11 @@ export default function Cuestionarios() {
       {/* Links de Guías */}
       <div className={`${styles.linksSection} nom-card`}>
         <div className={styles.linksSectionHeader}>
-          <div>
+          <div className={styles.linksHeaderText}>
             <h2 className={styles.linksSectionTitle}>Links de Guías</h2>
             <p className={styles.linksSectionDesc}>Comparte el link con los trabajadores de cada guía.</p>
           </div>
-          <button className="nom-btn nom-btn-primary" onClick={handleGenerarLinks} disabled={generando || !cicloActivo}>
+          <button className={styles.linksPrimaryBtn} onClick={handleGenerarLinks} disabled={generando || !cicloActivo}>
             {generando ? <Loader2 size={15} className="nom-spin" /> : <RefreshCw size={15} strokeWidth={2} />}
             {guiaLinks.length > 0 ? 'Regenerar links' : 'Generar links'}
           </button>
@@ -146,20 +176,35 @@ export default function Cuestionarios() {
           <div className={styles.linksGrid}>
             {['V', 'III', 'I'].map(clave => {
               const link = guiaLinks.find(l => l.cuestionario_clave === clave);
-              if (!link) return null;
               const info    = GUIA_INFO[clave];
-              const url     = `${window.location.origin}/guia/${link.token}`;
-              const isCopied = copied === link.token;
+              const url     = link ? `${window.location.origin}/guia/${link.token}` : 'Link no generado';
+              const isCopied = link && copied === link.token;
+              const guideProgress = guiaStats[clave];
               return (
-                <div key={clave} className={styles.linkCard}>
-                  <div className={styles.linkCardBadge} style={{ background: info.color }}>{info.label}</div>
+                <div key={clave} className={`${styles.linkCard} ${!link ? styles.linkCardMissing : ''}`}>
+                  <div className={styles.linkCardTop}>
+                    <div className={styles.linkGuideMark} style={{ '--guide-color': info.color }}>
+                      <span>{info.orden}</span>
+                    </div>
+                    <div className={styles.linkCardTitleWrap}>
+                      <div className={styles.linkCardTitle}>{info.label}</div>
+                      <div className={styles.linkCardMeta}>
+                        {guideProgress.completados} de {guideProgress.total} completados
+                      </div>
+                    </div>
+                    <span className={`${styles.linkState} ${link ? styles.linkStateReady : styles.linkStateMissing}`}>
+                      {link ? 'Activo' : 'Pendiente'}
+                    </span>
+                  </div>
                   <div className={styles.linkUrlRow}>
                     <span className={styles.linkUrl}>{url}</span>
                     <button
                       className={`${styles.copyBtn} ${isCopied ? styles.copyBtnDone : ''}`}
-                      onClick={() => handleCopyGuiaLink(link.token)}
+                      onClick={() => link && handleCopyGuiaLink(link.token)}
+                      disabled={!link}
+                      title={link ? 'Copiar link' : 'Link pendiente'}
                     >
-                      {isCopied ? <CheckCircle2 size={15} /> : <Link2 size={15} />}
+                      {isCopied ? <CheckCircle2 size={15} /> : <Copy size={15} />}
                       {isCopied ? 'Copiado' : 'Copiar'}
                     </button>
                   </div>
@@ -206,6 +251,12 @@ export default function Cuestionarios() {
               {ciclos.map(c => <option key={c.id} value={c.id}>Ciclo {c.anio}</option>)}
             </select>
           </div>
+          {cicloSeleccionadoId && (
+            <button className="nom-btn nom-btn-ghost" onClick={handleExportar} disabled={exportando}>
+              {exportando ? <Loader2 size={15} className="nom-spin" /> : <Download size={15} strokeWidth={2} />}
+              Exportar Excel
+            </button>
+          )}
         </div>
       )}
 
@@ -235,7 +286,11 @@ export default function Cuestionarios() {
                 <tr key={r.trabajador_id}>
                   <td>
                     <div className={styles.nameCell}>{r.trabajador_nombre}</div>
-                    {r.trabajador_puesto && <div className={styles.muteCell}>{r.trabajador_puesto}</div>}
+                    {(r.trabajador_area || r.trabajador_puesto) && (
+                      <div className={styles.workerMeta}>
+                        {[r.trabajador_area, r.trabajador_puesto].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
                   </td>
                   <td className={styles.muteCell}>{r.num_empleado || '—'}</td>
                   <td><EstadoChip estado={r.guia_V} /></td>

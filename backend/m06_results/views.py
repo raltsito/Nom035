@@ -90,9 +90,13 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 errors={'detalle': ['No hay aplicaciones completadas en este ciclo.']},
                 status_code=status.HTTP_400_BAD_REQUEST)
 
-        calculadas = actualizadas = 0
+        calculadas = actualizadas = omitidas = 0
         for aplicacion in aplicaciones:
             datos = calcular_resultado(aplicacion)
+            if datos is None:
+                ResultadoAplicacion.objects.filter(aplicacion=aplicacion).delete()
+                omitidas += 1
+                continue
 
             resultado, created = ResultadoAplicacion.objects.update_or_create(
                 aplicacion=aplicacion,
@@ -125,6 +129,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
             'ciclo_anio':  ciclo.anio,
             'calculadas':  calculadas,
             'actualizadas':actualizadas,
+            'omitidas':    omitidas,
             'total':       calculadas + actualizadas,
         }, status_code=status.HTTP_200_OK)
 
@@ -141,7 +146,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
         qs = self.get_queryset().filter(aplicacion__ciclo_id=ciclo_id)
 
         total = qs.count()
-        dist  = {'bajo': 0, 'medio': 0, 'alto': 0, 'muy_alto': 0}
+        dist  = {'nulo': 0, 'bajo': 0, 'medio': 0, 'alto': 0, 'muy_alto': 0}
         for r in qs:
             dist[r.categoria] = dist.get(r.categoria, 0) + 1
 

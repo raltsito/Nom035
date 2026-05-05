@@ -12,6 +12,13 @@ const OPCIONES = [
   { valor: 4, label: 'Siempre' },
 ];
 
+const OPCIONES_SI_NO = [
+  { valor: 1, label: 'Sí' },
+  { valor: 0, label: 'No' },
+];
+
+const hasAnswer = (value) => value !== undefined && value !== '';
+
 export default function Responder() {
   const { token } = useParams();
   const [data, setData]           = useState(null);
@@ -44,18 +51,41 @@ export default function Responder() {
   }, [token]);
 
   const dominios       = data?.cuestionario?.dominios || [];
-  const totalPreguntas = dominios.flatMap(d => d.preguntas).length;
-  const answeredCount  = Object.keys(answers).length;
+  const isPreguntaVisible = (pregunta, answerMap = answers) => {
+    const ids = [
+      pregunta.condicion_pregunta,
+      ...(pregunta.condicion_preguntas || []),
+    ].filter(Boolean);
+    if (ids.length === 0) return true;
+    const checks = ids.map(id => answerMap[String(id)] === pregunta.condicion_valor);
+    return pregunta.condicion_operador === 'any' ? checks.some(Boolean) : checks.every(Boolean);
+  };
+  const getVisiblePreguntas = (dom, answerMap = answers) =>
+    dom.preguntas.filter(p => isPreguntaVisible(p, answerMap));
+
+  const totalPreguntas = dominios.flatMap(d => getVisiblePreguntas(d)).length;
+  const answeredCount  = dominios
+    .flatMap(d => getVisiblePreguntas(d))
+    .filter(p => hasAnswer(answers[String(p.id)]))
+    .length;
   const currentDominio = step >= 0 && step < dominios.length ? dominios[step] : null;
 
   const isDominioComplete = (dom) =>
-    dom.preguntas.every(p => answers[String(p.id)] !== undefined);
+    getVisiblePreguntas(dom).every(p => hasAnswer(answers[String(p.id)]));
 
   const canGoNext = currentDominio ? isDominioComplete(currentDominio) : true;
   const pct = totalPreguntas > 0 ? Math.round((answeredCount / totalPreguntas) * 100) : 0;
 
   const handleAnswer = (preguntaId, valor) => {
-    setAnswers(prev => ({ ...prev, [String(preguntaId)]: valor }));
+    setAnswers(prev => {
+      const next = { ...prev, [String(preguntaId)]: valor };
+      dominios.flatMap(d => d.preguntas).forEach(p => {
+        if (!isPreguntaVisible(p, next)) {
+          delete next[String(p.id)];
+        }
+      });
+      return next;
+    });
   };
 
   const handleNext = async () => {
@@ -65,10 +95,12 @@ export default function Responder() {
     if (currentDominio) {
       setSaving(true);
       try {
-        const respuestas = currentDominio.preguntas.map(p => ({
-          pregunta_id: p.id,
-          valor: answers[String(p.id)],
-        }));
+        const respuestas = getVisiblePreguntas(currentDominio).map(p => {
+          const value = answers[String(p.id)];
+          return typeof value === 'number'
+            ? { pregunta_id: p.id, valor: value }
+            : { pregunta_id: p.id, valor_texto: value };
+        });
         const res = await publicService.responder(token, { respuestas });
         if (res.data.data?.estado === 'completado') {
           setCompleted(true);
@@ -204,23 +236,28 @@ export default function Responder() {
             </div>
             <h2 className={styles.domainTitle}>{currentDominio.nombre}</h2>
             <p className={styles.instructions}>
-              Selecciona la frecuencia con la que se presentan las siguientes situaciones en tu trabajo:
+              {getVisiblePreguntas(currentDominio).some(p => p.tipo_respuesta === 'frecuencia')
+                ? 'Selecciona la frecuencia con la que se presentan las siguientes situaciones en tu trabajo:'
+                : 'Responde la informacion solicitada para continuar:'}
             </p>
 
             {/* Scale legend */}
-            <div className={styles.legend}>
-              {OPCIONES.map(o => (
-                <span key={o.valor} className={styles.legendItem}>
-                  {o.label}
-                </span>
-              ))}
-            </div>
+            {getVisiblePreguntas(currentDominio).some(p => p.tipo_respuesta === 'frecuencia') && (
+              <div className={styles.legend}>
+                {OPCIONES.map(o => (
+                  <span key={o.valor} className={styles.legendItem}>
+                    {o.label}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Questions list */}
             <div className={styles.questions}>
-              {currentDominio.preguntas.map((pregunta, idx) => {
+              {getVisiblePreguntas(currentDominio).map((pregunta, idx) => {
                 const val = answers[String(pregunta.id)];
-                const answered = val !== undefined;
+                const answered = hasAnswer(val);
+                const opciones = pregunta.tipo_respuesta === 'si_no' ? OPCIONES_SI_NO : OPCIONES;
                 return (
                   <div
                     key={pregunta.id}
@@ -229,21 +266,40 @@ export default function Responder() {
                     <span className={styles.qNum}>{idx + 1}</span>
                     <div className={styles.qBody}>
                       <p className={styles.qText}>{pregunta.texto}</p>
-                      <div className={styles.options}>
-                        {OPCIONES.map(opcion => {
-                          const sel = val === opcion.valor;
-                          return (
-                            <button
-                              key={opcion.valor}
-                              className={`${styles.optBtn} ${sel ? styles.optSelected : ''}`}
-                              onClick={() => handleAnswer(pregunta.id, opcion.valor)}
-                            >
-                              <span className={styles.optCircle} />
-                              <span className={styles.optLabel}>{opcion.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {pregunta.tipo_respuesta === 'texto' ? (
+                        <input
+                          className={styles.textAnswer}
+                          value={val || ''}
+                          onChange={e => handleAnswer(pregunta.id, e.target.value)}
+                        />
+                      ) : pregunta.tipo_respuesta === 'opcion' ? (
+                        <select
+                          className={styles.selectAnswer}
+                          value={val || ''}
+                          onChange={e => handleAnswer(pregunta.id, e.target.value)}
+                        >
+                          <option value="">Selecciona una opción</option>
+                          {(pregunta.opciones || []).map(opcion => (
+                            <option key={opcion} value={opcion}>{opcion}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className={styles.options}>
+                          {opciones.map(opcion => {
+                            const sel = val === opcion.valor;
+                            return (
+                              <button
+                                key={opcion.valor}
+                                className={`${styles.optBtn} ${sel ? styles.optSelected : ''}`}
+                                onClick={() => handleAnswer(pregunta.id, opcion.valor)}
+                              >
+                                <span className={styles.optCircle} />
+                                <span className={styles.optLabel}>{opcion.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

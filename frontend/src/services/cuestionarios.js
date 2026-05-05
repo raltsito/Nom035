@@ -12,6 +12,8 @@ export const aplicacionesService = {
   delete:           (id)          => api.delete(`/aplicaciones/${id}/`),
   limpiarRespuestas:(id)          => api.delete(`/aplicaciones/${id}/limpiar-respuestas/`),
   progreso:         (params = {}) => api.get('/aplicaciones/progreso/', { params }),
+  exportar:         (params = {}) => api.get('/aplicaciones/exportar/', { params, responseType: 'blob' }),
+  exportarExcel:    (params = {}) => api.get('/aplicaciones/exportar-excel/', { params, responseType: 'blob' }),
 };
 
 export const guiaLinksService = {

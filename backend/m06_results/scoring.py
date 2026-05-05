@@ -1,91 +1,132 @@
 """
 Motor de calificacion NOM-035-STPS-2018.
-Umbrales oficiales de riesgo por guia y dominio.
-Formato: [(puntaje_max_inclusive, categoria), ...]  — primer match gana.
+
+La Guia V del PDF actualizado contiene datos del trabajador y no genera nivel
+de riesgo. La Guia I identifica necesidad de evaluacion clinica por
+acontecimientos traumaticos severos. La Guia III usa los rangos oficiales de
+la Guia de Referencia III para cuestionario de 72 reactivos.
 """
 
-# ---------------------------------------------------------------------------
-# Tablas de umbrales por Guia y Dominio
-# ---------------------------------------------------------------------------
 
-THRESHOLDS: dict[str, dict[str, list]] = {
-
-    # ---- Guia I (<=15 trabajadores, 23 preguntas) ----
-    'I': {
-        'global': [(8, 'bajo'), (14, 'medio'), (24, 'alto'), (9999, 'muy_alto')],
-        'D1':     [(2, 'bajo'), (4,  'medio'), (7,  'alto'), (9999, 'muy_alto')],
-        'D2':     [(1, 'bajo'), (3,  'medio'), (6,  'alto'), (9999, 'muy_alto')],
-        'D3':     [(1, 'bajo'), (3,  'medio'), (6,  'alto'), (9999, 'muy_alto')],
-        'D4':     [(2, 'bajo'), (5,  'medio'), (8,  'alto'), (9999, 'muy_alto')],
-        'D5':     [(0, 'bajo'), (2,  'medio'), (5,  'alto'), (9999, 'muy_alto')],
-    },
-
-    # ---- Guia III (16-50 trabajadores, 40 preguntas) ----
-    'III': {
-        'global': [(20, 'bajo'), (45, 'medio'), (70, 'alto'), (9999, 'muy_alto')],
-        'D1':     [(2,  'bajo'), (5,  'medio'), (9,  'alto'), (9999, 'muy_alto')],
-        'D2':     [(9,  'bajo'), (14, 'medio'), (19, 'alto'), (9999, 'muy_alto')],
-        'D3':     [(2,  'bajo'), (4,  'medio'), (7,  'alto'), (9999, 'muy_alto')],
-        'D4':     [(9,  'bajo'), (14, 'medio'), (24, 'alto'), (9999, 'muy_alto')],
-        'D5':     [(9,  'bajo'), (14, 'medio'), (24, 'alto'), (9999, 'muy_alto')],
-    },
-
-    # ---- Guia V (>50 trabajadores, 55 preguntas) ----
-    'V': {
-        'global': [(20, 'bajo'), (45, 'medio'), (70, 'alto'), (9999, 'muy_alto')],
-        'D1':     [(2,  'bajo'), (5,  'medio'), (9,  'alto'), (9999, 'muy_alto')],
-        'D2':     [(9,  'bajo'), (14, 'medio'), (19, 'alto'), (9999, 'muy_alto')],
-        'D3':     [(2,  'bajo'), (4,  'medio'), (7,  'alto'), (9999, 'muy_alto')],
-        'D4':     [(2,  'bajo'), (5,  'medio'), (9,  'alto'), (9999, 'muy_alto')],
-        'D5':     [(2,  'bajo'), (4,  'medio'), (7,  'alto'), (9999, 'muy_alto')],
-        'D6':     [(9,  'bajo'), (19, 'medio'), (34, 'alto'), (9999, 'muy_alto')],
-        'D7':     [(9,  'bajo'), (14, 'medio'), (24, 'alto'), (9999, 'muy_alto')],
-    },
-}
-
-
-def get_categoria(guia_clave: str, key: str, puntaje: int) -> str:
-    tbl = THRESHOLDS.get(guia_clave, {}).get(key, [(9999, 'bajo')])
-    for max_val, cat in tbl:
-        if puntaje <= max_val:
-            return cat
+def _categoria_por_rangos(puntaje, limites):
+    for max_exclusive, categoria in limites:
+        if puntaje < max_exclusive:
+            return categoria
     return 'muy_alto'
 
 
-def calcular_resultado(aplicacion) -> dict:
-    """
-    Calcula puntajes y categorias para una Aplicacion completada.
-    No persiste nada — devuelve un dict listo para crear/actualizar modelos.
-    """
-    respuestas = {r.pregunta_id: r for r in aplicacion.respuestas.all()}
-    guia = aplicacion.cuestionario.clave
+GUIA_III_GLOBAL = [
+    (50, 'nulo'),
+    (75, 'bajo'),
+    (99, 'medio'),
+    (140, 'alto'),
+]
 
+GUIA_III_DOMINIOS = {
+    'D1': [(5, 'nulo'), (9, 'bajo'), (11, 'medio'), (14, 'alto')],
+    'D2': [(15, 'nulo'), (21, 'bajo'), (27, 'medio'), (37, 'alto')],
+    'D3': [(11, 'nulo'), (16, 'bajo'), (21, 'medio'), (25, 'alto')],
+    'D4': [(1, 'nulo'), (2, 'bajo'), (4, 'medio'), (6, 'alto')],
+    'D5': [(4, 'nulo'), (6, 'bajo'), (8, 'medio'), (10, 'alto')],
+    'D6': [(9, 'nulo'), (12, 'bajo'), (16, 'medio'), (20, 'alto')],
+    'D7': [(10, 'nulo'), (13, 'bajo'), (17, 'medio'), (21, 'alto')],
+    'D8': [(7, 'nulo'), (10, 'bajo'), (13, 'medio'), (16, 'alto')],
+    'D9': [(6, 'nulo'), (10, 'bajo'), (14, 'medio'), (18, 'alto')],
+    'D10': [(4, 'nulo'), (6, 'bajo'), (8, 'medio'), (10, 'alto')],
+}
+
+
+def _valor_puntaje(respuesta, pregunta):
+    if not respuesta or respuesta.valor is None:
+        return 0
+    return (4 - respuesta.valor) if pregunta.inversa else respuesta.valor
+
+
+def _calcular_guia_i(aplicacion, respuestas):
+    dominios_result = []
+    puntaje_total = 0
+    puntaje_max_total = 0
+    hay_acontecimiento = False
+    hay_sintoma = False
+
+    for dominio in aplicacion.cuestionario.dominios.prefetch_related('preguntas').all():
+        puntaje = 0
+        preguntas = list(dominio.preguntas.all())
+        for pregunta in preguntas:
+            respuesta = respuestas.get(pregunta.id)
+            if respuesta and respuesta.valor == 1:
+                puntaje += 1
+
+        if dominio.clave == 'D1':
+            hay_acontecimiento = puntaje > 0
+        else:
+            hay_sintoma = hay_sintoma or puntaje > 0
+
+        puntaje_total += puntaje
+        puntaje_max_total += len(preguntas)
+        dominios_result.append({
+            'dominio_id': dominio.id,
+            'dominio_clave': dominio.clave,
+            'dominio_nombre': dominio.nombre,
+            'puntaje': puntaje,
+            'puntaje_max': len(preguntas),
+            'categoria': 'alto' if dominio.clave != 'D1' and puntaje > 0 else 'bajo',
+        })
+
+    requiere_atencion = hay_acontecimiento and hay_sintoma
+    return {
+        'puntaje_total': puntaje_total,
+        'puntaje_max': puntaje_max_total,
+        'categoria': 'alto' if requiere_atencion else 'bajo',
+        'dominios': dominios_result,
+    }
+
+
+def _calcular_guia_iii(aplicacion, respuestas):
     dominios_result = []
     puntaje_total = 0
     puntaje_max_total = 0
 
     for dominio in aplicacion.cuestionario.dominios.prefetch_related('preguntas').all():
-        puntaje = puntaje_max = 0
+        puntaje = 0
+        puntaje_max = 0
         for pregunta in dominio.preguntas.all():
+            if pregunta.tipo_respuesta != 'frecuencia':
+                continue
             puntaje_max += 4
-            if pregunta.id in respuestas:
-                r = respuestas[pregunta.id]
-                puntaje += (4 - r.valor) if pregunta.inversa else r.valor
+            puntaje += _valor_puntaje(respuestas.get(pregunta.id), pregunta)
 
         dominios_result.append({
-            'dominio_id':     dominio.id,
-            'dominio_clave':  dominio.clave,
+            'dominio_id': dominio.id,
+            'dominio_clave': dominio.clave,
             'dominio_nombre': dominio.nombre,
-            'puntaje':        puntaje,
-            'puntaje_max':    puntaje_max,
-            'categoria':      get_categoria(guia, dominio.clave, puntaje),
+            'puntaje': puntaje,
+            'puntaje_max': puntaje_max,
+            'categoria': _categoria_por_rangos(
+                puntaje,
+                GUIA_III_DOMINIOS.get(dominio.clave, [(9999, 'nulo')]),
+            ),
         })
-        puntaje_total     += puntaje
+        puntaje_total += puntaje
         puntaje_max_total += puntaje_max
 
     return {
         'puntaje_total': puntaje_total,
-        'puntaje_max':   puntaje_max_total,
-        'categoria':     get_categoria(guia, 'global', puntaje_total),
-        'dominios':      dominios_result,
+        'puntaje_max': puntaje_max_total,
+        'categoria': _categoria_por_rangos(puntaje_total, GUIA_III_GLOBAL),
+        'dominios': dominios_result,
     }
+
+
+def calcular_resultado(aplicacion) -> dict | None:
+    respuestas = {r.pregunta_id: r for r in aplicacion.respuestas.all()}
+    guia = aplicacion.cuestionario.clave
+
+    if guia == 'V':
+        return None
+    if guia == 'I':
+        return _calcular_guia_i(aplicacion, respuestas)
+    if guia == 'III':
+        return _calcular_guia_iii(aplicacion, respuestas)
+
+    return None

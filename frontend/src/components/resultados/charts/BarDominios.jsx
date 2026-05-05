@@ -6,9 +6,10 @@ import ChartCard, { RISK_COLORS, ChartTooltip, EmptyChart } from '../ChartCard';
 import styles from '../ResultadosDashboard.module.css';
 
 function categoriaFromPct(pct) {
-  if (pct <= 25) return 'bajo';
-  if (pct <= 50) return 'medio';
-  if (pct <= 75) return 'alto';
+  if (pct <= 20) return 'nulo';
+  if (pct <= 40) return 'bajo';
+  if (pct <= 60) return 'medio';
+  if (pct <= 80) return 'alto';
   return 'muy_alto';
 }
 

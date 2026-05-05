@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { resultadosService } from '../../services/resultados';
 
-const RISK_WEIGHT = { bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
+const RISK_WEIGHT = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
 
 const HIST_FACTOR = { D1: 1.22, D2: 1.18, D3: 1.28, D4: 1.15, D5: 1.20, D6: 1.25, D7: 1.17 };
 
@@ -16,6 +16,7 @@ function weightedRiskScore(dist) {
 }
 
 function scoreToCategoria(score) {
+  if (score <= 0.5) return 'nulo';
   if (score <= 1.5) return 'bajo';
   if (score <= 2.5) return 'medio';
   if (score <= 3.5) return 'alto';
@@ -52,7 +53,7 @@ function procesarDatos(resultados, resumen, detalles) {
           pt: 0,
           pm: 0,
           count: 0,
-          cats: { bajo: 0, medio: 0, alto: 0, muy_alto: 0 },
+          cats: { nulo: 0, bajo: 0, medio: 0, alto: 0, muy_alto: 0 },
         };
       }
       dominioMap[k].pt += dom.puntaje;
@@ -107,7 +108,7 @@ function procesarDatos(resultados, resumen, detalles) {
   const guiaMap = {};
   resultados.forEach(r => {
     const g = `Guia ${r.cuestionario_clave}`;
-    if (!guiaMap[g]) guiaMap[g] = { guia: g, bajo: 0, medio: 0, alto: 0, muy_alto: 0 };
+    if (!guiaMap[g]) guiaMap[g] = { guia: g, nulo: 0, bajo: 0, medio: 0, alto: 0, muy_alto: 0 };
     guiaMap[g][r.categoria]++;
   });
   const distData = Object.values(guiaMap);
@@ -117,7 +118,7 @@ function procesarDatos(resultados, resumen, detalles) {
   resultados.forEach(r => {
     const area = r.trabajador_area || 'Sin area';
     if (!areaMap[area]) {
-      areaMap[area] = { area, bajo: 0, medio: 0, alto: 0, muy_alto: 0 };
+      areaMap[area] = { area, nulo: 0, bajo: 0, medio: 0, alto: 0, muy_alto: 0 };
     }
     areaMap[area][r.categoria]++;
   });

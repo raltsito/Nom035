@@ -5,7 +5,11 @@ from .models import Cuestionario, Dominio, Pregunta, Aplicacion, RespuestaPregun
 class PreguntaSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Pregunta
-        fields = ['id', 'orden', 'texto', 'inversa']
+        fields = [
+            'id', 'orden', 'texto', 'inversa',
+            'tipo_respuesta', 'opciones', 'condicion_pregunta', 'condicion_preguntas',
+            'condicion_operador', 'condicion_valor',
+        ]
 
 
 class DominioSerializer(serializers.ModelSerializer):
@@ -74,17 +78,12 @@ class RespuestaPreguntaSerializer(serializers.ModelSerializer):
 
 class SubmitRespuestasSerializer(serializers.Serializer):
     """Recibe todas las respuestas del cuestionario en un solo POST."""
-    respuestas = serializers.ListField(
-        child=serializers.DictField(child=serializers.IntegerField()),
-        min_length=1,
-    )
+    respuestas = serializers.ListField(child=serializers.DictField(), min_length=1)
 
     def validate_respuestas(self, value):
         for item in value:
-            if 'pregunta_id' not in item or 'valor' not in item:
-                raise serializers.ValidationError('Cada respuesta debe tener pregunta_id y valor.')
-            if item['valor'] not in range(5):
-                raise serializers.ValidationError('El valor debe estar entre 0 y 4.')
+            if 'pregunta_id' not in item or ('valor' not in item and 'valor_texto' not in item):
+                raise serializers.ValidationError('Cada respuesta debe tener pregunta_id y valor o valor_texto.')
         return value
 
 
@@ -125,4 +124,7 @@ class AplicacionPublicaSerializer(serializers.ModelSerializer):
         ]
 
     def get_respuestas_guardadas(self, obj):
-        return {str(r.pregunta_id): r.valor for r in obj.respuestas.all()}
+        return {
+            str(r.pregunta_id): r.valor_texto if r.valor is None else r.valor
+            for r in obj.respuestas.all()
+        }

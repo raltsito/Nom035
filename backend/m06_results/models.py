@@ -2,7 +2,8 @@ from django.db import models
 from m05_questionnaires.models import Aplicacion, Dominio
 
 CATEGORIA_CHOICES = [
-    ('bajo',     'Nulo / Bajo'),
+    ('nulo',     'Nulo / despreciable'),
+    ('bajo',     'Bajo'),
     ('medio',    'Medio'),
     ('alto',     'Alto'),
     ('muy_alto', 'Muy alto'),

@@ -10,7 +10,8 @@ import ResultadosDashboard from '../components/resultados/ResultadosDashboard';
 import styles from './Resultados.module.css';
 
 const CAT = {
-  bajo:     { label: 'Nulo / Bajo', color: 'var(--nom-riesgo-nulo)',     bg: 'rgba(16,185,129,0.10)' },
+  nulo:     { label: 'Nulo',        color: 'var(--nom-riesgo-nulo)',     bg: 'rgba(16,185,129,0.10)' },
+  bajo:     { label: 'Bajo',        color: 'var(--nom-riesgo-bajo)',     bg: 'rgba(132,204,22,0.10)' },
   medio:    { label: 'Medio',       color: 'var(--nom-riesgo-medio)',    bg: 'rgba(245,158,11,0.10)' },
   alto:     { label: 'Alto',        color: 'var(--nom-riesgo-alto)',     bg: 'rgba(239,68,68,0.10)'  },
   muy_alto: { label: 'Muy alto',    color: 'var(--nom-riesgo-muy-alto)', bg: 'rgba(124,58,237,0.10)' },

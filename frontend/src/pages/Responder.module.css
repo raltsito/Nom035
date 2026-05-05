@@ -380,6 +380,27 @@
 }
 .optLabel { line-height: 1; }
 
+.textAnswer,
+.selectAnswer {
+  width: 100%;
+  max-width: 520px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--r-border);
+  background: #fff;
+  color: var(--r-text);
+  font-family: var(--r-font-b);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+
+.textAnswer:focus,
+.selectAnswer:focus {
+  border-color: var(--r-accent);
+  box-shadow: 0 0 0 3px var(--r-accent-sub);
+}
+
 /* ---- Nav row ---- */
 .saveError {
   display: flex;

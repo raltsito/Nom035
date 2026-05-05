@@ -1,8 +1,14 @@
+import csv
+import zipfile
+from io import BytesIO
+from xml.sax.saxutils import escape
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
 from rest_framework.decorators import permission_classes as deco_perms
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 
@@ -19,6 +25,25 @@ from .serializers import (
 
 def _wrap(data, meta=None, errors=None, status_code=status.HTTP_200_OK):
     return Response({'data': data, 'meta': meta or {}, 'errors': errors}, status=status_code)
+
+
+def _pregunta_visible(pregunta, respuestas):
+    condicion_ids = []
+    if pregunta.condicion_pregunta_id:
+        condicion_ids.append(pregunta.condicion_pregunta_id)
+    if hasattr(pregunta, '_prefetched_objects_cache'):
+        condicion_ids.extend(p.id for p in pregunta.condicion_preguntas.all())
+    else:
+        condicion_ids.extend(pregunta.condicion_preguntas.values_list('id', flat=True))
+
+    if not condicion_ids:
+        return True
+
+    esperado = pregunta.condicion_valor
+    checks = [respuestas.get(str(pid)) == esperado for pid in condicion_ids]
+    if pregunta.condicion_operador == 'any':
+        return any(checks)
+    return all(checks)
 
 
 class CuestionarioViewSet(viewsets.ReadOnlyModelViewSet):
@@ -70,6 +95,42 @@ class AplicacionViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         self.get_object().delete()
         return _wrap(None)
+
+    def _get_progreso_export_rows(self, ciclo_id):
+        tenant = self.request.user.tenant
+        ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
+
+        aplicaciones = Aplicacion.objects.filter(
+            tenant=tenant,
+            ciclo=ciclo,
+            cuestionario__clave__in=['V', 'III', 'I'],
+        ).select_related('trabajador', 'cuestionario')
+
+        idx = {}
+        for apl in aplicaciones:
+            tid = apl.trabajador_id
+            if tid not in idx:
+                idx[tid] = {}
+            idx[tid][apl.cuestionario.clave] = apl.estado
+
+        trabajadores = Trabajador.objects.filter(tenant=tenant, activo=True).order_by(
+            'apellido_paterno', 'apellido_materno', 'nombre'
+        )
+
+        rows = []
+        for trabajador in trabajadores:
+            estados = idx.get(trabajador.id, {})
+            rows.append({
+                'num_empleado': trabajador.num_empleado,
+                'nombre': trabajador.nombre_completo,
+                'area': trabajador.area,
+                'puesto': trabajador.puesto,
+                'guia_V': estados.get('V', 'sin_iniciar'),
+                'guia_III': estados.get('III', 'sin_iniciar'),
+                'guia_I': estados.get('I', 'sin_iniciar'),
+            })
+
+        return ciclo, rows
 
 
     @action(detail=True, methods=['delete'], url_path='limpiar-respuestas')
@@ -137,6 +198,212 @@ class AplicacionViewSet(viewsets.ModelViewSet):
             'total': len(result),
             'completados_total': completados,
         })
+
+    @action(detail=False, methods=['get'], url_path='exportar')
+    def exportar(self, request):
+        ciclo_id = request.query_params.get('ciclo_id')
+        if not ciclo_id:
+            return _wrap(None, errors={'ciclo_id': ['Este campo es requerido.']},
+                         status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            ciclo, rows = self._get_progreso_export_rows(ciclo_id)
+        except CicloNOM.DoesNotExist:
+            return _wrap(None, errors={'ciclo_id': ['Ciclo no encontrado.']},
+                         status_code=status.HTTP_404_NOT_FOUND)
+
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="aplicaciones_ciclo_{ciclo.id}.csv"'
+        response.write('\ufeff')
+
+        writer = csv.writer(response)
+        writer.writerow(['num_empleado', 'nombre', 'area', 'puesto', 'guia_V', 'guia_III', 'guia_I'])
+
+        for row in rows:
+            writer.writerow([
+                row['num_empleado'],
+                row['nombre'],
+                row['area'],
+                row['puesto'],
+                row['guia_V'],
+                row['guia_III'],
+                row['guia_I'],
+            ])
+
+        return response
+
+    @action(detail=False, methods=['get'], url_path='exportar-excel')
+    def exportar_excel(self, request):
+        ciclo_id = request.query_params.get('ciclo_id')
+        if not ciclo_id:
+            return _wrap(None, errors={'ciclo_id': ['Este campo es requerido.']},
+                         status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            ciclo, rows = self._get_progreso_export_rows(ciclo_id)
+        except CicloNOM.DoesNotExist:
+            return _wrap(None, errors={'ciclo_id': ['Ciclo no encontrado.']},
+                         status_code=status.HTTP_404_NOT_FOUND)
+
+        estado_labels = {
+            'completado': 'Completado',
+            'en_progreso': 'En progreso',
+            'pendiente': 'Pendiente',
+            'sin_iniciar': 'Sin iniciar',
+        }
+        columns = ['No. empleado', 'Nombre', 'Área', 'Puesto', 'Guía V', 'Guía III', 'Guía I']
+        col_letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+        widths = [16, 34, 22, 28, 16, 16, 16]
+
+        def cell(ref, value, style=0):
+            style_attr = f' s="{style}"' if style else ''
+            return (
+                f'<c r="{ref}" t="inlineStr"{style_attr}>'
+                f'<is><t>{escape(str(value or ""))}</t></is>'
+                '</c>'
+            )
+
+        sheet_rows = [
+            '<row r="1" ht="24" customHeight="1">'
+            f'{cell("A1", "Reporte de cuestionarios NOM-035", 5)}'
+            '</row>',
+            '<row r="2">'
+            f'{cell("A2", f"Ciclo {ciclo}", 6)}'
+            '</row>',
+            '<row r="3">' + ''.join(
+                cell(f'{letter}3', header, 1)
+                for letter, header in zip(col_letters, columns)
+            ) + '</row>',
+        ]
+
+        for index, row in enumerate(rows, start=4):
+            values = [
+                row['num_empleado'],
+                row['nombre'],
+                row['area'],
+                row['puesto'],
+                estado_labels[row['guia_V']],
+                estado_labels[row['guia_III']],
+                estado_labels[row['guia_I']],
+            ]
+            styles = [
+                0, 0, 0, 0,
+                {'completado': 2, 'en_progreso': 3, 'pendiente': 4, 'sin_iniciar': 7}[row['guia_V']],
+                {'completado': 2, 'en_progreso': 3, 'pendiente': 4, 'sin_iniciar': 7}[row['guia_III']],
+                {'completado': 2, 'en_progreso': 3, 'pendiente': 4, 'sin_iniciar': 7}[row['guia_I']],
+            ]
+            sheet_rows.append(
+                f'<row r="{index}">' + ''.join(
+                    cell(f'{letter}{index}', value, style)
+                    for letter, value, style in zip(col_letters, values, styles)
+                ) + '</row>'
+            )
+
+        last_row = max(len(rows) + 3, 3)
+        cols_xml = ''.join(
+            f'<col min="{idx}" max="{idx}" width="{width}" customWidth="1"/>'
+            for idx, width in enumerate(widths, start=1)
+        )
+        sheet_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <dimension ref="A1:G{last_row}"/>
+  <sheetViews>
+    <sheetView workbookViewId="0">
+      <pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/>
+      <selection pane="bottomLeft" activeCell="A4" sqref="A4"/>
+    </sheetView>
+  </sheetViews>
+  <sheetFormatPr defaultRowHeight="15"/>
+  <cols>{cols_xml}</cols>
+  <sheetData>{''.join(sheet_rows)}</sheetData>
+  <autoFilter ref="A3:G{last_row}"/>
+  <mergeCells count="2">
+    <mergeCell ref="A1:G1"/>
+    <mergeCell ref="A2:G2"/>
+  </mergeCells>
+</worksheet>'''
+
+        styles_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="4">
+    <font><sz val="11"/><color rgb="FF1F2937"/><name val="Arial"/></font>
+    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>
+    <font><b/><sz val="16"/><color rgb="FF1F2937"/><name val="Arial"/></font>
+    <font><sz val="11"/><color rgb="FF6B7280"/><name val="Arial"/></font>
+  </fonts>
+  <fills count="7">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF1F2937"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDCFCE7"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFEF3C7"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF3F4F6"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border>
+      <left style="thin"><color rgb="FFD1D5DB"/></left>
+      <right style="thin"><color rgb="FFD1D5DB"/></right>
+      <top style="thin"><color rgb="FFD1D5DB"/></top>
+      <bottom style="thin"><color rgb="FFD1D5DB"/></bottom>
+      <diagonal/>
+    </border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="8">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="0" fillId="6" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>'''
+
+        workbook_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Progreso" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>'''
+        workbook_rels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>'''
+        root_rels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>'''
+        content_types = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>'''
+
+        output = BytesIO()
+        with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr('[Content_Types].xml', content_types)
+            archive.writestr('_rels/.rels', root_rels)
+            archive.writestr('xl/workbook.xml', workbook_xml)
+            archive.writestr('xl/_rels/workbook.xml.rels', workbook_rels)
+            archive.writestr('xl/styles.xml', styles_xml)
+            archive.writestr('xl/worksheets/sheet1.xml', sheet_xml)
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="aplicaciones_ciclo_{ciclo.id}.xlsx"'
+        return response
 
 
 class GuiaLinkViewSet(viewsets.ModelViewSet):
@@ -326,21 +593,66 @@ def responder_aplicacion(request, token):
                         status=status.HTTP_400_BAD_REQUEST)
 
     respuestas_data = serializer.validated_data['respuestas']
-    total_preguntas = Pregunta.objects.filter(dominio__cuestionario=aplicacion.cuestionario).count()
+    preguntas = list(Pregunta.objects.filter(
+        dominio__cuestionario=aplicacion.cuestionario
+    ).select_related('condicion_pregunta').prefetch_related('condicion_preguntas'))
+    preguntas_by_id = {p.id: p for p in preguntas}
+    respuestas_actuales = {str(r.pregunta_id): r.valor for r in aplicacion.respuestas.all()}
+    respuestas_entrantes = {}
+    for item in respuestas_data:
+        if 'valor' in item:
+            respuestas_entrantes[str(item['pregunta_id'])] = item['valor']
+        elif 'valor_texto' in item:
+            respuestas_entrantes[str(item['pregunta_id'])] = item['valor_texto']
+    respuestas_visibilidad = {**respuestas_actuales, **respuestas_entrantes}
+    preguntas_visibles = [
+        p for p in preguntas
+        if _pregunta_visible(p, respuestas_visibilidad)
+    ]
+    preguntas_visibles_ids = {p.id for p in preguntas_visibles}
 
     for item in respuestas_data:
-        try:
-            pregunta = Pregunta.objects.get(
-                id=item['pregunta_id'], dominio__cuestionario=aplicacion.cuestionario)
-        except Pregunta.DoesNotExist:
+        pregunta = preguntas_by_id.get(item['pregunta_id'])
+        if not pregunta or pregunta.id not in preguntas_visibles_ids:
             continue
+        valor = item.get('valor')
+        valor_texto = str(item.get('valor_texto', '')).strip()
+        if pregunta.tipo_respuesta == 'si_no' and valor not in (0, 1):
+            return Response(
+                {'data': None, 'meta': {}, 'errors': {'valor': 'Las preguntas Si/No aceptan valores 0 o 1.'}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if pregunta.tipo_respuesta == 'frecuencia' and valor not in range(5):
+            return Response(
+                {'data': None, 'meta': {}, 'errors': {'valor': 'Las preguntas de frecuencia aceptan valores entre 0 y 4.'}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if pregunta.tipo_respuesta in ('texto', 'opcion') and not valor_texto:
+            return Response(
+                {'data': None, 'meta': {}, 'errors': {'valor_texto': 'Este campo es requerido.'}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if pregunta.tipo_respuesta == 'opcion' and valor_texto not in pregunta.opciones:
+            return Response(
+                {'data': None, 'meta': {}, 'errors': {'valor_texto': 'Opcion no valida.'}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         RespuestaPregunta.objects.update_or_create(
             aplicacion=aplicacion, pregunta=pregunta,
-            defaults={'valor': item['valor'], 'tenant': aplicacion.tenant},
+            defaults={
+                'valor': valor if pregunta.tipo_respuesta in ('frecuencia', 'si_no') else None,
+                'valor_texto': '' if pregunta.tipo_respuesta in ('frecuencia', 'si_no') else valor_texto,
+                'tenant': aplicacion.tenant,
+            },
         )
 
-    respondidas = aplicacion.respuestas.count()
-    if respondidas >= total_preguntas:
+    respuestas_guardadas = {str(r.pregunta_id): r.valor for r in aplicacion.respuestas.all()}
+    total_preguntas = len(preguntas_visibles)
+    respondidas = sum(
+        1 for p in preguntas_visibles
+        if str(p.id) in respuestas_guardadas
+    )
+    if total_preguntas and respondidas >= total_preguntas:
         aplicacion.marcar_completado()
     elif aplicacion.estado == 'pendiente':
         aplicacion.estado = 'en_progreso'

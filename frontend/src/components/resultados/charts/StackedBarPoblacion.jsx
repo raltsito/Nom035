@@ -5,6 +5,7 @@ import {
 import ChartCard, { RISK_COLORS, RISK_LABELS, ChartTooltip, EmptyChart } from '../ChartCard';
 
 const CATS = [
+  { key: 'nulo',     label: RISK_LABELS.nulo     },
   { key: 'bajo',     label: RISK_LABELS.bajo     },
   { key: 'medio',    label: RISK_LABELS.medio    },
   { key: 'alto',     label: RISK_LABELS.alto     },

@@ -3,10 +3,11 @@ import ChartCard, { RISK_COLORS, RISK_LABELS, RiskChip, EmptyChart } from '../Ch
 import styles from '../ResultadosDashboard.module.css';
 
 const SEGMENTS = [
-  { value: 25, cat: 'bajo' },
-  { value: 25, cat: 'medio' },
-  { value: 25, cat: 'alto' },
-  { value: 25, cat: 'muy_alto' },
+  { value: 20, cat: 'nulo' },
+  { value: 20, cat: 'bajo' },
+  { value: 20, cat: 'medio' },
+  { value: 20, cat: 'alto' },
+  { value: 20, cat: 'muy_alto' },
 ];
 
 function Needle({ cx, cy, pct, innerR }) {

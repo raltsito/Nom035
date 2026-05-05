@@ -23,6 +23,7 @@ export function EmptyChart({ height = 160 }) {
 }
 
 export const RISK_COLORS = {
+  nulo:     '#10B981',
   bajo:     '#84CC16',
   medio:    '#F59E0B',
   alto:     '#EF4444',
@@ -30,7 +31,8 @@ export const RISK_COLORS = {
 };
 
 export const RISK_LABELS = {
-  bajo:     'Nulo / Bajo',
+  nulo:     'Nulo',
+  bajo:     'Bajo',
   medio:    'Medio',
   alto:     'Alto',
   muy_alto: 'Muy Alto',

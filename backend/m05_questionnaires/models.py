@@ -51,10 +51,38 @@ class Dominio(models.Model):
 
 
 class Pregunta(models.Model):
+    TIPO_RESPUESTA_CHOICES = [
+        ('frecuencia', 'Frecuencia'),
+        ('si_no', 'Si/No'),
+        ('texto', 'Texto'),
+        ('opcion', 'Opcion'),
+    ]
+
     dominio = models.ForeignKey(Dominio, on_delete=models.CASCADE, related_name='preguntas')
     orden   = models.PositiveSmallIntegerField()
     texto   = models.TextField()
     inversa = models.BooleanField(default=False)
+    tipo_respuesta = models.CharField(max_length=20, choices=TIPO_RESPUESTA_CHOICES, default='frecuencia')
+    opciones = models.JSONField(default=list, blank=True)
+    condicion_pregunta = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='preguntas_condicionadas',
+    )
+    condicion_preguntas = models.ManyToManyField(
+        'self',
+        blank=True,
+        symmetrical=False,
+        related_name='preguntas_condicionadas_multiples',
+    )
+    condicion_operador = models.CharField(
+        max_length=10,
+        choices=[('all', 'Todas'), ('any', 'Cualquiera')],
+        default='all',
+    )
+    condicion_valor = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ['orden']
@@ -105,7 +133,8 @@ class RespuestaPregunta(TenantAwareModel):
 
     aplicacion = models.ForeignKey(Aplicacion, on_delete=models.CASCADE, related_name='respuestas')
     pregunta   = models.ForeignKey(Pregunta, on_delete=models.CASCADE)
-    valor      = models.PositiveSmallIntegerField(choices=VALOR_CHOICES)
+    valor      = models.PositiveSmallIntegerField(choices=VALOR_CHOICES, null=True, blank=True)
+    valor_texto = models.TextField(blank=True)
 
     class Meta:
         unique_together = ('aplicacion', 'pregunta')
