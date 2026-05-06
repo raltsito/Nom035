@@ -4,7 +4,7 @@ from .models import Trabajador, CicloNOM
 
 @admin.register(Trabajador)
 class TrabajadorAdmin(admin.ModelAdmin):
-    list_display  = ('nombre_completo', 'num_empleado', 'puesto', 'area', 'tipo_contratacion', 'activo', 'tenant')
+    list_display  = ('nombre_completo', 'num_empleado', 'email', 'puesto', 'area', 'tipo_contratacion', 'activo', 'tenant')
     list_filter   = ('activo', 'tipo_contratacion', 'tenant')
     search_fields = ('nombre', 'apellido_paterno', 'apellido_materno', 'num_empleado', 'email')
 

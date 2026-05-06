@@ -23,7 +23,9 @@ export const guiaLinksService = {
 };
 
 // Acceso público (sin JWT) para la pantalla de respuesta
-const publicApi = axios.create({ baseURL: '/api/v1' });
+const publicApi = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
+});
 
 export const publicService = {
   getGuiaLink:  (token)        => publicApi.get(`/publica/guia/${token}/`),

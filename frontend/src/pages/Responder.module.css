@@ -51,10 +51,11 @@
   gap: 12px;
 }
 .logo {
-  height: 30px;
-  width: auto;
+  height: 40px;
+  width: 40px;
   object-fit: contain;
   flex-shrink: 0;
+  border-radius: 50%;
 }
 .topbarInfo {
   flex: 1;
@@ -92,6 +93,47 @@
   font-weight: 700;
   color: var(--r-accent);
   flex-shrink: 0;
+}
+.topbarNotices {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 6px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--r-border);
+}
+.topbarNotice {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.73rem;
+  color: var(--r-text2);
+  line-height: 1.45;
+  flex: 1;
+  min-width: 180px;
+}
+.noticeNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--r-accent-sub);
+  color: var(--r-accent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.noticeDivider {
+  width: 1px;
+  height: 28px;
+  background: var(--r-border);
+  flex-shrink: 0;
+  align-self: center;
 }
 .progressOuter {
   height: 3px;
@@ -538,4 +580,6 @@
   .btnNext, .btnBack { width: 100%; justify-content: center; }
   .topbarQ { display: none; }
   .topbarSep { display: none; }
+  .noticeDivider { display: none; }
+  .topbarNotice { min-width: 0; flex: 1 1 100%; }
 }

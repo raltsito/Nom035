@@ -199,7 +199,7 @@ export default function Trabajadores() {
           <input
             type="text"
             className={styles.searchInput}
-            placeholder="Buscar por nombre, área, puesto..."
+            placeholder="Buscar por nombre, correo, área, puesto..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -241,6 +241,7 @@ export default function Trabajadores() {
               <tr>
                 <th>Nombre completo</th>
                 <th>No. empleado</th>
+                <th>Correo</th>
                 <th>Puesto</th>
                 <th>Área</th>
                 <th>Tipo</th>
@@ -253,7 +254,6 @@ export default function Trabajadores() {
                 <tr key={t.id} className={!t.activo ? styles.trInactive : ''}>
                   <td>
                     <div className={styles.nameCell}>{t.nombre_completo}</div>
-                    {t.email && <div className={styles.muteCell}>{t.email}</div>}
                   </td>
                   <td>
                     {t.num_empleado
@@ -261,6 +261,7 @@ export default function Trabajadores() {
                       : <span className={styles.muteCell}>—</span>
                     }
                   </td>
+                  <td className={styles.muteCell}>{t.email}</td>
                   <td>{t.puesto}</td>
                   <td className={styles.muteCell}>{t.area}</td>
                   <td>
@@ -423,9 +424,9 @@ export default function Trabajadores() {
                     onChange={e => setForm(f => ({ ...f, num_empleado: e.target.value }))} />
                 </div>
                 <div className={`${styles.field} ${styles.fieldFull}`}>
-                  <label className={styles.label}>Correo electrónico</label>
+                  <label className={styles.label}>Correo electrónico *</label>
                   <input className="nom-input" type="email" placeholder="juan@empresa.com" value={form.email}
-                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>Puesto / cargo *</label>

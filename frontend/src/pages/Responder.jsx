@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { publicService } from '../services/cuestionarios';
 import styles from './Responder.module.css';
@@ -19,16 +19,21 @@ const OPCIONES_SI_NO = [
 
 const hasAnswer = (value) => value !== undefined && value !== '';
 
+const GUIA_LABEL = { V: 'Guía V', III: 'Guía III', I: 'Guía I' };
+const GUIA_SIGUIENTE = { V: 'III', III: 'I' };
+
 export default function Responder() {
   const { token } = useParams();
-  const [data, setData]           = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState('');
-  const [answers, setAnswers]     = useState({});
-  const [step, setStep]           = useState(-1);   // -1 = intro
-  const [saving, setSaving]       = useState(false);
-  const [saveError, setSaveError] = useState('');
-  const [completed, setCompleted] = useState(false);
+  const navigate  = useNavigate();
+  const [data, setData]                   = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState('');
+  const [answers, setAnswers]             = useState({});
+  const [step, setStep]                   = useState(-1);   // -1 = intro
+  const [saving, setSaving]               = useState(false);
+  const [saveError, setSaveError]         = useState('');
+  const [completed, setCompleted]         = useState(false);
+  const [siguienteToken, setSiguienteToken] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -103,6 +108,7 @@ export default function Responder() {
         });
         const res = await publicService.responder(token, { respuestas });
         if (res.data.data?.estado === 'completado') {
+          setSiguienteToken(res.data.data.siguiente_guia_token || null);
           setCompleted(true);
           return;
         }
@@ -155,15 +161,37 @@ export default function Responder() {
 
   /* ---- Completado ---- */
   if (completed) {
+    const claveActual    = data?.cuestionario?.clave;
+    const claveSiguiente = GUIA_SIGUIENTE[claveActual];
+    const haysiguiente   = !!siguienteToken;
+
     return (
       <div className={styles.screen}>
         <div className={styles.center}>
           <div className={styles.successIcon}><CheckCircle2 size={52} /></div>
-          <h2 className={styles.centerTitle}>Cuestionario completado</h2>
+          <h2 className={styles.centerTitle}>
+            {claveActual ? `${GUIA_LABEL[claveActual]} completada` : 'Cuestionario completado'}
+          </h2>
           <p className={styles.centerText}>
             Gracias, <strong>{data.trabajador_nombre}</strong>. Tus respuestas han sido registradas exitosamente.
           </p>
-          <p className={styles.closeHint}>Puedes cerrar esta ventana.</p>
+          {haysiguiente ? (
+            <>
+              <p className={styles.centerText} style={{ marginTop: 0 }}>
+                Ahora debes completar la <strong>{GUIA_LABEL[claveSiguiente]}</strong>.
+              </p>
+              <button
+                className={styles.startBtn}
+                style={{ marginTop: 8 }}
+                onClick={() => navigate(`/guia/${siguienteToken}`)}
+              >
+                Continuar a {GUIA_LABEL[claveSiguiente]}
+                <ChevronRight size={18} />
+              </button>
+            </>
+          ) : (
+            <p className={styles.closeHint}>Has completado todas las guías. Puedes cerrar esta ventana.</p>
+          )}
         </div>
       </div>
     );
@@ -174,13 +202,24 @@ export default function Responder() {
       {/* Top bar */}
       <header className={styles.topbar}>
         <div className={styles.topbarInner}>
-          <img src="/logo-intra.jpg" alt="Intra" className={styles.logo} />
+          <img src="/logo-nom035.jpg" alt="NOM-035" className={styles.logo} />
           <div className={styles.topbarInfo}>
             <span className={styles.topbarName}>{data.trabajador_nombre}</span>
             <span className={styles.topbarSep} />
             <span className={styles.topbarQ}>{data.cuestionario.nombre}</span>
           </div>
           <span className={styles.topbarPct}>{pct}%</span>
+        </div>
+        <div className={styles.topbarNotices}>
+          <span className={styles.topbarNotice}>
+            <span className={styles.noticeNum}>1</span>
+            Contesta cada una de las preguntas de manera honesta, considerando tus actividades laborales los últimos 2 meses en tu actual empleo.
+          </span>
+          <span className={styles.noticeDivider} />
+          <span className={styles.topbarNotice}>
+            <span className={styles.noticeNum}>2</span>
+            Considera solo actividades dentro del lugar del trabajo y los trayectos al mismo.
+          </span>
         </div>
         <div className={styles.progressOuter}>
           <div className={styles.progressInner} style={{ width: `${pct}%` }} />

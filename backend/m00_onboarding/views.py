@@ -41,6 +41,7 @@ class TrabajadorViewSet(viewsets.ModelViewSet):
                 qs.filter(apellido_paterno__icontains=q) |
                 qs.filter(apellido_materno__icontains=q) |
                 qs.filter(num_empleado__icontains=q) |
+                qs.filter(email__icontains=q) |
                 qs.filter(area__icontains=q) |
                 qs.filter(puesto__icontains=q)
             ).distinct()

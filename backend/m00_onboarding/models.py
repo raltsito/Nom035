@@ -13,7 +13,7 @@ class Trabajador(TenantAwareModel):
     apellido_paterno  = models.CharField(max_length=100, verbose_name='Apellido paterno')
     apellido_materno  = models.CharField(max_length=100, blank=True, verbose_name='Apellido materno')
     num_empleado      = models.CharField(max_length=30, blank=True, verbose_name='No. de empleado')
-    email             = models.EmailField(blank=True, verbose_name='Correo electronico')
+    email             = models.EmailField(verbose_name='Correo electronico')
     puesto            = models.CharField(max_length=200, verbose_name='Puesto / cargo')
     area              = models.CharField(max_length=200, verbose_name='Area / departamento')
     tipo_contratacion = models.CharField(

@@ -2,7 +2,7 @@ import Overlay from '../components/ui/Overlay';
 import { useState, useEffect, useCallback } from 'react';
 import {
   ClipboardList, Loader2, X, CheckCircle2, Clock, PlayCircle,
-  Link2, RotateCcw, ChevronDown, FileText, RefreshCw, Minus, Download, Copy,
+  Link2, RotateCcw, ChevronDown, FileText, RefreshCw, Minus, Download, Copy, ExternalLink,
 } from 'lucide-react';
 import { aplicacionesService, guiaLinksService } from '../services/cuestionarios';
 import { ciclosService } from '../services/trabajadores';
@@ -197,7 +197,25 @@ export default function Cuestionarios() {
                     </span>
                   </div>
                   <div className={styles.linkUrlRow}>
-                    <span className={styles.linkUrl}>{url}</span>
+                    {link ? (
+                      <a className={styles.linkUrl} href={url} target="_blank" rel="noreferrer">
+                        {url}
+                      </a>
+                    ) : (
+                      <span className={styles.linkUrl}>{url}</span>
+                    )}
+                    <a
+                      className={`${styles.copyBtn} ${styles.openBtn} ${!link ? styles.openBtnDisabled : ''}`}
+                      href={link ? url : undefined}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-disabled={!link}
+                      tabIndex={link ? 0 : -1}
+                      title={link ? 'Abrir link' : 'Link pendiente'}
+                    >
+                      <ExternalLink size={15} />
+                      Abrir
+                    </a>
                     <button
                       className={`${styles.copyBtn} ${isCopied ? styles.copyBtnDone : ''}`}
                       onClick={() => link && handleCopyGuiaLink(link.token)}

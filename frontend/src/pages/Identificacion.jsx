@@ -109,7 +109,7 @@ export default function Identificacion() {
     <div className={styles.screen}>
       <header className={styles.topbar}>
         <div className={styles.topbarInner}>
-          <img src="/logo-intra.jpg" alt="Intra" className={styles.logo} />
+          <img src="/logo-nom035.jpg" alt="NOM-035" className={styles.logo} />
           <span className={styles.topbarGuia}>
             NOM-035 · {guia.cuestionario_nombre}
           </span>

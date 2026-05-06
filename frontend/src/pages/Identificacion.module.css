@@ -41,10 +41,11 @@
   gap: 14px;
 }
 .logo {
-  height: 28px;
-  width: auto;
+  height: 40px;
+  width: 40px;
   object-fit: contain;
   flex-shrink: 0;
+  border-radius: 50%;
 }
 .topbarGuia {
   font-size: 0.8125rem;

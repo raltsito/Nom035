@@ -4,6 +4,15 @@ from .models import Trabajador, CicloNOM
 
 class TrabajadorSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.ReadOnlyField()
+    email = serializers.EmailField(
+        required=True,
+        allow_blank=False,
+        error_messages={
+            'blank': 'El correo electronico es obligatorio.',
+            'required': 'El correo electronico es obligatorio.',
+            'invalid': 'Ingresa un correo electronico valido.',
+        },
+    )
 
     class Meta:
         model  = Trabajador
@@ -17,6 +26,16 @@ class TrabajadorSerializer(serializers.ModelSerializer):
 
 
 class TrabajadorCreateSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        allow_blank=False,
+        error_messages={
+            'blank': 'El correo electronico es obligatorio.',
+            'required': 'El correo electronico es obligatorio.',
+            'invalid': 'Ingresa un correo electronico valido.',
+        },
+    )
+
     class Meta:
         model  = Trabajador
         fields = [
@@ -30,6 +49,16 @@ class TrabajadorCreateSerializer(serializers.ModelSerializer):
 
 
 class TrabajadorUpdateSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        allow_blank=False,
+        error_messages={
+            'blank': 'El correo electronico es obligatorio.',
+            'required': 'El correo electronico es obligatorio.',
+            'invalid': 'Ingresa un correo electronico valido.',
+        },
+    )
+
     class Meta:
         model  = Trabajador
         fields = [

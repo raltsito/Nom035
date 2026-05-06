@@ -205,6 +205,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-decoration: none;
+}
+.linkUrl[href]:hover {
+  color: var(--nom-accent);
+  text-decoration: underline;
 }
 .copyBtn {
   display: inline-flex;
@@ -230,6 +235,15 @@
   background: transparent;
 }
 .copyBtnDone    { border-color: var(--nom-success) !important; color: var(--nom-success) !important; background: var(--nom-success-subtle) !important; }
+.openBtn {
+  text-decoration: none;
+}
+.openBtnDisabled {
+  pointer-events: none;
+  cursor: not-allowed;
+  color: var(--nom-text-muted);
+  background: transparent;
+}
 
 @media (max-width: 900px) {
   .linksGrid { grid-template-columns: 1fr; }

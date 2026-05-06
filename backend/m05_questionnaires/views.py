@@ -8,6 +8,8 @@ from rest_framework.decorators import action, api_view
 from rest_framework.decorators import permission_classes as deco_perms
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from django.conf import settings
+from django.core.mail import send_mail
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.db import transaction
@@ -15,6 +17,12 @@ from django.db import transaction
 from accounts.permissions import IsTenantAdmin
 from m00_onboarding.models import CicloNOM, Trabajador
 from .models import Cuestionario, Aplicacion, RespuestaPregunta, Pregunta, GuiaLink
+from .services import (
+    GUIA_ORDEN,
+    obtener_clave_guia_pendiente,
+    obtener_clave_guia_pendiente_desde_completadas,
+    obtener_claves_completadas_por_trabajador,
+)
 from .serializers import (
     CuestionarioSerializer, CuestionarioListSerializer,
     AplicacionSerializer, AplicacionPublicaSerializer,
@@ -198,6 +206,107 @@ class AplicacionViewSet(viewsets.ModelViewSet):
             'total': len(result),
             'completados_total': completados,
         })
+
+    @action(detail=False, methods=['post'], url_path='enviar-correos-pendientes')
+    def enviar_correos_pendientes(self, request):
+        ciclo_id = request.query_params.get('ciclo_id') or request.data.get('ciclo_id')
+        if not ciclo_id:
+            return _wrap(None, errors={'ciclo_id': ['Este campo es requerido.']},
+                         status_code=status.HTTP_400_BAD_REQUEST)
+
+        tenant = request.user.tenant
+        try:
+            ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
+        except CicloNOM.DoesNotExist:
+            return _wrap(None, errors={'ciclo_id': ['Ciclo no encontrado.']},
+                         status_code=status.HTTP_404_NOT_FOUND)
+
+        trabajadores = list(
+            Trabajador.objects.filter(tenant=tenant, activo=True).order_by(
+                'apellido_paterno', 'apellido_materno', 'nombre'
+            )
+        )
+        completadas_idx = obtener_claves_completadas_por_trabajador(
+            ciclo,
+            trabajadores=trabajadores,
+            tenant=tenant,
+        )
+        links = {
+            link.cuestionario.clave: link
+            for link in GuiaLink.objects.filter(
+                tenant=tenant,
+                ciclo=ciclo,
+                activo=True,
+                cuestionario__clave__in=GUIA_ORDEN,
+            ).select_related('cuestionario')
+        }
+
+        enviados = omitidos_sin_correo = omitidos_completos = omitidos_sin_link = errores_envio = 0
+        detalle = []
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173').rstrip('/')
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+
+        for trabajador in trabajadores:
+            completadas = completadas_idx.get(trabajador.id, set())
+            clave_pendiente = obtener_clave_guia_pendiente_desde_completadas(completadas)
+            item = {
+                'trabajador_id': trabajador.id,
+                'trabajador': trabajador.nombre_completo,
+                'correo': trabajador.email,
+                'guia_enviada': clave_pendiente,
+                'estado': '',
+            }
+
+            if clave_pendiente is None:
+                omitidos_completos += 1
+                item['estado'] = 'omitido_completo'
+                detalle.append(item)
+                continue
+
+            if not trabajador.email:
+                omitidos_sin_correo += 1
+                item['estado'] = 'omitido_sin_correo'
+                detalle.append(item)
+                continue
+
+            link = links.get(clave_pendiente)
+            if not link:
+                omitidos_sin_link += 1
+                item['estado'] = 'omitido_sin_link'
+                detalle.append(item)
+                continue
+
+            url = f'{frontend_url}/guia/{link.token}'
+            item['link'] = url
+            try:
+                send_mail(
+                    subject=f'Recordatorio NOM-035 - Guia {clave_pendiente} pendiente',
+                    message=(
+                        f'Hola {trabajador.nombre_completo},\n\n'
+                        f'Tienes pendiente completar la Guia {clave_pendiente} del cuestionario NOM-035.\n\n'
+                        f'Puedes responderla en el siguiente enlace:\n{url}\n\n'
+                        'Gracias.'
+                    ),
+                    from_email=from_email,
+                    recipient_list=[trabajador.email],
+                    fail_silently=False,
+                )
+                enviados += 1
+                item['estado'] = 'enviado'
+            except Exception as exc:
+                errores_envio += 1
+                item['estado'] = 'error_envio'
+                item['error'] = str(exc)
+            detalle.append(item)
+
+        return _wrap({
+            'enviados': enviados,
+            'omitidos_sin_correo': omitidos_sin_correo,
+            'omitidos_completos': omitidos_completos,
+            'omitidos_sin_link': omitidos_sin_link,
+            'errores_envio': errores_envio,
+            'detalle': detalle,
+        }, meta={'total_trabajadores': len(trabajadores)})
 
     @action(detail=False, methods=['get'], url_path='exportar')
     def exportar(self, request):
@@ -509,8 +618,6 @@ def identificar_trabajador(request, token):
     }, 'meta': {}, 'errors': None})
 
 
-_GUIA_PREVIA = {'III': 'V', 'I': 'III'}
-
 @api_view(['POST'])
 @deco_perms([AllowAny])
 @transaction.atomic
@@ -536,26 +643,22 @@ def confirmar_trabajador(request, token):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # Validación secuencial: V → III → I
+    # Validación secuencial: V -> III -> I
     clave_actual = link.cuestionario.clave
-    clave_previa = _GUIA_PREVIA.get(clave_actual)
-    if clave_previa:
-        completada = Aplicacion.objects.filter(
-            tenant=link.ciclo.tenant,
-            ciclo=link.ciclo,
-            cuestionario__clave=clave_previa,
-            trabajador=trabajador,
-            estado='completado',
-        ).exists()
-        if not completada:
-            return Response(
-                {'data': None, 'meta': {}, 'errors': {
-                    'bloqueado':      True,
-                    'guia_requerida': clave_previa,
-                    'mensaje':        f'Debes completar primero la Guía {clave_previa}.',
-                }},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+    clave_pendiente = obtener_clave_guia_pendiente(trabajador, link.ciclo)
+    if (
+        clave_pendiente
+        and clave_actual in GUIA_ORDEN
+        and GUIA_ORDEN.index(clave_actual) > GUIA_ORDEN.index(clave_pendiente)
+    ):
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {
+                'bloqueado':      True,
+                'guia_requerida': clave_pendiente,
+                'mensaje':        f'Debes completar primero la Guia {clave_pendiente}.',
+            }},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     aplicacion, _ = Aplicacion.objects.get_or_create(
         tenant=link.ciclo.tenant,
@@ -658,8 +761,25 @@ def responder_aplicacion(request, token):
         aplicacion.estado = 'en_progreso'
         aplicacion.save(update_fields=['estado'])
 
+    siguiente_guia_token = None
+    if aplicacion.estado == 'completado':
+        clave_actual = aplicacion.cuestionario.clave
+        if clave_actual in GUIA_ORDEN:
+            idx = GUIA_ORDEN.index(clave_actual)
+            if idx + 1 < len(GUIA_ORDEN):
+                siguiente_clave = GUIA_ORDEN[idx + 1]
+                siguiente_link = GuiaLink.objects.filter(
+                    tenant=aplicacion.tenant,
+                    ciclo=aplicacion.ciclo,
+                    cuestionario__clave=siguiente_clave,
+                    activo=True,
+                ).first()
+                if siguiente_link:
+                    siguiente_guia_token = str(siguiente_link.token)
+
     return Response({'data': {
         'estado': aplicacion.estado,
         'respondidas': respondidas,
         'total': total_preguntas,
+        'siguiente_guia_token': siguiente_guia_token,
     }, 'meta': {}, 'errors': None})
