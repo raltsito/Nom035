@@ -162,17 +162,33 @@ CUESTIONARIOS.append({
     'tamano_min': 1,
     'tamano_max': None,
     'dominios': [
-        # Seccion I — preguntas 1-7
+        {'clave': 'D1',  'nombre': 'Carga de trabajo',                        'preguntas': [_iii_item(i) for i in range(1, 6)]},
+        {'clave': 'D2',  'nombre': 'Ritmo de trabajo',                        'preguntas': [_iii_item(i) for i in range(6, 9)]},
+        {'clave': 'D3',  'nombre': 'Esfuerzo mental',                         'preguntas': [_iii_item(i) for i in range(9, 13)]},
+        {'clave': 'D4',  'nombre': 'Actividades y responsabilidades',         'preguntas': [_iii_item(i) for i in range(13, 17)]},
+        {'clave': 'D5',  'nombre': 'Jornada de trabajo',                      'preguntas': [_iii_item(i) for i in range(17, 23)]},
+        {'clave': 'D6',  'nombre': 'Decisiones en el trabajo',                'preguntas': [_iii_item(i, True) for i in range(23, 29)]},
+        {'clave': 'D7',  'nombre': 'Cambios en el trabajo',                   'preguntas': [_iii_item(29, True), _iii_item(30, True)]},
+        {'clave': 'D8',  'nombre': 'Capacitacion',                            'preguntas': [_iii_item(i, True) for i in range(31, 37)]},
+        {'clave': 'D9',  'nombre': 'Subordinacion',                           'preguntas': [_iii_item(i, True) for i in range(37, 42)]},
+        {'clave': 'D10', 'nombre': 'Relaciones con los companeros',           'preguntas': [_iii_item(i, True) for i in range(42, 47)]},
         {
-            'clave': 'D1',
-            'nombre': 'Condiciones en el ambiente de trabajo',
-            'preguntas': [_iii_item(i) for i in range(1, 8)],
+            'clave': 'D11',
+            'nombre': 'Rendimiento y reconocimiento',
+            'preguntas': (
+                [_iii_item(i, True) for i in range(47, 53)]
+                + [_iii_item(53, True), _iii_item(54), _iii_item(55, True), _iii_item(56, True)]
+            ),
         },
-        # Seccion II — preguntas 8-18 + clientes (condicional)
         {
-            'clave': 'D2',
-            'nombre': 'Carga de trabajo',
-            'preguntas': [_iii_item(i) for i in range(8, 19)] + [
+            'clave': 'D12',
+            'nombre': 'Violencia laboral',
+            'preguntas': [_iii_item(57, True)] + [_iii_item(i) for i in range(58, 65)],
+        },
+        {
+            'clave': 'D13',
+            'nombre': 'Atencion a clientes y usuarios',
+            'preguntas': [
                 {'ref': 'III_CLIENTES', 'texto': 'En mi trabajo debo brindar servicio a clientes o usuarios', 'tipo_respuesta': 'si_no'},
                 {'ref': 'III_P65', 'texto': 'Atiendo clientes o usuarios muy enojados.', 'condicion_refs': ['III_CLIENTES'], 'condicion_valor': 1},
                 {'ref': 'III_P66', 'texto': 'Mi trabajo me exige atender personas muy necesitadas de ayuda o enfermas.', 'condicion_refs': ['III_CLIENTES'], 'condicion_valor': 1},
@@ -180,48 +196,16 @@ CUESTIONARIOS.append({
                 {'ref': 'III_P68', 'texto': 'Mi trabajo me exige atender situaciones de violencia.', 'condicion_refs': ['III_CLIENTES'], 'condicion_valor': 1},
             ],
         },
-        # Seccion III — preguntas 19-40 (22 preguntas)
-        # 19-22: interferencia trabajo-familia (no inversas)
-        # 23-30: control sobre el trabajo (inversas)
-        # 31-40: apoyo organizacional y liderazgo (inversas)
         {
-            'clave': 'D3',
-            'nombre': 'Falta de control sobre el trabajo',
-            'preguntas': (
-                [_iii_item(i) for i in range(19, 23)]
-                + [_iii_item(i, True) for i in range(23, 31)]
-                + [_iii_item(i, True) for i in range(31, 41)]
-            ),
-        },
-        # Seccion IV — preguntas 41-55 (15 preguntas) + supervisor (condicional)
-        # 41-46: relaciones con compañeros (inversas)
-        # 47-52: reconocimiento del desempeno (inversas)
-        # 53: estabilidad (inversa), 54: rotacion (no inversa), 55: orgullo (inversa)
-        {
-            'clave': 'D4',
-            'nombre': 'Relaciones en el trabajo',
-            'preguntas': (
-                [_iii_item(i, True) for i in range(41, 47)]
-                + [_iii_item(i, True) for i in range(47, 53)]
-                + [_iii_item(53, True), _iii_item(54), _iii_item(55, True)]
-                + [
-                    {'ref': 'III_SUPERVISOR', 'texto': 'Soy jefe/supervisor de otros trabajadores', 'tipo_respuesta': 'si_no'},
-                    {'ref': 'III_P69', 'texto': 'Comunican tarde los asuntos de trabajo.', 'condicion_refs': ['III_SUPERVISOR'], 'condicion_valor': 1},
-                    {'ref': 'III_P70', 'texto': 'Dificultan el logro de los resultados del trabajo.', 'condicion_refs': ['III_SUPERVISOR'], 'condicion_valor': 1},
-                    {'ref': 'III_P71', 'texto': 'Cooperan poco cuando se necesita.', 'condicion_refs': ['III_SUPERVISOR'], 'condicion_valor': 1},
-                    {'ref': 'III_P72', 'texto': 'Ignoran las sugerencias para mejorar su trabajo.', 'condicion_refs': ['III_SUPERVISOR'], 'condicion_valor': 1},
-                ]
-            ),
-        },
-        # Seccion V — preguntas 56-64 (9 preguntas)
-        # 56: compromiso (inversa), 57: expresion libre (inversa), 58-64: violencia/acoso (no inversas)
-        {
-            'clave': 'D5',
-            'nombre': 'Violencia',
-            'preguntas': (
-                [_iii_item(56, True), _iii_item(57, True)]
-                + [_iii_item(i) for i in range(58, 65)]
-            ),
+            'clave': 'D14',
+            'nombre': 'Actitudes de las personas que supervisa',
+            'preguntas': [
+                {'ref': 'III_SUPERVISOR', 'texto': 'Soy jefe/supervisor de otros trabajadores', 'tipo_respuesta': 'si_no'},
+                {'ref': 'III_P69', 'texto': 'Comunican tarde los asuntos de trabajo.', 'condicion_refs': ['III_SUPERVISOR'], 'condicion_valor': 1},
+                {'ref': 'III_P70', 'texto': 'Dificultan el logro de los resultados del trabajo.', 'condicion_refs': ['III_SUPERVISOR'], 'condicion_valor': 1},
+                {'ref': 'III_P71', 'texto': 'Cooperan poco cuando se necesita.', 'condicion_refs': ['III_SUPERVISOR'], 'condicion_valor': 1},
+                {'ref': 'III_P72', 'texto': 'Ignoran las sugerencias para mejorar su trabajo.', 'condicion_refs': ['III_SUPERVISOR'], 'condicion_valor': 1},
+            ],
         },
     ],
 })
