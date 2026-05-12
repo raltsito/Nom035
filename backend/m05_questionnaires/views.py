@@ -4,8 +4,9 @@ from io import BytesIO
 from xml.sax.saxutils import escape
 
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, parser_classes
 from rest_framework.decorators import permission_classes as deco_perms
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.conf import settings
@@ -13,10 +14,11 @@ from django.core.mail import send_mail
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from PIL import Image, UnidentifiedImageError
 
 from accounts.permissions import IsTenantAdmin
 from m00_onboarding.models import CicloNOM, Trabajador
-from .models import Cuestionario, Aplicacion, RespuestaPregunta, Pregunta, GuiaLink
+from .models import Cuestionario, Aplicacion, AplicacionFoto, RespuestaPregunta, Pregunta, GuiaLink
 from .services import (
     GUIA_ORDEN,
     obtener_clave_guia_pendiente,
@@ -52,6 +54,42 @@ def _pregunta_visible(pregunta, respuestas):
     if pregunta.condicion_operador == 'any':
         return any(checks)
     return all(checks)
+
+
+def _foto_estado(aplicacion):
+    if aplicacion.cuestionario.clave != 'III':
+        return None
+    try:
+        return aplicacion.foto_guia.estado
+    except AplicacionFoto.DoesNotExist:
+        return 'pendiente'
+
+
+def _comprimir_foto(uploaded_file):
+    if uploaded_file.size > 5 * 1024 * 1024:
+        raise ValueError('La imagen no debe exceder 5 MB.')
+
+    try:
+        image = Image.open(uploaded_file)
+        image.verify()
+        uploaded_file.seek(0)
+        image = Image.open(uploaded_file)
+    except (UnidentifiedImageError, OSError):
+        raise ValueError('El archivo debe ser una imagen valida.')
+
+    image = image.convert('RGB')
+    image.thumbnail((640, 640), Image.Resampling.LANCZOS)
+
+    best = None
+    for quality in (55, 45, 35, 25):
+        output = BytesIO()
+        image.save(output, format='JPEG', quality=quality, optimize=True, progressive=True)
+        data = output.getvalue()
+        best = data
+        if len(data) <= 80 * 1024:
+            break
+
+    return best, 'image/jpeg'
 
 
 class CuestionarioViewSet(viewsets.ReadOnlyModelViewSet):
@@ -112,7 +150,7 @@ class AplicacionViewSet(viewsets.ModelViewSet):
             tenant=tenant,
             ciclo=ciclo,
             cuestionario__clave__in=['V', 'III', 'I'],
-        ).select_related('trabajador', 'cuestionario')
+        ).select_related('trabajador', 'cuestionario', 'foto_guia')
 
         idx = {}
         for apl in aplicaciones:
@@ -120,6 +158,8 @@ class AplicacionViewSet(viewsets.ModelViewSet):
             if tid not in idx:
                 idx[tid] = {}
             idx[tid][apl.cuestionario.clave] = apl.estado
+            if apl.cuestionario.clave == 'III':
+                idx[tid]['foto_guia_III'] = _foto_estado(apl)
 
         trabajadores = Trabajador.objects.filter(tenant=tenant, activo=True).order_by(
             'apellido_paterno', 'apellido_materno', 'nombre'
@@ -136,6 +176,7 @@ class AplicacionViewSet(viewsets.ModelViewSet):
                 'guia_V': estados.get('V', 'sin_iniciar'),
                 'guia_III': estados.get('III', 'sin_iniciar'),
                 'guia_I': estados.get('I', 'sin_iniciar'),
+                'foto_guia_III': estados.get('foto_guia_III', 'sin_aplicacion'),
             })
 
         return ciclo, rows
@@ -168,7 +209,7 @@ class AplicacionViewSet(viewsets.ModelViewSet):
             tenant=tenant,
             ciclo=ciclo,
             cuestionario__clave__in=['V', 'III', 'I'],
-        ).select_related('trabajador', 'cuestionario')
+        ).select_related('trabajador', 'cuestionario', 'foto_guia')
 
         # índice: {trabajador_id: {clave: estado}}
         idx = {}
@@ -177,6 +218,8 @@ class AplicacionViewSet(viewsets.ModelViewSet):
             if tid not in idx:
                 idx[tid] = {}
             idx[tid][apl.cuestionario.clave] = apl.estado
+            if apl.cuestionario.clave == 'III':
+                idx[tid]['foto_guia_III'] = _foto_estado(apl)
 
         trabajadores = Trabajador.objects.filter(tenant=tenant, activo=True).order_by(
             'apellido_paterno', 'apellido_materno', 'nombre'
@@ -194,6 +237,7 @@ class AplicacionViewSet(viewsets.ModelViewSet):
                 'guia_V':            p.get('V'),
                 'guia_III':          p.get('III'),
                 'guia_I':            p.get('I'),
+                'foto_guia_III':     p.get('foto_guia_III', 'sin_aplicacion'),
             })
 
         completados = sum(
@@ -326,7 +370,7 @@ class AplicacionViewSet(viewsets.ModelViewSet):
         response.write('\ufeff')
 
         writer = csv.writer(response)
-        writer.writerow(['num_empleado', 'nombre', 'area', 'puesto', 'guia_V', 'guia_III', 'guia_I'])
+        writer.writerow(['num_empleado', 'nombre', 'area', 'puesto', 'guia_V', 'guia_III', 'foto_guia_III', 'guia_I'])
 
         for row in rows:
             writer.writerow([
@@ -336,6 +380,7 @@ class AplicacionViewSet(viewsets.ModelViewSet):
                 row['puesto'],
                 row['guia_V'],
                 row['guia_III'],
+                row['foto_guia_III'],
                 row['guia_I'],
             ])
 
@@ -360,9 +405,9 @@ class AplicacionViewSet(viewsets.ModelViewSet):
             'pendiente': 'Pendiente',
             'sin_iniciar': 'Sin iniciar',
         }
-        columns = ['No. empleado', 'Nombre', 'Área', 'Puesto', 'Guía V', 'Guía III', 'Guía I']
-        col_letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-        widths = [16, 34, 22, 28, 16, 16, 16]
+        columns = ['No. empleado', 'Nombre', 'Area', 'Puesto', 'Guia V', 'Guia III', 'Foto Guia III', 'Guia I']
+        col_letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        widths = [16, 34, 22, 28, 16, 16, 18, 16]
 
         def cell(ref, value, style=0):
             style_attr = f' s="{style}"' if style else ''
@@ -393,12 +438,14 @@ class AplicacionViewSet(viewsets.ModelViewSet):
                 row['puesto'],
                 estado_labels[row['guia_V']],
                 estado_labels[row['guia_III']],
+                row['foto_guia_III'].replace('_', ' ').title(),
                 estado_labels[row['guia_I']],
             ]
             styles = [
                 0, 0, 0, 0,
                 {'completado': 2, 'en_progreso': 3, 'pendiente': 4, 'sin_iniciar': 7}[row['guia_V']],
                 {'completado': 2, 'en_progreso': 3, 'pendiente': 4, 'sin_iniciar': 7}[row['guia_III']],
+                7,
                 {'completado': 2, 'en_progreso': 3, 'pendiente': 4, 'sin_iniciar': 7}[row['guia_I']],
             ]
             sheet_rows.append(
@@ -415,7 +462,7 @@ class AplicacionViewSet(viewsets.ModelViewSet):
         )
         sheet_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <dimension ref="A1:G{last_row}"/>
+  <dimension ref="A1:H{last_row}"/>
   <sheetViews>
     <sheetView workbookViewId="0">
       <pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/>
@@ -425,10 +472,10 @@ class AplicacionViewSet(viewsets.ModelViewSet):
   <sheetFormatPr defaultRowHeight="15"/>
   <cols>{cols_xml}</cols>
   <sheetData>{''.join(sheet_rows)}</sheetData>
-  <autoFilter ref="A3:G{last_row}"/>
+  <autoFilter ref="A3:H{last_row}"/>
   <mergeCells count="2">
-    <mergeCell ref="A1:G1"/>
-    <mergeCell ref="A2:G2"/>
+    <mergeCell ref="A1:H1"/>
+    <mergeCell ref="A2:H2"/>
   </mergeCells>
 </worksheet>'''
 
@@ -677,6 +724,68 @@ def confirmar_trabajador(request, token):
 def aplicacion_publica(request, token):
     aplicacion = get_object_or_404(Aplicacion, token=token)
     return Response({'data': AplicacionPublicaSerializer(aplicacion).data, 'meta': {}, 'errors': None})
+
+
+@api_view(['POST'])
+@deco_perms([AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+@transaction.atomic
+def subir_foto_aplicacion(request, token):
+    aplicacion = get_object_or_404(Aplicacion.objects.select_related('cuestionario'), token=token)
+
+    if aplicacion.cuestionario.clave != 'III':
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'detalle': 'La foto solo aplica para Guia III.'}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    omitida = str(request.data.get('omitida', '')).lower() in ('1', 'true', 'si', 'sí', 'yes')
+    uploaded_file = request.FILES.get('foto')
+
+    if omitida:
+        foto, _ = AplicacionFoto.objects.update_or_create(
+            aplicacion=aplicacion,
+            defaults={
+                'tenant': aplicacion.tenant,
+                'foto': None,
+                'foto_mime': '',
+                'foto_tamanio': 0,
+                'estado': 'omitida',
+            },
+        )
+        return Response({'data': {
+            'foto_estado': foto.estado,
+            'foto_tamanio': foto.foto_tamanio,
+        }, 'meta': {}, 'errors': None})
+
+    if not uploaded_file:
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'foto': ['Este campo es requerido.']}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        foto_bytes, foto_mime = _comprimir_foto(uploaded_file)
+    except ValueError as exc:
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'foto': [str(exc)]}},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    foto, _ = AplicacionFoto.objects.update_or_create(
+        aplicacion=aplicacion,
+        defaults={
+            'tenant': aplicacion.tenant,
+            'foto': foto_bytes,
+            'foto_mime': foto_mime,
+            'foto_tamanio': len(foto_bytes),
+            'estado': 'capturada',
+        },
+    )
+    return Response({'data': {
+        'foto_estado': foto.estado,
+        'foto_tamanio': foto.foto_tamanio,
+    }, 'meta': {}, 'errors': None})
 
 
 @api_view(['POST'])

@@ -122,7 +122,16 @@
       "Bash(docker-compose up *)",
       "Bash(Copy-Item *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\\\\m05_questionnaires\" -Recurse -Name)",
-      "Bash(Select-String -Pattern \"\\(fixture|json|csv\\)\")"
+      "Bash(Select-String -Pattern \"\\(fixture|json|csv\\)\")",
+      "PowerShell(docker info *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\" -Recurse -Directory)",
+      "Bash(Select-Object -First 20)",
+      "Bash(Format-Table FullName)",
+      "PowerShell(python \"C:\\\\Users\\\\carlo\\\\AppData\\\\Local\\\\Temp\\\\fill_charter.py\" 2>&1)",
+      "PowerShell(.\\\\dev.ps1)",
+      "Bash(.\\\\venv\\\\Scripts\\\\python.exe manage.py shell -c \"from accounts.models import Usuario; u = Usuario.objects.filter\\(email='admin@orbitasit.mx'\\).first\\(\\); print\\(u.__dict__ if u else 'NO EXISTE'\\)\")",
+      "Bash(tail -n 5 ../frontend-vite.log)",
+      "Bash(tail -n 5 ../frontend-vite.err.log)"
     ]
   }
 }

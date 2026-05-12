@@ -1,7 +1,7 @@
 import Overlay from '../components/ui/Overlay';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ClipboardList, Loader2, X, CheckCircle2, Clock, PlayCircle,
+  Camera, ClipboardList, Loader2, X, CheckCircle2, Clock, PlayCircle,
   Link2, RotateCcw, ChevronDown, FileText, RefreshCw, Minus, Download, Copy, ExternalLink,
 } from 'lucide-react';
 import { aplicacionesService, guiaLinksService } from '../services/cuestionarios';
@@ -31,6 +31,16 @@ function EstadoChip({ estado }) {
       {cfg.label}
     </span>
   );
+}
+
+function FotoChip({ estado }) {
+  if (estado === 'capturada') {
+    return <span className={`${styles.statusChip} ${styles.chip_completado}`}><Camera size={11} />Foto tomada</span>;
+  }
+  if (estado === 'omitida') {
+    return <span className={`${styles.statusChip} ${styles.chip_pendiente}`}><Camera size={11} />Foto omitida</span>;
+  }
+  return <span className={styles.chipNull}><Camera size={11} />Sin foto</span>;
 }
 
 export default function Cuestionarios() {
@@ -296,6 +306,7 @@ export default function Cuestionarios() {
                 <th style={{ color: 'var(--nom-accent)' }}>Guía V</th>
                 <th style={{ color: 'var(--nom-info)' }}>Guía III</th>
                 <th style={{ color: 'var(--nom-success)' }}>Guía I</th>
+                <th>Foto III</th>
                 <th></th>
               </tr>
             </thead>
@@ -314,6 +325,7 @@ export default function Cuestionarios() {
                   <td><EstadoChip estado={r.guia_V} /></td>
                   <td><EstadoChip estado={r.guia_III} /></td>
                   <td><EstadoChip estado={r.guia_I} /></td>
+                  <td><FotoChip estado={r.foto_guia_III} /></td>
                   <td>
                     <div className={styles.actionsCell}>
                       {(r.guia_V || r.guia_III || r.guia_I) && (

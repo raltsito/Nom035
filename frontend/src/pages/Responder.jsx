@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { publicService } from '../services/cuestionarios';
 import styles from './Responder.module.css';
 
@@ -22,9 +22,37 @@ const hasAnswer = (value) => value !== undefined && value !== '';
 const GUIA_LABEL = { V: 'Guía V', III: 'Guía III', I: 'Guía I' };
 const GUIA_SIGUIENTE = { V: 'III', III: 'I' };
 
+const compressPhoto = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSize = 640;
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        blob => blob ? resolve(blob) : reject(new Error('No se pudo procesar la foto.')),
+        'image/jpeg',
+        0.55
+      );
+    };
+    img.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+    img.src = reader.result;
+  };
+  reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+  reader.readAsDataURL(file);
+});
+
 export default function Responder() {
   const { token } = useParams();
   const navigate  = useNavigate();
+  const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const [data, setData]                   = useState(null);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState('');
@@ -34,6 +62,11 @@ export default function Responder() {
   const [saveError, setSaveError]         = useState('');
   const [completed, setCompleted]         = useState(false);
   const [siguienteToken, setSiguienteToken] = useState(null);
+  const [photoSaving, setPhotoSaving]     = useState(false);
+  const [photoError, setPhotoError]       = useState('');
+  const [cameraActive, setCameraActive]   = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [photoPreview, setPhotoPreview]   = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -74,6 +107,7 @@ export default function Responder() {
     .filter(p => hasAnswer(answers[String(p.id)]))
     .length;
   const currentDominio = step >= 0 && step < dominios.length ? dominios[step] : null;
+  const requiresPhoto = data?.cuestionario?.clave === 'III' && data?.foto_estado === 'pendiente' && !completed;
 
   const isDominioComplete = (dom) =>
     getVisiblePreguntas(dom).every(p => hasAnswer(answers[String(p.id)]));
@@ -132,6 +166,118 @@ export default function Responder() {
   const handlePrev = () => {
     setStep(s => s <= 0 ? -1 : s - 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+    setCameraActive(false);
+  };
+
+  useEffect(() => () => stopCamera(), []);
+
+  useEffect(() => {
+    if (!cameraActive || !videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(() => {
+      setPhotoError('No se pudo mostrar la camara. Revisa permisos o usa seleccionar archivo.');
+    });
+  }, [cameraActive]);
+
+  const submitPhoto = async (formData) => {
+    setPhotoSaving(true);
+    setPhotoError('');
+    try {
+      const res = await publicService.subirFoto(token, formData);
+      setData(prev => ({
+        ...prev,
+        foto_estado: res.data.data?.foto_estado || 'capturada',
+      }));
+      stopCamera();
+      if (photoPreview?.url) URL.revokeObjectURL(photoPreview.url);
+      setPhotoPreview(null);
+    } catch (err) {
+      const message = err.response?.data?.errors?.foto?.[0] || 'No se pudo guardar la foto. Intenta de nuevo.';
+      setPhotoError(message);
+    } finally {
+      setPhotoSaving(false);
+    }
+  };
+
+  const handlePhotoSelected = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || photoSaving) return;
+
+    try {
+      const compressed = await compressPhoto(file);
+      if (photoPreview?.url) URL.revokeObjectURL(photoPreview.url);
+      setPhotoPreview({ blob: compressed, url: URL.createObjectURL(compressed) });
+    } catch (err) {
+      setPhotoError(err.message || 'No se pudo procesar la foto.');
+    }
+  };
+
+  const handleStartCamera = async () => {
+    if (photoSaving || cameraLoading) return;
+    setCameraLoading(true);
+    setPhotoError('');
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Este navegador no permite abrir la camara directamente.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setCameraActive(true);
+    } catch (err) {
+      setPhotoError(err.message || 'No se pudo abrir la camara. Revisa permisos o usa seleccionar archivo.');
+    } finally {
+      setCameraLoading(false);
+    }
+  };
+
+  const handleCaptureCamera = async () => {
+    if (!videoRef.current || photoSaving) return;
+    const video = videoRef.current;
+    const maxSize = 640;
+    const scale = Math.min(1, maxSize / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        setPhotoError('No se pudo capturar la foto.');
+        return;
+      }
+      if (photoPreview?.url) URL.revokeObjectURL(photoPreview.url);
+      setPhotoPreview({ blob, url: URL.createObjectURL(blob) });
+      stopCamera();
+    }, 'image/jpeg', 0.55);
+  };
+
+  const handleConfirmPhoto = async () => {
+    if (!photoPreview?.blob || photoSaving) return;
+    const formData = new FormData();
+    formData.append('foto', photoPreview.blob, 'foto.jpg');
+    await submitPhoto(formData);
+  };
+
+  const handleRetakePhoto = () => {
+    if (photoPreview?.url) URL.revokeObjectURL(photoPreview.url);
+    setPhotoPreview(null);
+    setPhotoError('');
+  };
+
+  const handleSkipPhoto = async () => {
+    if (photoSaving) return;
+    const formData = new FormData();
+    formData.append('omitida', 'true');
+    await submitPhoto(formData);
   };
 
   /* ---- Loading ---- */
@@ -193,6 +339,110 @@ export default function Responder() {
             <p className={styles.closeHint}>Has completado todas las guías. Puedes cerrar esta ventana.</p>
           )}
         </div>
+      </div>
+    );
+  }
+
+  if (requiresPhoto) {
+    return (
+      <div className={styles.screen}>
+        <header className={styles.topbar}>
+          <div className={styles.topbarInner}>
+            <img src="/logo-nom035.jpg" alt="NOM-035" className={styles.logo} />
+            <div className={styles.topbarInfo}>
+              <span className={styles.topbarName}>{data.trabajador_nombre}</span>
+              <span className={styles.topbarSep} />
+              <span className={styles.topbarQ}>{data.cuestionario.nombre}</span>
+            </div>
+          </div>
+        </header>
+
+        <main className={styles.main}>
+          <div className={`${styles.card} ${styles.photoCard}`}>
+            <div className={styles.photoIcon}>
+              <Camera size={30} strokeWidth={1.8} />
+            </div>
+            <span className={styles.normChip}>Verificacion requerida</span>
+            <h1 className={styles.introTitle}>Toma una foto para continuar</h1>
+            <p className={styles.introDesc}>
+              Antes de contestar esta guia, captura una foto del trabajador. La imagen se reducira automaticamente para usar el menor espacio posible.
+            </p>
+
+            {photoError && (
+              <div className={styles.saveError}>
+                <AlertCircle size={14} />
+                {photoError}
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              className={styles.hiddenFile}
+              onChange={handlePhotoSelected}
+              disabled={photoSaving}
+            />
+
+            <div className={styles.photoActions}>
+              {photoPreview ? (
+                <div className={styles.cameraPreview}>
+                  <img src={photoPreview.url} alt="Vista previa de la foto" className={styles.cameraVideo} />
+                </div>
+              ) : cameraActive && (
+                <div className={styles.cameraPreview}>
+                  <video ref={videoRef} className={styles.cameraVideo} playsInline muted />
+                </div>
+              )}
+              {photoPreview ? (
+                <>
+                  <p className={styles.photoConfirmText}>Revise la foto capturada. ¿Desea confirmarla?</p>
+                  <button
+                    className={styles.startBtn}
+                    onClick={handleConfirmPhoto}
+                    disabled={photoSaving}
+                  >
+                    {photoSaving ? <Loader2 size={16} className={styles.spin} /> : <CheckCircle2 size={18} />}
+                    Confirmar foto
+                  </button>
+                  <button
+                    className={styles.photoFileBtn}
+                    onClick={handleRetakePhoto}
+                    disabled={photoSaving}
+                  >
+                    Tomar otra
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className={styles.startBtn}
+                    onClick={cameraActive ? handleCaptureCamera : handleStartCamera}
+                    disabled={photoSaving || cameraLoading}
+                  >
+                    {photoSaving || cameraLoading ? <Loader2 size={16} className={styles.spin} /> : <Camera size={18} />}
+                    {cameraActive ? 'Capturar foto' : 'Abrir camara'}
+                  </button>
+                  <button
+                    className={styles.photoFileBtn}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={photoSaving || cameraLoading}
+                  >
+                    Seleccionar archivo
+                  </button>
+                </>
+              )}
+              <button
+                className={styles.photoSkipBtn}
+                onClick={handleSkipPhoto}
+                disabled={photoSaving}
+              >
+                Omitir por ahora
+              </button>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }

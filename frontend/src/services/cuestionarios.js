@@ -32,5 +32,6 @@ export const publicService = {
   identificar:  (token, data)  => publicApi.post(`/publica/guia/${token}/identificar/`, data),
   confirmar:    (token, data)  => publicApi.post(`/publica/guia/${token}/confirmar/`, data),
   getAplicacion:(token)        => publicApi.get(`/publica/${token}/`),
+  subirFoto:    (token, data)  => publicApi.post(`/publica/${token}/foto/`, data),
   responder:    (token, data)  => publicApi.post(`/publica/${token}/responder/`, data),
 };

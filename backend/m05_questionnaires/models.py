@@ -122,6 +122,26 @@ class Aplicacion(TenantAwareModel):
         self.save(update_fields=['estado', 'fecha_completado'])
 
 
+class AplicacionFoto(TenantAwareModel):
+    FOTO_ESTADO_CHOICES = [
+        ('capturada', 'Capturada'),
+        ('omitida', 'Omitida'),
+    ]
+
+    aplicacion = models.OneToOneField(Aplicacion, on_delete=models.CASCADE, related_name='foto_guia')
+    foto       = models.BinaryField(null=True, blank=True)
+    foto_mime  = models.CharField(max_length=80, blank=True)
+    foto_tamanio = models.PositiveIntegerField(default=0)
+    estado     = models.CharField(max_length=20, choices=FOTO_ESTADO_CHOICES)
+
+    class Meta:
+        verbose_name = 'Foto de aplicacion'
+        verbose_name_plural = 'Fotos de aplicaciones'
+
+    def __str__(self):
+        return f'Foto Guia {self.aplicacion.cuestionario.clave} - {self.aplicacion.trabajador}'
+
+
 class RespuestaPregunta(TenantAwareModel):
     VALOR_CHOICES = [
         (0, 'Nunca'),

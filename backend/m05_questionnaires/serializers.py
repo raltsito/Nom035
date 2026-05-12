@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.core.exceptions import ObjectDoesNotExist
 from .models import Cuestionario, Dominio, Pregunta, Aplicacion, RespuestaPregunta, GuiaLink
 
 
@@ -114,13 +115,14 @@ class AplicacionPublicaSerializer(serializers.ModelSerializer):
     trabajador_nombre   = serializers.CharField(source='trabajador.nombre_completo', read_only=True)
     cuestionario        = CuestionarioSerializer(read_only=True)
     respuestas_guardadas = serializers.SerializerMethodField()
+    foto_estado = serializers.SerializerMethodField()
 
     class Meta:
         model  = Aplicacion
         fields = [
             'id', 'estado', 'token',
             'trabajador_nombre', 'cuestionario',
-            'respuestas_guardadas',
+            'respuestas_guardadas', 'foto_estado',
         ]
 
     def get_respuestas_guardadas(self, obj):
@@ -128,3 +130,11 @@ class AplicacionPublicaSerializer(serializers.ModelSerializer):
             str(r.pregunta_id): r.valor_texto if r.valor is None else r.valor
             for r in obj.respuestas.all()
         }
+
+    def get_foto_estado(self, obj):
+        if obj.cuestionario.clave != 'III':
+            return None
+        try:
+            return obj.foto_guia.estado
+        except ObjectDoesNotExist:
+            return 'pendiente'

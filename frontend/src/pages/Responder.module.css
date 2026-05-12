@@ -240,6 +240,88 @@
   color: var(--r-accent);
   font-weight: 600;
 }
+.photoCard {
+  max-width: 520px;
+  margin: 0 auto;
+}
+.photoIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 9999px;
+  background: var(--r-accent-sub);
+  color: var(--r-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+.hiddenFile {
+  display: none;
+}
+.photoActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cameraPreview {
+  flex: 1 1 100%;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0D1526;
+  border: 1px solid var(--r-border);
+  margin-bottom: 4px;
+}
+.cameraVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.photoConfirmText {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--r-text);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.photoFileBtn {
+  border: 1.5px solid var(--r-border);
+  background: #fff;
+  color: var(--r-text2);
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 12px 18px;
+}
+.photoFileBtn:hover:not(:disabled) {
+  border-color: var(--r-accent);
+  color: var(--r-accent);
+}
+.photoFileBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.photoSkipBtn {
+  border: none;
+  background: transparent;
+  color: var(--r-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 12px 10px;
+}
+.photoSkipBtn:hover:not(:disabled) {
+  color: var(--r-text2);
+  text-decoration: underline;
+}
+.photoSkipBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .startBtn {
   display: inline-flex;
   align-items: center;
@@ -573,6 +655,8 @@
 @media (max-width: 600px) {
   .card    { padding: 24px 20px; }
   .main    { padding: 24px 16px 60px; }
+  .photoActions { flex-direction: column; align-items: stretch; }
+  .photoActions .startBtn, .photoFileBtn { width: 100%; justify-content: center; }
   .legend  { display: none; }
   .options { gap: 5px; }
   .optBtn  { padding: 7px 10px; font-size: 0.75rem; }

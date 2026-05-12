@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cuestionario, Dominio, Pregunta, Aplicacion, RespuestaPregunta, GuiaLink
+from .models import Cuestionario, Dominio, Pregunta, Aplicacion, AplicacionFoto, RespuestaPregunta, GuiaLink
 
 
 class DominioInline(admin.TabularInline):
@@ -26,6 +26,12 @@ class AplicacionAdmin(admin.ModelAdmin):
     list_display = ('trabajador', 'cuestionario', 'ciclo', 'estado', 'fecha_completado', 'tenant')
     list_filter = ('estado', 'cuestionario', 'tenant')
     readonly_fields = ('token',)
+
+@admin.register(AplicacionFoto)
+class AplicacionFotoAdmin(admin.ModelAdmin):
+    list_display = ('aplicacion', 'estado', 'foto_tamanio', 'tenant', 'creado_en')
+    list_filter = ('estado', 'tenant')
+    readonly_fields = ('foto_tamanio', 'foto_mime')
 
 @admin.register(RespuestaPregunta)
 class RespuestaPreguntaAdmin(admin.ModelAdmin):

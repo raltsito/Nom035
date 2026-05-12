@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CuestionarioViewSet, AplicacionViewSet, GuiaLinkViewSet,
     aplicacion_publica, responder_aplicacion,
-    guia_link_publica, identificar_trabajador, confirmar_trabajador,
+    guia_link_publica, identificar_trabajador, confirmar_trabajador, subir_foto_aplicacion,
 )
 
 router = DefaultRouter()
@@ -16,5 +16,6 @@ urlpatterns = router.urls + [
     path('publica/guia/<uuid:token>/identificar/', identificar_trabajador, name='identificar-trabajador'),
     path('publica/guia/<uuid:token>/confirmar/',   confirmar_trabajador,   name='confirmar-trabajador'),
     path('publica/<uuid:token>/',                  aplicacion_publica,     name='aplicacion-publica'),
+    path('publica/<uuid:token>/foto/',             subir_foto_aplicacion,  name='subir-foto-aplicacion'),
     path('publica/<uuid:token>/responder/',        responder_aplicacion,   name='responder-aplicacion'),
 ]

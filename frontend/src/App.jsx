@@ -11,6 +11,16 @@ import Identificacion from './pages/Identificacion';
 import Resultados from './pages/Resultados';
 import Comite from './pages/Comite';
 import Calculadora from './pages/Calculadora';
+import PlanAccion from './pages/PlanAccion';
+import Politica from './pages/Politica';
+import Difusion from './pages/Difusion';
+import Evidencias from './pages/Evidencias';
+import Asistencias from './pages/Asistencias';
+
+const TENANT_ADMIN_PATHS = new Set([
+  'dashboard', 'trabajadores', 'comite', 'plan-accion', 'politica', 'difusion',
+  'cuestionarios', 'resultados', 'evidencias', 'asistencias', 'calculadora',
+]);
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -34,6 +44,14 @@ function SuperAdminRoute({ children }) {
   return children;
 }
 
+function TenantAdminGate({ path, children }) {
+  const { user } = useAuth();
+  if (user?.rol === 'tenant_admin' && !TENANT_ADMIN_PATHS.has(path)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -42,12 +60,17 @@ function AppRoutes() {
       <Route path="/responder/:token" element={<Responder />} />
       <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard"    element={<Dashboard />} />
-        <Route path="empresas"     element={<SuperAdminRoute><Empresas /></SuperAdminRoute>} />
+        <Route path="dashboard"     element={<Dashboard />} />
+        <Route path="empresas"      element={<SuperAdminRoute><Empresas /></SuperAdminRoute>} />
+        <Route path="trabajadores"  element={<Trabajadores />} />
         <Route path="comite"        element={<Comite />} />
-        <Route path="trabajadores" element={<Trabajadores />} />
+        <Route path="plan-accion"   element={<PlanAccion />} />
+        <Route path="politica"      element={<Politica />} />
+        <Route path="difusion"      element={<Difusion />} />
         <Route path="cuestionarios" element={<Cuestionarios />} />
         <Route path="resultados"    element={<Resultados />} />
+        <Route path="evidencias"    element={<Evidencias />} />
+        <Route path="asistencias"   element={<Asistencias />} />
         <Route path="calculadora"   element={<Calculadora />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
