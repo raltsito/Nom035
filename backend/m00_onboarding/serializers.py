@@ -2,17 +2,15 @@ from rest_framework import serializers
 from .models import Trabajador, CicloNOM
 
 
+GUIA_V_FIELDS = [
+    'sexo', 'edad', 'estado_civil', 'nivel_estudios',
+    'tipo_personal', 'tipo_jornada', 'rotacion_turnos',
+    'experiencia_anios', 'tiempo_puesto_actual',
+]
+
+
 class TrabajadorSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.ReadOnlyField()
-    email = serializers.EmailField(
-        required=True,
-        allow_blank=False,
-        error_messages={
-            'blank': 'El correo electronico es obligatorio.',
-            'required': 'El correo electronico es obligatorio.',
-            'invalid': 'Ingresa un correo electronico valido.',
-        },
-    )
 
     class Meta:
         model  = Trabajador
@@ -20,27 +18,19 @@ class TrabajadorSerializer(serializers.ModelSerializer):
             'id', 'nombre', 'apellido_paterno', 'apellido_materno',
             'nombre_completo', 'num_empleado', 'email',
             'puesto', 'area', 'tipo_contratacion', 'activo',
+            *GUIA_V_FIELDS,
             'creado_en', 'actualizado_en',
         ]
         read_only_fields = ['id', 'nombre_completo', 'creado_en', 'actualizado_en']
 
 
 class TrabajadorCreateSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(
-        required=True,
-        allow_blank=False,
-        error_messages={
-            'blank': 'El correo electronico es obligatorio.',
-            'required': 'El correo electronico es obligatorio.',
-            'invalid': 'Ingresa un correo electronico valido.',
-        },
-    )
-
     class Meta:
         model  = Trabajador
         fields = [
             'nombre', 'apellido_paterno', 'apellido_materno',
             'num_empleado', 'email', 'puesto', 'area', 'tipo_contratacion',
+            *GUIA_V_FIELDS,
         ]
 
     def create(self, validated_data):
@@ -49,21 +39,12 @@ class TrabajadorCreateSerializer(serializers.ModelSerializer):
 
 
 class TrabajadorUpdateSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(
-        required=True,
-        allow_blank=False,
-        error_messages={
-            'blank': 'El correo electronico es obligatorio.',
-            'required': 'El correo electronico es obligatorio.',
-            'invalid': 'Ingresa un correo electronico valido.',
-        },
-    )
-
     class Meta:
         model  = Trabajador
         fields = [
             'nombre', 'apellido_paterno', 'apellido_materno',
             'num_empleado', 'email', 'puesto', 'area', 'tipo_contratacion', 'activo',
+            *GUIA_V_FIELDS,
         ]
 
 

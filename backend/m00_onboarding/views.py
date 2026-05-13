@@ -1,5 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from accounts.permissions import IsTenantAdmin
 from .models import Trabajador, CicloNOM
@@ -7,6 +8,7 @@ from .serializers import (
     TrabajadorSerializer, TrabajadorCreateSerializer, TrabajadorUpdateSerializer,
     CicloNOMSerializer, CicloNOMCreateSerializer,
 )
+from .importador import importar_excel
 
 
 class TrabajadorViewSet(viewsets.ModelViewSet):
@@ -97,6 +99,61 @@ class TrabajadorViewSet(viewsets.ModelViewSet):
         instance.activo = not instance.activo
         instance.save(update_fields=['activo'])
         return Response({'data': TrabajadorSerializer(instance).data, 'meta': {}, 'errors': None})
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='importar-excel',
+        parser_classes=[MultiPartParser],
+    )
+    def importar_excel(self, request):
+        archivo = request.FILES.get('archivo')
+        if not archivo:
+            return Response(
+                {'data': None, 'meta': {}, 'errors': {'archivo': ['Se requiere un archivo Excel.']}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ext = archivo.name.rsplit('.', 1)[-1].lower()
+        if ext not in ('xlsx', 'xls'):
+            return Response(
+                {'data': None, 'meta': {}, 'errors': {'archivo': ['Solo se aceptan archivos .xlsx o .xls.']}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Super admin puede importar a cualquier tenant vía ?tenant_id=
+        if request.user.is_super_admin:
+            from django.apps import apps
+            tenant_id = request.query_params.get('tenant_id') or request.data.get('tenant_id')
+            if not tenant_id:
+                return Response(
+                    {'data': None, 'meta': {}, 'errors': {'tenant_id': ['Especifica el tenant.']}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            Tenant = apps.get_model('accounts', 'Tenant')
+            try:
+                tenant = Tenant.objects.get(pk=tenant_id)
+            except Tenant.DoesNotExist:
+                return Response(
+                    {'data': None, 'meta': {}, 'errors': {'tenant_id': ['Tenant no encontrado.']}},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            tenant = request.user.tenant
+
+        try:
+            resultado = importar_excel(archivo, tenant)
+        except Exception as exc:
+            return Response(
+                {'data': None, 'meta': {}, 'errors': {'archivo': [f'Error al procesar el archivo: {exc}']}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({
+            'data': resultado,
+            'meta': {'tenant': str(tenant)},
+            'errors': None,
+        }, status=status.HTTP_200_OK)
 
 
 class CicloNOMViewSet(viewsets.ModelViewSet):

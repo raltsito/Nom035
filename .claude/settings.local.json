@@ -131,7 +131,16 @@
       "PowerShell(.\\\\dev.ps1)",
       "Bash(.\\\\venv\\\\Scripts\\\\python.exe manage.py shell -c \"from accounts.models import Usuario; u = Usuario.objects.filter\\(email='admin@orbitasit.mx'\\).first\\(\\); print\\(u.__dict__ if u else 'NO EXISTE'\\)\")",
       "Bash(tail -n 5 ../frontend-vite.log)",
-      "Bash(tail -n 5 ../frontend-vite.err.log)"
+      "Bash(tail -n 5 ../frontend-vite.err.log)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\carlo\\\\Downloads\\\\LEAR\" -Recurse -Force | ForEach-Object { $_.FullName })",
+      "PowerShell(python -c \"import openpyxl; print\\('ok'\\)\" 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\analyze_lear.py\")",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings.development\"; $env:DATABASE_URL=\"postgres://intra:dev_password_local@localhost:5434/intra_nom035\"; .\\\\venv\\\\Scripts\\\\python.exe manage.py makemigrations m00_onboarding --name campos_guia_v 2>&1)",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings.development\"; $env:DATABASE_URL=\"postgres://intra:dev_password_local@localhost:5434/intra_nom035\"; .\\\\venv\\\\Scripts\\\\python.exe ..\\\\test_import.py 2>&1 | Select-String -Pattern \"Tenant|---|\\\\s+Import|\\\\s+Actua|\\\\s+Omit|\\\\s+Error|\\\\s+Fila\")",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings.development\"; $env:DATABASE_URL=\"postgres://intra:dev_password_local@localhost:5434/intra_nom035\"; .\\\\venv\\\\Scripts\\\\python.exe ..\\\\test_import.py 2>&1 | Select-Object -Last 30)",
+      "PowerShell(Move-Item *)",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings.development\"; $env:DATABASE_URL=\"postgres://intra:dev_password_local@localhost:5434/intra_nom035\"; .\\\\venv\\\\Scripts\\\\python.exe test_import.py 2>&1 | Where-Object { $_ -match \"Tenant|---|Import|Actua|Omit|Error|Fila|^\\\\s+Fila\" })",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE=\"intra_nom035.settings.development\"; $env:DATABASE_URL=\"postgres://intra:dev_password_local@localhost:5434/intra_nom035\"; .\\\\venv\\\\Scripts\\\\python.exe test_import.py 2>$null)"
     ]
   }
 }

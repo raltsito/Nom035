@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Users, Plus, Search, Pencil, Trash2, ToggleLeft, ToggleRight,
   Loader2, X, CheckCircle2, AlertCircle, UserCheck, UserX,
-  Calendar, ChevronRight,
+  Calendar, ChevronRight, Upload, FileSpreadsheet, CheckCheck,
 } from 'lucide-react';
 import { trabajadoresService, ciclosService } from '../services/trabajadores';
 import styles from './Trabajadores.module.css';
@@ -29,6 +29,47 @@ export default function Trabajadores() {
   const [saving, setSaving]             = useState(false);
   const [formError, setFormError]       = useState('');
   const [confirmDel, setConfirmDel]     = useState(null);
+
+  // Importar Excel
+  const [modalImport, setModalImport]   = useState(false);
+  const [importFile, setImportFile]     = useState(null);
+  const [importDrag, setImportDrag]     = useState(false);
+  const [importing, setImporting]       = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [importError, setImportError]   = useState('');
+  const openImport = () => {
+    setImportFile(null);
+    setImportResult(null);
+    setImportError('');
+    setModalImport(true);
+  };
+  const closeImport = () => {
+    if (importing) return;
+    setModalImport(false);
+    setImportFile(null);
+    setImportResult(null);
+    setImportError('');
+  };
+
+
+  const handleImportSubmit = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    setImportError('');
+    setImportResult(null);
+    try {
+      const res = await trabajadoresService.importarExcel(importFile);
+      setImportResult(res.data.data);
+      fetchTrabajadores(search, soloActivos);
+    } catch (err) {
+      const errs = err.response?.data?.errors;
+      setImportError(
+        errs ? Object.values(errs).flat().join(' ') : 'Error al importar el archivo.'
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
 
   // Ciclos
   const [ciclos, setCiclos]             = useState([]);
@@ -157,10 +198,16 @@ export default function Trabajadores() {
           <h1 className={styles.title}>Trabajadores</h1>
           <p className={styles.subtitle}>Padrón de trabajadores del centro de trabajo</p>
         </div>
-        <button className="nom-btn nom-btn-primary" onClick={openCreate}>
-          <Plus size={16} strokeWidth={2.5} />
-          Nuevo trabajador
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="nom-btn nom-btn-ghost" onClick={openImport}>
+            <Upload size={15} strokeWidth={2} />
+            Importar Excel
+          </button>
+          <button className="nom-btn nom-btn-primary" onClick={openCreate}>
+            <Plus size={16} strokeWidth={2.5} />
+            Nuevo trabajador
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -458,6 +505,144 @@ export default function Trabajadores() {
                 </button>
               </div>
             </form>
+          </div>
+        </Overlay>
+      )}
+
+      {/* Modal importar Excel */}
+      {modalImport && (
+        <Overlay onClick={closeImport}>
+          <div className={`${styles.modal} nom-glass`} onClick={e => e.stopPropagation()}
+               style={{ maxWidth: '520px' }}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>Importar trabajadores desde Excel</h2>
+              <button className={styles.modalClose} onClick={closeImport} disabled={importing}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {!importResult ? (
+              <>
+                {/* Patrón label+input: el click en el label abre el diálogo nativo sin js */}
+                <label
+                  htmlFor="import-file-input"
+                  style={{
+                    display: 'block',
+                    border: `2px dashed ${importDrag ? 'var(--nom-accent)' : 'rgba(255,255,255,0.18)'}`,
+                    borderRadius: '10px',
+                    padding: '2rem',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.2s, background 0.2s',
+                    background: importDrag ? 'rgba(3,196,206,0.06)' : 'transparent',
+                    margin: '1rem 0',
+                    userSelect: 'none',
+                  }}
+                  onDragOver={e => { e.preventDefault(); setImportDrag(true); }}
+                  onDragLeave={() => setImportDrag(false)}
+                  onDrop={e => { e.preventDefault(); setImportDrag(false); const f = e.dataTransfer.files[0]; if (f) setImportFile(f); }}
+                >
+                  <input
+                    id="import-file-input"
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: 'none' }}
+                    onChange={e => { if (e.target.files[0]) setImportFile(e.target.files[0]); }}
+                  />
+                  {importFile ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', pointerEvents: 'none' }}>
+                      <FileSpreadsheet size={32} style={{ color: 'var(--nom-accent)' }} strokeWidth={1.5} />
+                      <span style={{ fontWeight: 600 }}>{importFile.name}</span>
+                      <span style={{ fontSize: '0.8rem', opacity: 0.55 }}>
+                        {(importFile.size / 1024).toFixed(0)} KB · Haz clic para cambiar
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', pointerEvents: 'none' }}>
+                      <Upload size={32} strokeWidth={1.5} style={{ opacity: 0.45 }} />
+                      <span style={{ fontWeight: 600, opacity: 0.7 }}>Arrastra tu Excel aquí o haz clic</span>
+                      <span style={{ fontSize: '0.78rem', opacity: 0.4 }}>.xlsx · .xls</span>
+                    </div>
+                  )}
+                </label>
+
+                <p style={{ fontSize: '0.78rem', opacity: 0.5, lineHeight: 1.5, margin: '0 0 1rem' }}>
+                  El sistema detecta el formato y normaliza campos automáticamente. Si el empleado
+                  ya existe por código, sus datos se actualizan.
+                </p>
+
+                {importError && <div className={styles.formError}>{importError}</div>}
+
+                <div className={styles.modalActions}>
+                  <button type="button" className="nom-btn nom-btn-ghost" onClick={closeImport} disabled={importing}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="nom-btn nom-btn-primary"
+                    onClick={handleImportSubmit}
+                    disabled={!importFile || importing}
+                    style={{ opacity: (!importFile || importing) ? 0.4 : 1, cursor: (!importFile || importing) ? 'not-allowed' : 'pointer' }}
+                  >
+                    {importing
+                      ? <><Loader2 size={15} className="nom-spin" /> Procesando...</>
+                      : <><Upload size={15} /> Importar</>
+                    }
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Resultado */
+              <div style={{ padding: '0.5rem 0 1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                  {[
+                    { label: 'Nuevos', value: importResult.importados, color: 'var(--nom-success)' },
+                    { label: 'Actualizados', value: importResult.actualizados, color: 'var(--nom-accent)' },
+                    { label: 'Omitidos', value: importResult.omitidos, color: 'rgba(255,255,255,0.4)' },
+                    { label: 'Errores', value: importResult.errores?.length ?? 0, color: 'var(--nom-danger)' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      borderRadius: '8px',
+                      padding: '0.85rem 1rem',
+                      textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: '1.75rem', fontWeight: 700, color }}>{value}</div>
+                      <div style={{ fontSize: '0.78rem', opacity: 0.6 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {importResult.errores?.length > 0 && (
+                  <div style={{
+                    background: 'rgba(255,80,80,0.07)',
+                    border: '1px solid rgba(255,80,80,0.2)',
+                    borderRadius: '8px',
+                    padding: '0.75rem 1rem',
+                    maxHeight: '150px',
+                    overflowY: 'auto',
+                    marginBottom: '1rem',
+                  }}>
+                    <p style={{ fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--nom-danger)' }}>
+                      Filas con error:
+                    </p>
+                    {importResult.errores.map((e, i) => (
+                      <p key={i} style={{ fontSize: '0.75rem', opacity: 0.8, margin: '0.15rem 0' }}>
+                        Fila {e.fila}: {e.motivo}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                <div className={styles.modalActions}>
+                  <button className="nom-btn nom-btn-ghost" onClick={openImport}>
+                    <Upload size={14} /> Importar otro
+                  </button>
+                  <button className="nom-btn nom-btn-primary" onClick={closeImport}>
+                    <CheckCheck size={15} /> Listo
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </Overlay>
       )}
