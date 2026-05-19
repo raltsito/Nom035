@@ -386,7 +386,7 @@ function IllustrationPane() {
 /* ── Login form ── */
 function LoginForm() {
   const { login } = useAuth();
-  const [form, setForm]       = useState({ email: '', password: '' });
+  const [form, setForm]       = useState({ username: '', password: '' });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
@@ -396,11 +396,11 @@ function LoginForm() {
     setError('');
     setLoading(true);
     try {
-      await login(form.email, form.password);
+      await login(form.username, form.password);
     } catch (err) {
       const errs = err.response?.data?.errors;
       const msg  = errs?.detail || errs?.non_field_errors?.[0];
-      setError(msg || 'Credenciales incorrectas. Verifica tu email y contraseña.');
+      setError(msg || 'Credenciales incorrectas. Verifica tu usuario y contraseña.');
     } finally {
       setLoading(false);
     }
@@ -421,14 +421,14 @@ function LoginForm() {
       <form onSubmit={handleSubmit} className={styles.form} noValidate>
         <div className={styles.field}>
           <input
-            type="email"
+            type="text"
             className={styles.input}
-            placeholder="Correo electrónico"
-            value={form.email}
-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-            autoComplete="email"
+            placeholder="Usuario"
+            value={form.username}
+            onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+            autoComplete="username"
             required
-            aria-label="Correo electrónico"
+            aria-label="Usuario"
           />
         </div>
 

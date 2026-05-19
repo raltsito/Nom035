@@ -1,376 +1,390 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  Calculator, Plus, Trash2, ChevronDown, ChevronUp,
-  Info, Users, Target, PieChart, Download,
+  Calculator, Users, Target, PieChart, Info,
+  Loader2, Building2, UserCircle, Briefcase,
+  Clock, BarChart2, Download, RefreshCw, Shuffle,
+  ChevronUp, ChevronDown, ListChecks, Search, X,
 } from 'lucide-react';
+import { trabajadoresService } from '../services/trabajadores';
 import styles from './Calculadora.module.css';
 
-/* ── Formula: n = 0.9604N / (0.0025(N-1) + 0.9604) ─────────────────────── */
-function calcularMuestra(N) {
-  if (!N || N < 1) return 0;
-  return Math.ceil((0.9604 * N) / (0.0025 * (N - 1) + 0.9604));
-}
+const ESTRATOS_CFG = [
+  { key: 'area',              label: 'Por área / departamento',    icon: Building2,   color: 'var(--nom-accent)' },
+  { key: 'sexo',              label: 'Por sexo',                   icon: UserCircle,  color: '#a78bfa' },
+  { key: 'tipo_contratacion', label: 'Por tipo de contratación',   icon: Briefcase,   color: '#f59e0b' },
+  { key: 'tipo_puesto',       label: 'Por tipo de puesto',         icon: BarChart2,   color: '#34d399' },
+  { key: 'edad',              label: 'Por edad',                   icon: Users,       color: '#f87171' },
+  { key: 'antiguedad',        label: 'Por antigüedad en empresa',  icon: Clock,       color: '#60a5fa' },
+];
 
-/* ── Sample size for a stratum (proportional allocation) ────────────────── */
-function muestraEstrato(nTotal, NTotal, NEstrato) {
-  if (!NTotal || !NEstrato) return 0;
-  return Math.ceil((NEstrato / NTotal) * nTotal);
-}
-
-/* ── Gauge ring ──────────────────────────────────────────────────────────── */
-function PctRing({ pct, color = 'var(--nom-accent)' }) {
-  const r = 36;
-  const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
+function EstratoCard({ cfg, filas, n }) {
+  const { label, icon: Icon, color } = cfg;
+  const max = Math.max(...filas.map(f => f.total), 1);
   return (
-    <svg width={90} height={90} viewBox="0 0 90 90">
-      <circle cx={45} cy={45} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={8} />
-      <circle
-        cx={45} cy={45} r={r} fill="none"
-        stroke={color} strokeWidth={8}
-        strokeDasharray={`${dash} ${circ - dash}`}
-        strokeLinecap="round"
-        transform="rotate(-90 45 45)"
-        style={{ transition: 'stroke-dasharray 0.5s ease' }}
-      />
-      <text x={45} y={49} textAnchor="middle" fontSize={14} fontWeight={700} fill="var(--nom-text)">
-        {pct}%
-      </text>
-    </svg>
-  );
-}
-
-/* ── Area row ────────────────────────────────────────────────────────────── */
-function AreaRow({ area, index, nTotal, NTotal, onChange, onRemove }) {
-  const n = muestraEstrato(nTotal, NTotal, area.trabajadores);
-  const pct = area.trabajadores > 0 ? Math.round((area.trabajadores / NTotal) * 100) : 0;
-  return (
-    <div className={styles.areaRow}>
-      <div className={styles.areaInputs}>
-        <input
-          className={styles.areaInput}
-          placeholder="Nombre del área / departamento"
-          value={area.nombre}
-          onChange={e => onChange(index, 'nombre', e.target.value)}
-        />
-        <input
-          className={`${styles.areaInput} ${styles.areaNum}`}
-          type="number"
-          min={1}
-          placeholder="Trabajadores"
-          value={area.trabajadores === '' ? '' : area.trabajadores}
-          onChange={e => onChange(index, 'trabajadores', e.target.value === '' ? '' : Number(e.target.value))}
-        />
+    <div className={`nom-card ${styles.estratoCard}`}>
+      <div className={styles.estratoCardHeader}>
+        <div className={styles.estratoCardIcon} style={{ background: `${color}18`, color }}>
+          <Icon size={15} strokeWidth={1.75} />
+        </div>
+        <div>
+          <div className={styles.estratoCardTitle}>{label}</div>
+          <div className={styles.estratoCardSub}>{filas.length} grupos · muestra total {n}</div>
+        </div>
       </div>
-      <div className={styles.areaMeta}>
-        {NTotal > 0 && area.trabajadores > 0 && (
-          <>
-            <span className={styles.areaChip}>{pct}% del total</span>
-            <span className={styles.areaChip} style={{ background: 'rgba(3,196,206,0.12)', color: 'var(--nom-accent)' }}>
-              {n} a encuestar
-            </span>
-          </>
-        )}
+      <div className={styles.estratoRows}>
+        {filas.map((f, i) => (
+          <div key={i} className={styles.estratoRow}>
+            <div className={styles.estratoRowLabel}>{f.label}</div>
+            <div className={styles.estratoBarWrap}>
+              <div
+                className={styles.estratoBarFill}
+                style={{ width: `${(f.total / max) * 100}%`, background: color }}
+              />
+            </div>
+            <div className={styles.estratoRowNums}>
+              <span className={styles.estratoTotal}>{f.total}</span>
+              <span className={styles.estratoPct}>{f.pct}%</span>
+              <span className={styles.estratoMuestra} style={{ color }}>
+                {f.muestra} enc.
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
-      <button className={styles.areaRemove} onClick={() => onRemove(index)} title="Eliminar área">
-        <Trash2 size={14} />
-      </button>
     </div>
   );
 }
 
-/* ── Main ────────────────────────────────────────────────────────────────── */
+const s = (v) => (v || '');
+const SORT_KEYS = {
+  nombre_completo:   (a, b) => s(a.nombre_completo).localeCompare(s(b.nombre_completo)),
+  area:              (a, b) => s(a.area).localeCompare(s(b.area)),
+  puesto:            (a, b) => s(a.puesto).localeCompare(s(b.puesto)),
+  sexo:              (a, b) => s(a.sexo).localeCompare(s(b.sexo)),
+  tipo_contratacion: (a, b) => s(a.tipo_contratacion).localeCompare(s(b.tipo_contratacion)),
+  edad:              (a, b) => (a.edad ?? 0) - (b.edad ?? 0),
+  num_empleado:      (a, b) => s(a.num_empleado).localeCompare(s(b.num_empleado)),
+};
+
 export default function Calculadora() {
-  const [N, setN]             = useState('');
-  const [areas, setAreas]     = useState([]);
-  const [showFormula, setShowFormula] = useState(false);
+  const [data, setData]               = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState('');
+  const [sugeridos, setSugeridos]     = useState(null);
+  const [loadingSug, setLoadingSug]   = useState(false);
+  const [seed, setSeed]               = useState(1);
+  const [listaAbierta, setListaAbierta] = useState(false);
+  const [sortKey, setSortKey]         = useState('area');
+  const [sortAsc, setSortAsc]         = useState(true);
+  const [busqueda, setBusqueda]       = useState('');
 
-  const Nval = Number(N) || 0;
-  const n    = calcularMuestra(Nval);
-  const pct  = Nval > 0 ? Math.round((n / Nval) * 100) : 0;
-
-  /* total en áreas */
-  const totalAreas = areas.reduce((s, a) => s + (Number(a.trabajadores) || 0), 0);
-  const diff       = Nval - totalAreas;
-
-  const addArea = () => setAreas(prev => [...prev, { nombre: '', trabajadores: '' }]);
-
-  const changeArea = useCallback((i, key, val) => {
-    setAreas(prev => prev.map((a, idx) => idx === i ? { ...a, [key]: val } : a));
-  }, []);
-
-  const removeArea = useCallback((i) => {
-    setAreas(prev => prev.filter((_, idx) => idx !== i));
-  }, []);
-
-  /* CSV export */
-  const exportCSV = () => {
-    const rows = [
-      ['Área / Departamento', 'Trabajadores totales', '% del total', 'Muestra requerida'],
-      ...areas
-        .filter(a => a.nombre || a.trabajadores)
-        .map(a => {
-          const nE = muestraEstrato(n, Nval, Number(a.trabajadores) || 0);
-          const p  = Nval > 0 ? Math.round(((Number(a.trabajadores) || 0) / Nval) * 100) : 0;
-          return [a.nombre || '(sin nombre)', a.trabajadores || 0, `${p}%`, nE];
-        }),
-      ['TOTAL', Nval, '100%', n],
-    ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `muestra_nom035_N${Nval}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const fetchData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await trabajadoresService.resumenMuestra();
+      setData(res.data.data);
+    } catch {
+      setError('No se pudo cargar la información. Verifica tu conexión.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const hasAreas = areas.length > 0;
-  const areasValidas = areas.filter(a => (Number(a.trabajadores) || 0) > 0);
+  const fetchSugeridos = useCallback(async (s) => {
+    setLoadingSug(true);
+    try {
+      const res = await trabajadoresService.sugeridosMuestra(s);
+      setSugeridos(res.data.data);
+    } catch {
+      setSugeridos(null);
+    } finally {
+      setLoadingSug(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    if (data && data.N > 0) fetchSugeridos(seed);
+  }, [data, seed, fetchSugeridos]);
+
+  const regenerar = () => {
+    const newSeed = Math.floor(Math.random() * 99999) + 1;
+    setSeed(newSeed);
+  };
+
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortAsc(v => !v);
+    else { setSortKey(key); setSortAsc(true); }
+  };
+
+  const [exportando, setExportando] = useState(false);
+
+  const exportarExcel = async () => {
+    if (!data || exportando) return;
+    setExportando(true);
+    try {
+      const res  = await trabajadoresService.exportarMuestra(seed);
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url  = URL.createObjectURL(blob);
+      const hoy  = new Date().toISOString().slice(0, 10);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `muestra_nom035_${hoy}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error al exportar Excel:', err);
+      alert('No se pudo generar el archivo. Intenta de nuevo.');
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  const filteredSugeridos = () => {
+    if (!sugeridos?.trabajadores) return [];
+    let list = sugeridos.trabajadores;
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase();
+      list = list.filter(w =>
+        w.nombre_completo.toLowerCase().includes(q) ||
+        w.area.toLowerCase().includes(q) ||
+        w.puesto?.toLowerCase().includes(q) ||
+        w.num_empleado?.toLowerCase().includes(q),
+      );
+    }
+    const fn = SORT_KEYS[sortKey];
+    list = [...list].sort((a, b) => fn(a, b) * (sortAsc ? 1 : -1));
+    return list;
+  };
 
   return (
     <div className={styles.page}>
-
-      {/* ---- Header ---- */}
+      {/* Header */}
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Calculadora NOM-035</h1>
           <p className={styles.subtitle}>
-            Tamaño de muestra estadísticamente representativo para la evaluación de factores de riesgo psicosocial
+            Muestra estadísticamente representativa calculada a partir de los trabajadores activos del tenant,
+            con desglose proporcional por las dimensiones requeridas por la NOM-035-STPS-2018.
           </p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+          {data && (
+            <button className="nom-btn nom-btn-ghost" onClick={exportarExcel} disabled={exportando}>
+              {exportando ? <Loader2 size={14} className="nom-spin" /> : <Download size={14} />}
+              {exportando ? 'Generando…' : 'Exportar Excel'}
+            </button>
+          )}
+          <button className="nom-btn nom-btn-ghost" onClick={fetchData} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'nom-spin' : ''} />
+            Actualizar
+          </button>
         </div>
       </div>
 
-      {/* ---- Fórmula colapsable ---- */}
-      <button className={styles.formulaToggle} onClick={() => setShowFormula(v => !v)}>
-        <Info size={14} />
-        Ver fórmula y parámetros estadísticos
-        {showFormula ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
-
-      {showFormula && (
-        <div className={`nom-card ${styles.formulaCard}`}>
-          <div className={styles.formulaMain}>
-            <div className={styles.formulaDisplay}>
-              <span className={styles.formulaN}>n =</span>
-              <div className={styles.formulaFrac}>
-                <div className={styles.formulaNum}>0.9604 × N</div>
-                <div className={styles.formulaLine} />
-                <div className={styles.formulaDen}>0.0025 (N − 1) + 0.9604</div>
+      {loading ? (
+        <div className={styles.loadingWrap}>
+          <Loader2 size={32} className="nom-spin" />
+          <span>Calculando muestra…</span>
+        </div>
+      ) : error ? (
+        <div className={styles.errorWrap}>
+          <Calculator size={36} strokeWidth={1.25} />
+          <p>{error}</p>
+          <button className="nom-btn nom-btn-primary" onClick={fetchData}>Reintentar</button>
+        </div>
+      ) : !data || data.N === 0 ? (
+        <div className={styles.errorWrap}>
+          <Users size={36} strokeWidth={1.25} />
+          <p>No hay trabajadores activos registrados en este tenant.</p>
+        </div>
+      ) : (
+        <>
+          {/* ── Hero ── */}
+          <div className={`nom-card ${styles.heroCard}`}>
+            <div className={styles.heroLeft}>
+              <div className={styles.heroKpi}>
+                <div className={styles.heroNum}>{data.N.toLocaleString('es-MX')}</div>
+                <div className={styles.heroLabel}>trabajadores activos (N)</div>
+              </div>
+              <div className={styles.heroDivider}>→</div>
+              <div className={styles.heroKpi}>
+                <div className={`${styles.heroNum} ${styles.heroNumAccent}`}>
+                  {data.n.toLocaleString('es-MX')}
+                </div>
+                <div className={styles.heroLabel}>muestra representativa (n)</div>
               </div>
             </div>
-          </div>
-          <div className={styles.formulaParams}>
-            <div className={styles.paramItem}>
-              <span className={styles.paramKey}>N</span>
-              <span className={styles.paramVal}>Población total de trabajadores</span>
-            </div>
-            <div className={styles.paramItem}>
-              <span className={styles.paramKey}>n</span>
-              <span className={styles.paramVal}>Tamaño de muestra mínimo requerido</span>
-            </div>
-            <div className={styles.paramItem}>
-              <span className={styles.paramKey}>0.9604</span>
-              <span className={styles.paramVal}>Z² × p × q = (1.96)² × 0.5 × 0.5 — nivel de confianza 95%</span>
-            </div>
-            <div className={styles.paramItem}>
-              <span className={styles.paramKey}>0.0025</span>
-              <span className={styles.paramVal}>e² = (0.05)² — margen de error del 5%</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ---- Input principal ---- */}
-      <div className={`nom-card ${styles.inputCard}`}>
-        <div className={styles.inputSection}>
-          <label className={styles.inputLabel}>
-            <Users size={15} />
-            Total de trabajadores en la empresa (N)
-          </label>
-          <div className={styles.inputRow}>
-            <input
-              className={styles.mainInput}
-              type="number"
-              min={1}
-              placeholder="Ej. 120"
-              value={N}
-              onChange={e => setN(e.target.value)}
-            />
-            {Nval > 0 && (
-              <span className={styles.inputHint}>
-                {Nval.toLocaleString('es-MX')} trabajadores registrados
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Resultado */}
-        {Nval > 0 && (
-          <div className={styles.resultRow}>
-            <div className={styles.resultKpi}>
-              <PctRing pct={pct} />
-              <div>
-                <div className={styles.kpiNum}>{n}</div>
-                <div className={styles.kpiLabel}>trabajadores a encuestar</div>
-              </div>
-            </div>
-
-            <div className={styles.resultStats}>
-              <div className={styles.statPill}>
+            <div className={styles.heroPills}>
+              <div className={styles.heroPill}>
                 <Target size={13} />
-                <span>{pct}% de la plantilla</span>
+                <span>{data.pct}% de la plantilla</span>
               </div>
-              <div className={styles.statPill}>
+              <div className={styles.heroPill}>
                 <PieChart size={13} />
                 <span>Confianza 95% · Error ±5%</span>
               </div>
-              <div className={styles.statPill} style={{ background: 'rgba(3,196,206,0.10)', color: 'var(--nom-accent)' }}>
+              <div className={`${styles.heroPill} ${styles.heroPillAccent}`}>
                 <Users size={13} />
-                <span>{Nval - n} trabajadores no requeridos</span>
+                <span>{(data.N - data.n).toLocaleString('es-MX')} no requeridos</span>
+              </div>
+              <div className={styles.heroPill} style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px' }}>
+                <Calculator size={12} />
+                <span>n = ⌈0.9604N / (0.0025(N−1) + 0.9604)⌉</span>
               </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* ---- Muestreo estratificado ---- */}
-      {Nval > 0 && (
-        <div className={`nom-card ${styles.estratoCard}`}>
-          <div className={styles.estratoHeader}>
-            <div>
-              <h2 className={styles.estratoTitle}>Muestreo estratificado por área</h2>
-              <p className={styles.estratoSub}>
-                Distribuye la muestra proporcionalmente entre departamentos para mayor representatividad
-              </p>
-            </div>
-            <div className={styles.estratoActions}>
-              {hasAreas && areasValidas.length > 0 && (
-                <button className="nom-btn nom-btn-ghost" onClick={exportCSV}>
-                  <Download size={14} />
-                  Exportar CSV
+          {/* ── Grid de estratos ── */}
+          <div className={styles.estratosGrid}>
+            {ESTRATOS_CFG.map(cfg => (
+              <EstratoCard
+                key={cfg.key}
+                cfg={cfg}
+                filas={data.estratos[cfg.key] || []}
+                n={data.n}
+              />
+            ))}
+          </div>
+
+          {/* ── Lista de sugeridos ── */}
+          <div className={`nom-card ${styles.sugeridosCard}`}>
+            <button
+              className={styles.sugeridosToggle}
+              onClick={() => setListaAbierta(v => !v)}
+            >
+              <div className={styles.sugeridosTitleWrap}>
+                <div className={styles.sugeridosIcon}>
+                  <ListChecks size={16} strokeWidth={1.75} />
+                </div>
+                <div>
+                  <div className={styles.sugeridosTitle}>Trabajadores sugeridos para encuestar</div>
+                  <div className={styles.sugeridosSub}>
+                    Selección aleatoria estratificada por área · {sugeridos?.trabajadores?.length ?? '—'} de {data.n} trabajadores
+                  </div>
+                </div>
+              </div>
+              <div className={styles.sugeridosToggleRight}>
+                {listaAbierta
+                  ? <ChevronUp size={16} strokeWidth={2} />
+                  : <ChevronDown size={16} strokeWidth={2} />}
+              </div>
+            </button>
+
+            {listaAbierta && (
+            <div className={styles.sugeridosBody}>
+              <div className={styles.sugeridosHeader}>
+                <div className={styles.sugeridosActions}>
+                  <button className="nom-btn nom-btn-ghost" onClick={regenerar} disabled={loadingSug} title="Nueva selección aleatoria">
+                    <Shuffle size={14} className={loadingSug ? 'nom-spin' : ''} />
+                    Regenerar
+                  </button>
+                  <button className="nom-btn nom-btn-ghost" onClick={exportarExcel} disabled={exportando || !sugeridos}>
+                    {exportando ? <Loader2 size={14} className="nom-spin" /> : <Download size={14} />}
+                    Excel
+                  </button>
+                </div>
+              </div>
+
+            {/* Buscador */}
+            <div className={styles.searchBar}>
+              <Search size={15} className={styles.searchBarIcon} />
+              <input
+                className={styles.searchBarInput}
+                placeholder="Buscar por nombre, área, puesto o número de empleado…"
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+              />
+              {busqueda && (
+                <button className={styles.searchBarClear} onClick={() => setBusqueda('')}>
+                  <X size={13} />
                 </button>
               )}
-              <button className="nom-btn nom-btn-primary" onClick={addArea}>
-                <Plus size={14} />
-                Agregar área
-              </button>
-            </div>
-          </div>
-
-          {!hasAreas ? (
-            <div className={styles.estratoEmpty}>
-              <Calculator size={32} strokeWidth={1.25} />
-              <p>Agrega áreas o departamentos para calcular cuántos trabajadores encuestar en cada uno.</p>
-              <button className="nom-btn nom-btn-primary" onClick={addArea}>
-                <Plus size={14} />
-                Agregar primera área
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className={styles.areaList}>
-                {areas.map((area, i) => (
-                  <AreaRow
-                    key={i}
-                    area={area}
-                    index={i}
-                    nTotal={n}
-                    NTotal={Nval}
-                    onChange={changeArea}
-                    onRemove={removeArea}
-                  />
-                ))}
-              </div>
-
-              {/* Validación de totales */}
-              {totalAreas > 0 && (
-                <div className={`${styles.totalRow} ${diff < 0 ? styles.totalError : diff === 0 ? styles.totalOk : ''}`}>
-                  <span>
-                    Total capturado: <strong>{totalAreas.toLocaleString('es-MX')}</strong> de {Nval.toLocaleString('es-MX')}
-                  </span>
-                  {diff > 0 && <span className={styles.diffHint}>{diff} trabajadores sin asignar a un área</span>}
-                  {diff < 0 && <span className={styles.diffError}>La suma excede N en {Math.abs(diff)} trabajadores</span>}
-                  {diff === 0 && <span className={styles.diffOk}>✓ Suma correcta</span>}
-                </div>
+              {busqueda && (
+                <span className={styles.searchBarCount}>
+                  {filteredSugeridos().length} resultado{filteredSugeridos().length !== 1 ? 's' : ''}
+                </span>
               )}
+            </div>
 
-              {/* Tabla resumen */}
-              {areasValidas.length > 0 && (
-                <div className={styles.tableWrap}>
-                  <table className={styles.table}>
+            {loadingSug ? (
+              <div className={styles.sugeridosLoading}>
+                <Loader2 size={22} className="nom-spin" />
+              </div>
+            ) : (() => {
+              const rows = filteredSugeridos();
+              const cols = [
+                { k: null,               l: '#',            cls: styles.tdNum  },
+                { k: 'num_empleado',     l: 'No. Emp.',     cls: styles.tdMono },
+                { k: 'nombre_completo',  l: 'Nombre',       cls: styles.tdName },
+                { k: 'area',             l: 'Área',         cls: null          },
+                { k: 'puesto',           l: 'Puesto',       cls: styles.tdMuted},
+                { k: 'sexo',             l: 'Sexo',         cls: null          },
+                { k: 'edad',             l: 'Edad',         cls: styles.tdMono },
+                { k: 'tipo_contratacion',l: 'Contratación', cls: styles.tdMuted},
+              ];
+              return (
+                <div className={styles.sugeridosTableWrap}>
+                  <table className={styles.sugeridosTable}>
                     <thead>
                       <tr>
-                        <th>Área / Departamento</th>
-                        <th>Trabajadores</th>
-                        <th>% del total</th>
-                        <th>Muestra requerida</th>
-                        <th>Representación</th>
+                        {cols.map(({ k, l }, i) => (
+                          <th key={i} onClick={k ? () => toggleSort(k) : undefined}>
+                            {k ? (
+                              <span className={styles.thInner}>
+                                {l}
+                                <span className={styles.thIcon}>
+                                  {sortKey === k
+                                    ? (sortAsc ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+                                    : <ChevronDown size={11} style={{ opacity: 0.25 }} />}
+                                </span>
+                              </span>
+                            ) : l}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {areasValidas.map((area, i) => {
-                        const nE  = muestraEstrato(n, Nval, Number(area.trabajadores));
-                        const pE  = Math.round((Number(area.trabajadores) / Nval) * 100);
-                        return (
-                          <tr key={i}>
-                            <td>{area.nombre || <span className={styles.unnamed}>(sin nombre)</span>}</td>
-                            <td>{Number(area.trabajadores).toLocaleString('es-MX')}</td>
-                            <td>
-                              <div className={styles.barCell}>
-                                <div className={styles.barTrack}>
-                                  <div className={styles.barFill} style={{ width: `${pE}%` }} />
-                                </div>
-                                <span>{pE}%</span>
-                              </div>
-                            </td>
-                            <td><strong className={styles.nResult}>{nE}</strong></td>
-                            <td>
-                              <div className={styles.barCell}>
-                                <div className={styles.barTrack}>
-                                  <div
-                                    className={styles.barFill}
-                                    style={{ width: `${pE}%`, background: 'var(--nom-accent)' }}
-                                  />
-                                </div>
-                                <span>{nE} / {Number(area.trabajadores)}</span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {rows.length === 0 ? (
+                        <tr><td colSpan={cols.length} className={styles.tdEmpty}>Sin resultados</td></tr>
+                      ) : rows.map((w, i) => (
+                        <tr key={w.id}>
+                          <td className={styles.tdNum}>{i + 1}</td>
+                          <td className={styles.tdMono}>{w.num_empleado}</td>
+                          <td className={styles.tdName}>{w.nombre_completo}</td>
+                          <td><span className={styles.areaChip}>{w.area}</span></td>
+                          <td className={styles.tdMuted}>{w.puesto || '—'}</td>
+                          <td>{w.sexo}</td>
+                          <td className={styles.tdMono}>{w.edad ?? '—'}</td>
+                          <td className={styles.tdMuted}>{w.tipo_contratacion}</td>
+                        </tr>
+                      ))}
                     </tbody>
-                    <tfoot>
-                      <tr className={styles.tfootRow}>
-                        <td><strong>TOTAL</strong></td>
-                        <td><strong>{totalAreas.toLocaleString('es-MX')}</strong></td>
-                        <td><strong>{Nval > 0 ? Math.round((totalAreas / Nval) * 100) : 0}%</strong></td>
-                        <td>
-                          <strong className={styles.nResult}>
-                            {areasValidas.reduce((s, a) => s + muestraEstrato(n, Nval, Number(a.trabajadores)), 0)}
-                          </strong>
-                        </td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
                   </table>
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+              );
+            })()}
+            </div>
+            )}
+          </div>
 
-      {/* ---- Nota metodológica ---- */}
-      <div className={styles.nota}>
-        <Info size={13} />
-        <span>
-          Fórmula basada en muestreo probabilístico para poblaciones finitas con nivel de confianza del 95%
-          y margen de error del 5%, conforme a los lineamientos de la NOM-035-STPS-2018.
-          El resultado se redondea siempre al entero superior (ceil) para garantizar representatividad.
-        </span>
-      </div>
+          {/* Nota metodológica */}
+          <div className={styles.nota}>
+            <Info size={13} />
+            <span>
+              Muestreo probabilístico estratificado proporcional para poblaciones finitas · NOM-035-STPS-2018.
+              La muestra por grupo se calcula como ⌈(N_estrato / N) × n⌉, garantizando representatividad
+              en cada dimensión. Los trabajadores sin dato en un campo se agrupan en "No especificado".
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

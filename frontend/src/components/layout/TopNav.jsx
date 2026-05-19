@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { to: '/trabajadores', label: 'Trabajadores' },
   { to: '/cuestionarios', label: 'Cuestionarios' },
   { to: '/resultados',   label: 'Resultados' },
+  { to: '/calculadora',  label: 'Calculadora' },
 ];
 
 const TIPO_ICON = {

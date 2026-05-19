@@ -9,7 +9,10 @@ export const trabajadoresService = {
   create:      (data)        => api.post(BASE, data),
   update:      (id, data)    => api.patch(`${BASE}${id}/`, data),
   delete:      (id)          => api.delete(`${BASE}${id}/`),
-  toggleActivo:(id)          => api.post(`${BASE}${id}/toggle-activo/`),
+  toggleActivo:  (id)          => api.post(`${BASE}${id}/toggle-activo/`),
+  resumenMuestra:   ()           => api.get(`${BASE}resumen-muestra/`),
+  sugeridosMuestra:  (seed = 1) => api.get(`${BASE}sugeridos-muestra/`, { params: { seed } }),
+  exportarMuestra:   (seed = 1) => api.get(`${BASE}exportar-muestra/`,  { params: { seed }, responseType: 'blob' }),
   importarExcel: (file, tenantId) => {
     const form = new FormData();
     form.append('archivo', file);

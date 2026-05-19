@@ -6,7 +6,18 @@ import {
   Loader2, X, CheckCircle2, AlertCircle,
   ChevronRight, BarChart2, RefreshCw, UserPlus,
   TrendingUp, ClipboardList, ShieldCheck,
+  Calculator, Download, Target, PieChart, Info,
 } from 'lucide-react';
+
+function calcularMuestra(N) {
+  if (!N || N < 1) return 0;
+  return Math.ceil((0.9604 * N) / (0.0025 * (N - 1) + 0.9604));
+}
+
+function muestraEstrato(nTotal, NTotal, NEstrato) {
+  if (!NTotal || !NEstrato) return 0;
+  return Math.ceil((NEstrato / NTotal) * nTotal);
+}
 import { tenantsService } from '../services/tenants';
 import styles from './Empresas.module.css';
 
@@ -48,6 +59,9 @@ export default function Empresas() {
   const [userForm, setUserForm]     = useState(EMPTY_USER);
   const [userSaving, setUserSaving] = useState(false);
   const [userError, setUserError]   = useState('');
+
+  // Calculadora tab
+  const [calcAreas, setCalcAreas] = useState([]);
 
   const fetchTenants = useCallback(async (q = '') => {
     setLoading(true);
@@ -135,6 +149,7 @@ export default function Empresas() {
     setDrawerUsers([]);
     setShowUserForm(false);
     setUserError('');
+    setCalcAreas([]);
     setDrawerLoading(true);
     try {
       const [sRes, uRes] = await Promise.all([
@@ -333,6 +348,13 @@ export default function Empresas() {
                 <Users size={14} />
                 Usuarios
               </button>
+              <button
+                className={`${styles.drawerTab} ${drawerTab === 'calculadora' ? styles.drawerTabActive : ''}`}
+                onClick={() => setDrawerTab('calculadora')}
+              >
+                <Calculator size={14} />
+                Calculadora
+              </button>
             </div>
 
             {/* Drawer body */}
@@ -416,6 +438,180 @@ export default function Empresas() {
                     <p>No hay estadisticas disponibles.</p>
                   </div>
                 )
+              ) : drawerTab === 'calculadora' ? (
+                /* --- Calculadora tab --- */
+                (() => {
+                  const N     = drawer.num_trabajadores || 0;
+                  const n     = calcularMuestra(N);
+                  const pct   = N > 0 ? Math.round((n / N) * 100) : 0;
+                  const totalAreas = calcAreas.reduce((s, a) => s + (Number(a.trabajadores) || 0), 0);
+                  const diff       = N - totalAreas;
+                  const areasValidas = calcAreas.filter(a => (Number(a.trabajadores) || 0) > 0);
+
+                  const exportCSV = () => {
+                    const rows = [
+                      ['Area / Departamento', 'Trabajadores totales', '% del total', 'Muestra requerida'],
+                      ...areasValidas.map(a => {
+                        const nE = muestraEstrato(n, N, Number(a.trabajadores));
+                        const p  = N > 0 ? Math.round((Number(a.trabajadores) / N) * 100) : 0;
+                        return [a.nombre || '(sin nombre)', a.trabajadores, `${p}%`, nE];
+                      }),
+                      ['TOTAL', N, '100%', n],
+                    ];
+                    const csv  = rows.map(r => r.join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url  = URL.createObjectURL(blob);
+                    const a    = document.createElement('a');
+                    a.href = url;
+                    a.download = `muestra_${drawer.rfc}_N${N}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  };
+
+                  return (
+                    <div className={styles.calcSection}>
+                      {/* N badge */}
+                      <div className={styles.calcNBadge}>
+                        <Users size={13} />
+                        <span>N = <strong>{N.toLocaleString('es-MX')}</strong> trabajadores registrados en el perfil</span>
+                      </div>
+
+                      {/* Resultado principal */}
+                      {N > 0 ? (
+                        <div className={styles.calcResultCard}>
+                          <div className={styles.calcBigResult}>
+                            <div className={styles.calcBigNum}>{n}</div>
+                            <div className={styles.calcBigLabel}>trabajadores a encuestar</div>
+                          </div>
+                          <div className={styles.calcPills}>
+                            <div className={styles.calcPill}>
+                              <Target size={12} />
+                              <span>{pct}% de la plantilla</span>
+                            </div>
+                            <div className={styles.calcPill}>
+                              <PieChart size={12} />
+                              <span>Confianza 95% · Error ±5%</span>
+                            </div>
+                            <div className={`${styles.calcPill} ${styles.calcPillAccent}`}>
+                              <Users size={12} />
+                              <span>{N - n} no requeridos</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={styles.empty}>
+                          <Calculator size={28} strokeWidth={1.25} />
+                          <p>Esta empresa no tiene trabajadores registrados.</p>
+                        </div>
+                      )}
+
+                      {/* Estratificado por área */}
+                      {N > 0 && (
+                        <div className={styles.calcAreaSection}>
+                          <div className={styles.calcAreaHeader}>
+                            <div>
+                              <div className={styles.calcAreaTitle}>Desglose por area</div>
+                              <div className={styles.calcAreaSub}>Distribucion proporcional de la muestra</div>
+                            </div>
+                            <div className={styles.calcAreaActions}>
+                              {areasValidas.length > 0 && (
+                                <button className="nom-btn nom-btn-ghost" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={exportCSV}>
+                                  <Download size={12} /> CSV
+                                </button>
+                              )}
+                              <button
+                                className="nom-btn nom-btn-primary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                                onClick={() => setCalcAreas(prev => [...prev, { nombre: '', trabajadores: '' }])}
+                              >
+                                <Plus size={12} /> Agregar area
+                              </button>
+                            </div>
+                          </div>
+
+                          {calcAreas.length > 0 && (
+                            <div className={styles.calcAreaList}>
+                              {calcAreas.map((area, i) => {
+                                const nE  = muestraEstrato(n, N, Number(area.trabajadores) || 0);
+                                const pE  = area.trabajadores > 0 ? Math.round((Number(area.trabajadores) / N) * 100) : 0;
+                                return (
+                                  <div key={i} className={styles.calcAreaRow}>
+                                    <input
+                                      className={styles.calcAreaInput}
+                                      placeholder="Nombre del area"
+                                      value={area.nombre}
+                                      onChange={e => setCalcAreas(prev => prev.map((a, idx) => idx === i ? { ...a, nombre: e.target.value } : a))}
+                                    />
+                                    <input
+                                      className={`${styles.calcAreaInput} ${styles.calcAreaNum}`}
+                                      type="number"
+                                      min={1}
+                                      placeholder="Trab."
+                                      value={area.trabajadores === '' ? '' : area.trabajadores}
+                                      onChange={e => setCalcAreas(prev => prev.map((a, idx) => idx === i ? { ...a, trabajadores: e.target.value === '' ? '' : Number(e.target.value) } : a))}
+                                    />
+                                    {area.trabajadores > 0 && (
+                                      <span className={styles.calcAreaChip}>{nE} encuestas</span>
+                                    )}
+                                    <button
+                                      className={styles.calcAreaRemove}
+                                      onClick={() => setCalcAreas(prev => prev.filter((_, idx) => idx !== i))}
+                                    >
+                                      <X size={13} />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+
+                              {totalAreas > 0 && (
+                                <div className={`${styles.calcTotal} ${diff < 0 ? styles.calcTotalError : diff === 0 ? styles.calcTotalOk : ''}`}>
+                                  <span>Total capturado: <strong>{totalAreas.toLocaleString('es-MX')}</strong> / {N.toLocaleString('es-MX')}</span>
+                                  {diff > 0 && <span className={styles.calcDiffHint}>{diff} sin asignar</span>}
+                                  {diff < 0 && <span className={styles.calcDiffError}>Excede N en {Math.abs(diff)}</span>}
+                                  {diff === 0 && <span className={styles.calcDiffOk}>✓ Correcto</span>}
+                                </div>
+                              )}
+
+                              {areasValidas.length > 0 && (
+                                <table className={styles.calcTable}>
+                                  <thead>
+                                    <tr>
+                                      <th>Area</th>
+                                      <th>Trabajadores</th>
+                                      <th>Muestra</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {areasValidas.map((area, i) => (
+                                      <tr key={i}>
+                                        <td>{area.nombre || <em style={{ color: 'var(--nom-text-muted)' }}>(sin nombre)</em>}</td>
+                                        <td>{Number(area.trabajadores).toLocaleString('es-MX')}</td>
+                                        <td><strong style={{ color: 'var(--nom-accent)' }}>{muestraEstrato(n, N, Number(area.trabajadores))}</strong></td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr>
+                                      <td><strong>Total</strong></td>
+                                      <td><strong>{totalAreas.toLocaleString('es-MX')}</strong></td>
+                                      <td><strong style={{ color: 'var(--nom-accent)' }}>{areasValidas.reduce((s, a) => s + muestraEstrato(n, N, Number(a.trabajadores)), 0)}</strong></td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Nota */}
+                      <div className={styles.calcNote}>
+                        <Info size={12} />
+                        <span>Muestreo probabilístico para poblaciones finitas · NOM-035-STPS-2018</span>
+                      </div>
+                    </div>
+                  );
+                })()
               ) : (
                 /* --- Usuarios tab --- */
                 <div className={styles.usersSection}>
