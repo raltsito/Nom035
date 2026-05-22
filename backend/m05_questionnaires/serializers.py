@@ -112,17 +112,18 @@ class GuiaLinkPublicaSerializer(serializers.ModelSerializer):
 
 class AplicacionPublicaSerializer(serializers.ModelSerializer):
     """Datos publicos de una aplicacion para la pantalla de respuesta."""
-    trabajador_nombre   = serializers.CharField(source='trabajador.nombre_completo', read_only=True)
-    cuestionario        = CuestionarioSerializer(read_only=True)
+    trabajador_nombre    = serializers.CharField(source='trabajador.nombre_completo', read_only=True)
+    cuestionario         = CuestionarioSerializer(read_only=True)
     respuestas_guardadas = serializers.SerializerMethodField()
-    foto_estado = serializers.SerializerMethodField()
+    preguntas_prefilladas = serializers.SerializerMethodField()
+    foto_estado          = serializers.SerializerMethodField()
 
     class Meta:
         model  = Aplicacion
         fields = [
             'id', 'estado', 'token',
             'trabajador_nombre', 'cuestionario',
-            'respuestas_guardadas', 'foto_estado',
+            'respuestas_guardadas', 'preguntas_prefilladas', 'foto_estado',
         ]
 
     def get_respuestas_guardadas(self, obj):
@@ -130,6 +131,12 @@ class AplicacionPublicaSerializer(serializers.ModelSerializer):
             str(r.pregunta_id): r.valor_texto if r.valor is None else r.valor
             for r in obj.respuestas.all()
         }
+
+    def get_preguntas_prefilladas(self, obj):
+        if obj.cuestionario.clave != 'V':
+            return []
+        from .prefill_guia_v import get_prefilled_question_ids
+        return list(get_prefilled_question_ids(obj.trabajador))
 
     def get_foto_estado(self, obj):
         if obj.cuestionario.clave != 'III':

@@ -335,9 +335,9 @@
 
 /* ---- Ciclos NOM-035 ---- */
 .ciclosSection {
-  margin-top: var(--nom-space-10);
-  padding-top: var(--nom-space-8);
-  border-top: 1.5px solid var(--nom-border);
+  margin-bottom: var(--nom-space-10);
+  padding-bottom: var(--nom-space-8);
+  border-bottom: 1.5px solid var(--nom-border);
 }
 .ciclosHeader {
   display: flex;

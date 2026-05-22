@@ -89,6 +89,8 @@ export default function Responder() {
   }, [token]);
 
   const dominios       = data?.cuestionario?.dominios || [];
+  const prefilledIds   = new Set((data?.preguntas_prefilladas || []).map(String));
+
   const isPreguntaVisible = (pregunta, answerMap = answers) => {
     const ids = [
       pregunta.condicion_pregunta,
@@ -98,19 +100,24 @@ export default function Responder() {
     const checks = ids.map(id => answerMap[String(id)] === pregunta.condicion_valor);
     return pregunta.condicion_operador === 'any' ? checks.some(Boolean) : checks.every(Boolean);
   };
-  const getVisiblePreguntas = (dom, answerMap = answers) =>
-    dom.preguntas.filter(p => isPreguntaVisible(p, answerMap));
 
-  const totalPreguntas = dominios.flatMap(d => getVisiblePreguntas(d)).length;
-  const answeredCount  = dominios
-    .flatMap(d => getVisiblePreguntas(d))
+  // Preguntas visibles excluyendo las pre-llenadas desde el Excel
+  const getPendingPreguntas = (dom, answerMap = answers) =>
+    dom.preguntas.filter(p => isPreguntaVisible(p, answerMap) && !prefilledIds.has(String(p.id)));
+
+  // Dominios que aún tienen preguntas pendientes
+  const pendingDominios = dominios.filter(d => getPendingPreguntas(d).length > 0);
+
+  const totalPreguntas = pendingDominios.flatMap(d => getPendingPreguntas(d)).length;
+  const answeredCount  = pendingDominios
+    .flatMap(d => getPendingPreguntas(d))
     .filter(p => hasAnswer(answers[String(p.id)]))
     .length;
-  const currentDominio = step >= 0 && step < dominios.length ? dominios[step] : null;
+  const currentDominio = step >= 0 && step < pendingDominios.length ? pendingDominios[step] : null;
   const requiresPhoto = data?.cuestionario?.clave === 'III' && data?.foto_estado === 'pendiente' && !completed;
 
   const isDominioComplete = (dom) =>
-    getVisiblePreguntas(dom).every(p => hasAnswer(answers[String(p.id)]));
+    getPendingPreguntas(dom).every(p => hasAnswer(answers[String(p.id)]));
 
   const canGoNext = currentDominio ? isDominioComplete(currentDominio) : true;
   const pct = totalPreguntas > 0 ? Math.round((answeredCount / totalPreguntas) * 100) : 0;
@@ -134,7 +141,7 @@ export default function Responder() {
     if (currentDominio) {
       setSaving(true);
       try {
-        const respuestas = getVisiblePreguntas(currentDominio).map(p => {
+        const respuestas = getPendingPreguntas(currentDominio).map(p => {
           const value = answers[String(p.id)];
           return typeof value === 'number'
             ? { pregunta_id: p.id, valor: value }
@@ -155,7 +162,7 @@ export default function Responder() {
       }
     }
 
-    if (step + 1 >= dominios.length) {
+    if (step + 1 >= pendingDominios.length) {
       setCompleted(true);
     } else {
       setStep(s => s + 1);
@@ -491,7 +498,7 @@ export default function Responder() {
               <li>Tus respuestas son estrictamente confidenciales</li>
               <li>
                 El cuestionario tiene <strong>{totalPreguntas} preguntas</strong> en{' '}
-                <strong>{dominios.length} secciones</strong>
+                <strong>{pendingDominios.length} secciones</strong>
               </li>
             </ul>
             <div className={styles.introMeta}>
@@ -512,10 +519,10 @@ export default function Responder() {
           <div className={styles.card}>
             <div className={styles.domainMeta}>
               <span className={styles.domainBadge}>
-                Sección {step + 1} de {dominios.length}
+                Sección {step + 1} de {pendingDominios.length}
               </span>
               <div className={styles.domainDots}>
-                {dominios.map((d, i) => (
+                {pendingDominios.map((d, i) => (
                   <span
                     key={d.id}
                     className={`${styles.dot} ${i === step ? styles.dotActive : ''} ${isDominioComplete(d) ? styles.dotDone : ''}`}
@@ -525,13 +532,13 @@ export default function Responder() {
             </div>
             <h2 className={styles.domainTitle}>{currentDominio.nombre}</h2>
             <p className={styles.instructions}>
-              {getVisiblePreguntas(currentDominio).some(p => p.tipo_respuesta === 'frecuencia')
+              {getPendingPreguntas(currentDominio).some(p => p.tipo_respuesta === 'frecuencia')
                 ? 'Selecciona la frecuencia con la que se presentan las siguientes situaciones en tu trabajo:'
                 : 'Responde la informacion solicitada para continuar:'}
             </p>
 
             {/* Scale legend */}
-            {getVisiblePreguntas(currentDominio).some(p => p.tipo_respuesta === 'frecuencia') && (
+            {getPendingPreguntas(currentDominio).some(p => p.tipo_respuesta === 'frecuencia') && (
               <div className={styles.legend}>
                 {OPCIONES.map(o => (
                   <span key={o.valor} className={styles.legendItem}>
@@ -543,7 +550,7 @@ export default function Responder() {
 
             {/* Questions list */}
             <div className={styles.questions}>
-              {getVisiblePreguntas(currentDominio).map((pregunta, idx) => {
+              {getPendingPreguntas(currentDominio).map((pregunta, idx) => {
                 const val = answers[String(pregunta.id)];
                 const answered = hasAnswer(val);
                 const opciones = pregunta.tipo_respuesta === 'si_no' ? OPCIONES_SI_NO : OPCIONES;
@@ -615,7 +622,7 @@ export default function Responder() {
                 {saving
                   ? <Loader2 size={16} className={styles.spin} />
                   : <>
-                      {step === dominios.length - 1 ? 'Finalizar' : 'Siguiente'}
+                      {step === pendingDominios.length - 1 ? 'Finalizar' : 'Siguiente'}
                       <ChevronRight size={16} />
                     </>
                 }

@@ -707,12 +707,17 @@ def confirmar_trabajador(request, token):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    aplicacion, _ = Aplicacion.objects.get_or_create(
+    aplicacion, created = Aplicacion.objects.get_or_create(
         tenant=link.ciclo.tenant,
         ciclo=link.ciclo,
         cuestionario=link.cuestionario,
         trabajador=trabajador,
     )
+
+    if created and link.cuestionario.clave == 'V':
+        from .prefill_guia_v import prefill_guia_v
+        prefill_guia_v(aplicacion, trabajador)
+        aplicacion.refresh_from_db()
 
     return Response({'data': {
         'aplicacion_token': str(aplicacion.token),

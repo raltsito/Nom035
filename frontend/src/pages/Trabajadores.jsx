@@ -374,6 +374,48 @@ export default function Trabajadores() {
         </div>
       </div>
 
+      {/* Ciclos NOM-035 */}
+      <div className={styles.ciclosSection}>
+        <div className={styles.ciclosHeader}>
+          <div className={styles.ciclosHeadLeft}>
+            <div className={styles.ciclosIcon}><Calendar size={16} strokeWidth={1.75} /></div>
+            <div>
+              <h2 className={styles.ciclosTitle}>Ciclos NOM-035</h2>
+              <p className={styles.ciclosSub}>Periodos de evaluación por año</p>
+            </div>
+          </div>
+          <button className="nom-btn nom-btn-ghost" onClick={() => { setCicloError(''); setModalCiclo(true); }}>
+            <Plus size={14} strokeWidth={2.5} /> Nuevo ciclo
+          </button>
+        </div>
+
+        {ciclos.length === 0 ? (
+          <div className={styles.ciclosEmpty}>
+            <Calendar size={22} strokeWidth={1.25} />
+            <span>No hay ciclos creados aún</span>
+          </div>
+        ) : (
+          <div className={styles.ciclosGrid}>
+            {ciclos.map(c => (
+              <div key={c.id} className={styles.cicloCard}>
+                <div className={styles.cicloYear}>{c.anio}</div>
+                <div className={styles.cicloMeta}>
+                  <span className={`${styles.cicloEstado} ${styles[`estado_${c.estado}`]}`}>
+                    {c.estado.replace('_', ' ')}
+                  </span>
+                  <span className={styles.cicloWorkers}>
+                    <Users size={11} strokeWidth={2} /> {c.total_trabajadores} trabajadores
+                  </span>
+                </div>
+                {c.fecha_inicio && (
+                  <div className={styles.cicloDate}>Inicio: {c.fecha_inicio}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Stats */}
       <div className={styles.statsRow}>
         <div className={`${styles.statCard} nom-card`}>
@@ -517,53 +559,6 @@ export default function Trabajadores() {
           </table>
         </div>
       )}
-
-      {/* Ciclos NOM-035 */}
-      <div className={styles.ciclosSection}>
-        <div className={styles.ciclosHeader}>
-          <div className={styles.ciclosHeadLeft}>
-            <div className={styles.ciclosIcon}><Calendar size={16} strokeWidth={1.75} /></div>
-            <div>
-              <h2 className={styles.ciclosTitle}>Ciclos NOM-035</h2>
-              <p className={styles.ciclosSub}>Periodos de evaluación por año</p>
-            </div>
-          </div>
-          <button className="nom-btn nom-btn-ghost" onClick={() => { setCicloError(''); setModalCiclo(true); }}>
-            <Plus size={14} strokeWidth={2.5} /> Nuevo ciclo
-          </button>
-        </div>
-
-        {ciclos.length === 0 ? (
-          <div className={styles.ciclosEmpty}>
-            <Calendar size={22} strokeWidth={1.25} />
-            <span>No hay ciclos creados aún</span>
-          </div>
-        ) : (
-          <div className={styles.ciclosGrid}>
-            {ciclos.map(c => (
-              <div key={c.id} className={styles.cicloCard}>
-                <div className={styles.cicloYear}>{c.anio}</div>
-                <div className={styles.cicloMeta}>
-                  <span className={`${styles.cicloEstado} ${styles[`estado_${c.estado}`]}`}>
-                    {c.estado.replace('_', ' ')}
-                  </span>
-                  <span className={styles.cicloWorkers}>
-                    <Users size={11} strokeWidth={2} /> {c.total_trabajadores} trabajadores
-                  </span>
-                </div>
-                {c.fecha_inicio && (
-                  <div className={styles.cicloDate}>Inicio: {c.fecha_inicio}</div>
-                )}
-                {c.estado !== 'cerrado' && (
-                  <button className={styles.cicloAvanzar} onClick={() => handleAvanzarCiclo(c.id)}>
-                    Avanzar estado <ChevronRight size={13} strokeWidth={2.5} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Modal nuevo ciclo */}
       {modalCiclo && (
