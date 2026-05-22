@@ -3,10 +3,172 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Users, Plus, Search, Pencil, Trash2, ToggleLeft, ToggleRight,
   Loader2, X, CheckCircle2, AlertCircle, UserCheck, UserX,
-  Calendar, ChevronRight, Upload, FileSpreadsheet, CheckCheck,
+  Calendar, ChevronRight, Upload, FileSpreadsheet, CheckCheck, Eye,
 } from 'lucide-react';
 import { trabajadoresService, ciclosService } from '../services/trabajadores';
 import styles from './Trabajadores.module.css';
+
+const SEXO_LABELS          = { M: 'Masculino', F: 'Femenino' };
+const ESTADO_CIVIL_LABELS  = { soltero: 'Soltero', casado: 'Casado', union_libre: 'Unión libre', divorciado: 'Divorciado', viudo: 'Viudo', otro: 'Otro' };
+const NIVEL_LABELS         = { primaria: 'Primaria', secundaria: 'Secundaria', bachillerato: 'Bachillerato / Preparatoria', tecnico: 'Técnico', licenciatura: 'Licenciatura', ingenieria: 'Ingeniería', posgrado: 'Posgrado', otro: 'Otro' };
+const PERSONAL_LABELS      = { sindicalizado: 'Sindicalizado / Directo', confianza: 'Confianza / Indirecto', salary: 'Salary / Administrativo', otro: 'Otro' };
+const JORNADA_LABELS       = { diurno: 'Diurno', mixto: 'Mixto', nocturno: 'Nocturno' };
+const CONTRAT_LABELS       = { planta: 'Planta', eventual: 'Eventual', subcontratado: 'Subcontratado' };
+
+const DETALLE_SECCIONES = [
+  {
+    titulo: 'Identificación',
+    campos: [
+      { key: 'num_empleado',   label: 'No. empleado' },
+      { key: 'email',          label: 'Correo electrónico' },
+    ],
+  },
+  {
+    titulo: 'Posición',
+    campos: [
+      { key: 'puesto',             label: 'Puesto / Profesión' },
+      { key: 'area',               label: 'Departamento / Área' },
+      { key: 'tipo_contratacion',  label: 'Tipo de contratación',  map: CONTRAT_LABELS },
+      { key: 'tipo_personal',      label: 'Tipo de personal',      map: PERSONAL_LABELS },
+    ],
+  },
+  {
+    titulo: 'Perfil demográfico',
+    campos: [
+      { key: 'sexo',           label: 'Sexo',             map: SEXO_LABELS },
+      { key: 'edad',           label: 'Edad',             suffix: 'años' },
+      { key: 'estado_civil',   label: 'Estado civil',     map: ESTADO_CIVIL_LABELS },
+      { key: 'nivel_estudios', label: 'Nivel de estudios', map: NIVEL_LABELS },
+    ],
+  },
+  {
+    titulo: 'Jornada',
+    campos: [
+      { key: 'tipo_jornada',    label: 'Jornada de trabajo', map: JORNADA_LABELS },
+      { key: 'rotacion_turnos', label: '¿Rota turnos?',      bool: true },
+    ],
+  },
+  {
+    titulo: 'Experiencia',
+    campos: [
+      { key: 'experiencia_anios',         label: 'Exp. laboral total',       suffix: 'años' },
+      { key: 'experiencia_empresa_anios', label: 'Exp. empresa actual',       suffix: 'años' },
+      { key: 'tiempo_puesto_actual',      label: 'Tiempo en puesto actual',   suffix: 'años' },
+    ],
+  },
+];
+
+function formatVal(t, campo) {
+  const raw = t[campo.key];
+  if (campo.bool) {
+    if (raw === true)  return { texto: 'Sí',  vacio: false };
+    if (raw === false) return { texto: 'No', vacio: false };
+    return { texto: '—', vacio: true };
+  }
+  if (raw === null || raw === undefined || raw === '') return { texto: '—', vacio: true };
+  if (campo.map) return { texto: campo.map[raw] ?? raw, vacio: false };
+  if (campo.suffix) return { texto: `${raw} ${campo.suffix}`, vacio: false };
+  return { texto: String(raw), vacio: false };
+}
+
+function completitud(t) {
+  const todos = DETALLE_SECCIONES.flatMap(s => s.campos).filter(c => c.key !== 'email');
+  const llenos = todos.filter(c => {
+    const v = t[c.key];
+    return v !== null && v !== undefined && v !== '';
+  });
+  return Math.round((llenos.length / todos.length) * 100);
+}
+
+function DetalleModal({ t, onClose }) {
+  const pct = completitud(t);
+  const initials = [t.nombre?.[0], t.apellido_paterno?.[0]].filter(Boolean).join('').toUpperCase();
+
+  return (
+    <Overlay onClick={onClose}>
+      <div
+        className={`${styles.modal} nom-glass`}
+        style={{ maxWidth: 680, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0, padding: 0 }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Cabecera */}
+        <div style={{ padding: '1.5rem 1.75rem 1.25rem', borderBottom: '1px solid var(--nom-border)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+            background: 'var(--nom-accent-subtle)', color: 'var(--nom-accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: '1.15rem', fontFamily: 'var(--nom-font-display)',
+            border: '2px solid var(--nom-accent)',
+          }}>
+            {initials}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--nom-text)', lineHeight: 1.2, marginBottom: 4 }}>
+              {t.nombre_completo}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {t.num_empleado && (
+                <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--nom-accent)', letterSpacing: '0.06em' }}>
+                  #{t.num_empleado}
+                </span>
+              )}
+              <span className={`${styles.statusChip} ${t.activo ? styles.chipActive : styles.chipInactive}`} style={{ fontSize: 11 }}>
+                {t.activo ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
+                {t.activo ? 'Activo' : 'Inactivo'}
+              </span>
+              <span className={styles.tipoChip} style={{ fontSize: 11 }}>{CONTRAT_LABELS[t.tipo_contratacion]}</span>
+            </div>
+          </div>
+          {/* Barra de completitud */}
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--nom-text-muted)', marginBottom: 4 }}>Completitud</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 72, height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: pct >= 80 ? 'var(--nom-success)' : pct >= 50 ? 'var(--nom-accent)' : 'var(--nom-danger)', transition: 'width 0.4s' }} />
+              </div>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: pct >= 80 ? 'var(--nom-success)' : pct >= 50 ? 'var(--nom-accent)' : 'var(--nom-danger)' }}>
+                {pct}%
+              </span>
+            </div>
+          </div>
+          <button className={styles.modalClose} onClick={onClose} style={{ flexShrink: 0 }}><X size={18} /></button>
+        </div>
+
+        {/* Secciones */}
+        <div style={{ padding: '1.25rem 1.75rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {DETALLE_SECCIONES.map(sec => (
+            <div key={sec.titulo}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--nom-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.65rem' }}>
+                {sec.titulo}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1.25rem' }}>
+                {sec.campos.map(campo => {
+                  const { texto, vacio } = formatVal(t, campo);
+                  return (
+                    <div key={campo.key} style={{
+                      display: 'flex', flexDirection: 'column', gap: 2,
+                      padding: '0.6rem 0.75rem',
+                      borderRadius: 8,
+                      background: vacio ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${vacio ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)'}`,
+                    }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--nom-text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        {campo.label}
+                      </span>
+                      <span style={{ fontSize: '0.88rem', fontWeight: vacio ? 400 : 600, color: vacio ? 'rgba(255,255,255,0.2)' : 'var(--nom-text)' }}>
+                        {texto}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Overlay>
+  );
+}
 
 const TIPO_LABELS = {
   planta:        'Planta',
@@ -24,6 +186,7 @@ export default function Trabajadores() {
   const [loading, setLoading]           = useState(true);
   const [search, setSearch]             = useState('');
   const [soloActivos, setSoloActivos]   = useState(false);
+  const [detalle, setDetalle]           = useState(null);   // null | trabajador obj
   const [modal, setModal]               = useState(null);   // null | 'create' | obj
   const [form, setForm]                 = useState(EMPTY_FORM);
   const [saving, setSaving]             = useState(false);
@@ -322,6 +485,9 @@ export default function Trabajadores() {
                   </td>
                   <td>
                     <div className={styles.actionsCell}>
+                      <button className={styles.actionBtn} onClick={() => setDetalle(t)} title="Ver detalle">
+                        <Eye size={14} strokeWidth={1.75} />
+                      </button>
                       <button
                         className={styles.actionBtn}
                         onClick={() => handleToggle(t)}
@@ -646,6 +812,9 @@ export default function Trabajadores() {
           </div>
         </Overlay>
       )}
+
+      {/* Detalle trabajador */}
+      {detalle && <DetalleModal t={detalle} onClose={() => setDetalle(null)} />}
 
       {/* Confirmar eliminación */}
       {confirmDel && (

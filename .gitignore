@@ -2,6 +2,11 @@
 # Intra NOM-035 — .gitignore
 # =============================================================================
 
+# Notas internas de deploy y credenciales — no subir al repo
+cambiodominio.md
+DEPLOY_NOTES.md
+credenciales_produccion.html
+
 # CONFIDENCIAL — Documentos con datos de clientes NUNCA deben subirse
 *.pdf
 *.PDF

@@ -102,7 +102,6 @@ export default function TopNav() {
     <header className={styles.nav}>
       {/* Logo */}
       <div className={styles.logo}>
-        <img src="/logo-intra.jpg" alt="Intra" className={styles.logoImg} />
         <span className={styles.logoPill}>NOM-035</span>
       </div>
 

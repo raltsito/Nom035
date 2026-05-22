@@ -409,7 +409,6 @@ function LoginForm() {
   return (
     <div className={styles.left}>
       <div className={styles.logoRow}>
-        <img src="/logo-intra.jpg" alt="Intra" className={styles.logoImg} />
         <span className={styles.brandSub}>NOM-035-STPS-2018</span>
       </div>
 
@@ -480,7 +479,7 @@ function LoginForm() {
       </form>
 
       <div className={styles.pageFooter}>
-        Intra Servicios Tecnológicos &copy; {new Date().getFullYear()}
+        NOM-035-STPS-2018 &copy; {new Date().getFullYear()}
       </div>
     </div>
   );

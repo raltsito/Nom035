@@ -1,19 +1,19 @@
 """
-Importador de Excel para padrón de trabajadores (NOM-035 / Guía V).
+Importador de Excel para padrón de trabajadores (NOM-035).
 
-Soporta los distintos formatos que usan las plantas de Lear:
-- Nombres en una o tres columnas
-- Columnas con títulos distintos para el mismo campo
-- Valores de sexo como H/M, M/F, Hombre/Mujer
-- Edades como entero, decimal o string "X años Y meses Z días"
-- Jornadas como texto o código numérico (1/3/4)
-- Tipo de personal como texto o código numérico
-- Archivos con filas de título antes del encabezado real
+Formato estándar (columnas numeradas por Benja):
+  ID Trabajador | Nombre / Folio | 1. Sexo | 2. Edad (Años) | 3. Estado Civil |
+  4. Nivel de Estudios | 5. Puesto / Profesión | 6. Departamento / Área |
+  7. Tipo de Puesto | 8. Tipo de Contratación | 9. Tipo de Personal |
+  10. Jornada de Trabajo | 11. ¿Rota Turnos? | 12. Exp. Puesto Actual (Años) |
+  13. Exp. Empresa Actual (Años) | 14. Exp. Laboral (Años)
+
+También soporta los formatos heredados de plantas Lear (columnas con nombres
+distintos, nombres en una o tres columnas, valores numéricos para sexo/jornada).
 """
 
 import re
 import unicodedata
-import uuid
 from io import BytesIO
 
 import openpyxl
@@ -22,38 +22,44 @@ from .models import Trabajador
 
 
 # ---------------------------------------------------------------------------
-# Normalización de texto base
+# Normalización de texto
 # ---------------------------------------------------------------------------
 
 def _norm(value):
-    """Lowercase + sin acentos + sin caracteres especiales + strip."""
+    """Lowercase sin acentos, signos de puntuación especiales ni espacios extra."""
     if value is None:
         return ''
     text = str(value).strip().lower()
     text = unicodedata.normalize('NFKD', text)
     text = ''.join(c for c in text if not unicodedata.combining(c))
+    text = re.sub(r'[¿?¡!]', '', text)   # eliminar signos de interrogación/exclamación
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
 
 def _clean(value):
-    """Strip y title-case para almacenar en base de datos."""
     if value is None:
         return ''
     return str(value).strip()
 
 
 # ---------------------------------------------------------------------------
-# Mapeo de nombres de columnas → campo canónico
+# Mapeo de encabezados → campo canónico
 # ---------------------------------------------------------------------------
 
 COLUMN_ALIASES = {
     'num_empleado': [
+        # Estándar nuevo
+        'id trabajador',
+        # Formatos heredados
         'codigoemp', 'codigo', 'no. empleado', 'no empleado', 'num empleado',
-        'numero de empleado', 'numero empleado', '#', 'no. empleado',
-        'cod emp', 'employee id', 'id empleado',
+        'numero de empleado', 'numero empleado', '#', 'cod emp',
+        'employee id', 'id empleado',
     ],
     'nombre_completo': [
+        # Estándar nuevo
+        'nombre / folio',
+        # Formatos heredados
         'nombre del empleado',
     ],
     'nombre': [
@@ -67,58 +73,75 @@ COLUMN_ALIASES = {
         'apellido materno', 'apellido2', 'ap. materno', 'ap materno',
         'segundo apellido',
     ],
-    'sexo': ['sexo', 'genero', 'genero/sexo'],
-    'edad': ['edad'],
-    'fecha_nacimiento': ['fecha nacimiento', 'fecha nac', 'fecha de nacimiento'],
-    'estado_civil': ['estado civil', 'estado civil.', 'estado_civil'],
+    'sexo': [
+        # Estándar nuevo (con prefijo numérico)
+        '1. sexo',
+        # Formatos heredados
+        'sexo', 'genero', 'genero/sexo',
+    ],
+    'edad': [
+        '2. edad (anos)',
+        'edad',
+    ],
+    'estado_civil': [
+        '3. estado civil',
+        'estado civil', 'estado civil.', 'estado_civil',
+    ],
     'nivel_estudios': [
+        '4. nivel de estudios',
         'nivel de estudios', 'nivel estudios', 'escolaridad',
         'nivel de escolaridad',
     ],
     'puesto': [
+        '5. puesto / profesion',
         'puesto', 'ocupacion / profesion / puesto', 'ocupacion/profesion/puesto',
-        'ocupacion / profesion /puesto', 'ocupacion/profesion/puesto',
         'puesto / cargo', 'cargo', 'ocupacion', 'profesion',
         'tipo de puesto', 'tipo puesto',
     ],
     'area': [
+        '6. departamento / area',
         'departamento', 'departamento/ seccion/ area',
-        'departamento/seccion/area', 'departamento/ seccion/area',
-        'area', 'seccion', 'area / departamento', 'departamento/area',
-        'area/departamento', 'direccion departamento',
+        'departamento/seccion/area', 'area', 'seccion',
+        'area / departamento', 'departamento/area', 'area/departamento',
+        'direccion departamento',
     ],
+    # Columna 7 "Tipo de Puesto" del estándar nuevo es redundante con puesto/personal,
+    # se omite intencionalmente para no pisar col 5.
     'tipo_contratacion': [
-        'tipo de contratacion', 'tipo contratacion',
+        '8. tipo de contratacion',
         'tipo de contratacion', 'tipo contratacion',
     ],
     'tipo_personal': [
-        'tipo de personal', 'tipo personal',
+        '9. tipo de personal',
         'tipo de personal', 'tipo personal',
     ],
     'tipo_jornada': [
+        '10. jornada de trabajo',
         'tipo jornada de trabajo', 'tipo de jornada de trabajo',
-        'tipo de jornada', 'tipo jornada', 'turno',
-        'tipo de jornada de trabajo', 'jornada',
+        'tipo de jornada', 'tipo jornada', 'turno', 'jornada',
     ],
     'rotacion_turnos': [
+        '11. rota turnos',
         'realiza rotacion de turnos', 'realiza rotacion de turno',
-        'rotacion de turnos', 'rotacion de turno',
-        'rotacion turnos', 'rotacion de turnos',
-    ],
-    'experiencia_anios': [
-        'experiencia en anos', 'experiencia en a;os',
-        'experiencia', 'experinecia en a;os',
-        'experiencia laboral', 'anos de experiencia',
-        'experiencia en anos', 'antiguedad',
+        'rotacion de turnos', 'rotacion de turno', 'rotacion turnos',
     ],
     'tiempo_puesto_actual': [
+        '12. exp. puesto actual (anos)',
         'tiempo en el puesto actual', 'tiempo en puesto actual',
         'tiempo de puesto actual', 'tiempo en puesto',
         'tiempo puesto actual', 'tiempo en el puesto',
     ],
+    'experiencia_empresa_anios': [
+        '13. exp. empresa actual (anos)',
+    ],
+    'experiencia_anios': [
+        '14. exp. laboral (anos)',
+        'experiencia en anos', 'experiencia en a;os',
+        'experiencia', 'experinecia en a;os',
+        'experiencia laboral', 'anos de experiencia', 'antiguedad',
+    ],
 }
 
-# índice invertido: alias_normalizado → campo
 _ALIAS_INDEX = {}
 for _campo, _aliases in COLUMN_ALIASES.items():
     for _alias in _aliases:
@@ -126,34 +149,18 @@ for _campo, _aliases in COLUMN_ALIASES.items():
 
 
 def _map_column(header):
-    """Devuelve el campo canónico para un encabezado, o None si no reconoce."""
     return _ALIAS_INDEX.get(_norm(header))
 
 
 # ---------------------------------------------------------------------------
-# Normalización de valores por campo
+# Normalización de valores
 # ---------------------------------------------------------------------------
 
-def _norm_sexo(value, has_f_values=True):
-    """
-    has_f_values=True  → sistema M/F  (M=Masculino, F=Femenino)
-    has_f_values=False → sistema H/M  (H=Hombre, M=Mujer)
-    """
+def _norm_sexo(value):
     v = _norm(value)
-    if v in ('masculino', 'hombre', 'm', 'male') and has_f_values:
+    if v in ('masculino', 'hombre', 'm', 'male', 'h'):
         return 'M'
     if v in ('femenino', 'mujer', 'f', 'female'):
-        return 'F'
-    # sistema H/M (sin F en los datos)
-    if not has_f_values:
-        if v == 'h':
-            return 'M'
-        if v == 'm':
-            return 'F'
-    # fallback con F en datos
-    if v == 'm':
-        return 'M'
-    if v == 'f':
         return 'F'
     return ''
 
@@ -162,6 +169,12 @@ def _norm_estado_civil(value):
     v = _norm(value)
     if not v or v == 'none':
         return ''
+    # Descartar valores que parecen edades (bug en Querétaro)
+    try:
+        if int(float(value)) < 100:
+            return ''
+    except (ValueError, TypeError):
+        pass
     if 'soltero' in v or 'soltera' in v:
         return 'soltero'
     if 'casado' in v or 'casada' in v:
@@ -172,7 +185,6 @@ def _norm_estado_civil(value):
         return 'divorciado'
     if 'viudo' in v or 'viuda' in v:
         return 'viudo'
-    # Hermosillo usa códigos numéricos: 1=Soltero, 2=Casado
     try:
         code = int(float(value))
         return {1: 'soltero', 2: 'casado', 3: 'divorciado', 4: 'viudo', 5: 'union_libre'}.get(code, 'otro')
@@ -191,13 +203,15 @@ def _norm_nivel_estudios(value):
         return 'secundaria'
     if 'bachillerato' in v or 'preparatoria' in v or 'prepa' in v or 'media superior' in v:
         return 'bachillerato'
+    if 'tsu' in v or 'tecnico superior' in v or 'tecnica superior' in v:
+        return 'tecnico'
     if 'tecnico' in v or 'tecnica' in v or 'carrera tecnica' in v:
         return 'tecnico'
-    if 'ingenieria' in v or 'ingeniería' in v:
+    if 'ingenieria' in v or 'ingenieria' in v:
         return 'ingenieria'
-    if 'licenciatura' in v:
+    if 'licenciatura' in v or 'profesional' in v:
         return 'licenciatura'
-    if 'maestria' in v or 'doctorado' in v or 'posgrado' in v or 'postgrado' in v:
+    if 'maestria' in v or 'doctorado' in v or 'posgrado' in v or 'postgrado' in v or 'maestr' in v:
         return 'posgrado'
     return 'otro'
 
@@ -206,13 +220,13 @@ def _norm_tipo_personal(value):
     v = _norm(value)
     if not v or v == 'none':
         return ''
-    if 'sindicalizado' in v or 'directo' in v:
+    if 'sindicalizado' in v or 'directo' in v or 'hourly sind' in v:
         return 'sindicalizado'
-    if 'indirecto' in v or 'confianza' in v:
+    if 'indirecto' in v or 'confianza' in v or 'hourly no sind' in v:
         return 'confianza'
-    if 'salary' in v or 'administrativo' in v or 'hourly admin' in v:
+    if 'salary' in v or 'administrativo' in v or 'hourly admin' in v or \
+       'asalariado' in v or 'no sindicalizado' in v:
         return 'salary'
-    # Códigos numéricos (Planta 726): 1=Directo, 2=Indirecto, 5=Salary
     try:
         code = int(float(value))
         return {1: 'sindicalizado', 2: 'confianza', 3: 'sindicalizado',
@@ -226,21 +240,19 @@ def _norm_tipo_jornada(value):
     v = _norm(value)
     if not v or v == 'none':
         return ''
-    if 'diurno' in v or 'diurna' in v:
+    # Texto descriptivo
+    if 'diurno' in v or 'diurna' in v or 'primer turno' in v:
         return 'diurno'
-    if 'mixto' in v or 'mixta' in v:
-        return 'mixto'
-    if 'nocturno' in v or 'nocturna' in v:
+    if 'nocturno' in v or 'nocturna' in v or 'tercer turno' in v:
         return 'nocturno'
-    # Códigos numéricos (Pue-Pzc): 1=Diurno, 3=Mixto, 4=Nocturno
+    if 'mixto' in v or 'mixta' in v or 'segundo turno' in v:
+        return 'mixto'
+    # Códigos numéricos: 1=Diurno, 2=Nocturno, 3=Mixto (convención Lear)
     try:
         code = int(float(value))
-        return {1: 'diurno', 2: 'mixto', 3: 'mixto', 4: 'nocturno'}.get(code, '')
+        return {1: 'diurno', 2: 'nocturno', 3: 'mixto', 4: 'nocturno'}.get(code, '')
     except (ValueError, TypeError):
         pass
-    # "Diurna - Nocturna - Mixta" → mixto
-    if 'diurna' in v and 'nocturna' in v:
-        return 'mixto'
     return ''
 
 
@@ -258,12 +270,10 @@ def _norm_rotacion(value):
 def _norm_edad(value):
     if value is None:
         return None
-    # Ya es número
     try:
         return int(float(value))
     except (ValueError, TypeError):
         pass
-    # String "24 años 7 meses 22 días" o "24a?os5 meses 6 dias"
     v = str(value)
     match = re.search(r'(\d+)\s*a', v, re.IGNORECASE)
     if match:
@@ -274,7 +284,6 @@ def _norm_edad(value):
 def _norm_experiencia(value):
     if value is None:
         return None
-    # String "20 AÑOS 0 MESES 15 DIAS" o "0 años0 meses 24 dias"
     v = str(value).strip()
     try:
         return round(float(v), 1)
@@ -291,7 +300,8 @@ def _norm_experiencia(value):
 
 def _norm_contratacion(value):
     v = _norm(value)
-    if 'indeterminado' in v or 'individual' in v or 'indefinido' in v:
+    if 'indeterminado' in v or 'individual' in v or 'indefinido' in v or \
+       'colectivo' in v or 'planta' in v:
         return 'planta'
     if 'temporal' in v or 'determinado' in v or 'eventual' in v:
         return 'eventual'
@@ -301,18 +311,11 @@ def _norm_contratacion(value):
 
 
 # ---------------------------------------------------------------------------
-# Detección de fila de encabezados
+# Detección de fila de encabezados (compatibilidad con formatos heredados)
 # ---------------------------------------------------------------------------
 
 def _detect_header_row(ws, max_scan=6):
-    """
-    Escanea las primeras `max_scan` filas y devuelve el índice (1-based)
-    de la fila que parece ser el encabezado real.
-    Criterio: la fila con más celdas cuyo valor normalizado coincide con
-    algún alias conocido.
-    """
-    best_row = 1
-    best_score = -1
+    best_row, best_score = 1, -1
     for row_idx in range(1, max_scan + 1):
         row = list(ws.iter_rows(min_row=row_idx, max_row=row_idx, values_only=True))[0]
         score = sum(1 for cell in row if cell and _map_column(str(cell)) is not None)
@@ -323,29 +326,11 @@ def _detect_header_row(ws, max_scan=6):
 
 
 # ---------------------------------------------------------------------------
-# Detección del sistema de codificación de sexo (H/M vs M/F)
-# ---------------------------------------------------------------------------
-
-def _detect_sex_system(rows, sex_col_idx):
-    """Devuelve True si el archivo usa M=Masculino/F=Femenino, False si H=Hombre/M=Mujer."""
-    values = set()
-    for row in rows[:200]:
-        v = _norm(row[sex_col_idx]) if sex_col_idx < len(row) else ''
-        if v:
-            values.add(v)
-    # Si hay 'f' en los datos → sistema M/F
-    return 'f' in values
-
-
-# ---------------------------------------------------------------------------
-# Parseo de nombre completo en una sola columna
+# Parseo de nombre completo
 # ---------------------------------------------------------------------------
 
 def _split_nombre_completo(full_name):
-    """
-    Intenta dividir "APELLIDO_PAT APELLIDO_MAT NOMBRE(S)" en tres partes.
-    Retorna (nombre, apellido_paterno, apellido_materno).
-    """
+    """Divide 'AP_PAT AP_MAT NOMBRE(S)' o 'NOMBRE AP_PAT AP_MAT' en tres partes."""
     parts = _clean(full_name).split()
     if not parts:
         return '', '', ''
@@ -353,7 +338,7 @@ def _split_nombre_completo(full_name):
         return parts[0].title(), '', ''
     if len(parts) == 2:
         return parts[1].title(), parts[0].title(), ''
-    # 3 o más palabras: ap_pat ap_mat nombre(s)
+    # 3+ palabras: asumir AP_PAT AP_MAT NOMBRE(S)
     ap_pat = parts[0].title()
     ap_mat = parts[1].title()
     nombre = ' '.join(p.title() for p in parts[2:])
@@ -361,12 +346,13 @@ def _split_nombre_completo(full_name):
 
 
 # ---------------------------------------------------------------------------
-# Función principal de importación
+# Función principal
 # ---------------------------------------------------------------------------
 
 def importar_excel(file_obj, tenant):
     """
-    Parsea un archivo Excel y crea/actualiza trabajadores del tenant.
+    Parsea un Excel con el formato estándar (o heredado) y crea/actualiza
+    trabajadores del tenant.
 
     Retorna:
         {
@@ -382,35 +368,24 @@ def importar_excel(file_obj, tenant):
 
     header_row_idx = _detect_header_row(ws)
 
-    # Leer encabezados
     headers_raw = list(ws.iter_rows(
         min_row=header_row_idx, max_row=header_row_idx, values_only=True
     ))[0]
     headers = [str(h).strip() if h is not None else '' for h in headers_raw]
 
-    # Mapear índice de columna → campo canónico
     col_map = {}
     for idx, h in enumerate(headers):
         campo = _map_column(h)
         if campo and campo not in col_map:
             col_map[campo] = idx
 
-    # Leer todas las filas de datos
-    data_rows = list(ws.iter_rows(
-        min_row=header_row_idx + 1, values_only=True
-    ))
+    data_rows = list(ws.iter_rows(min_row=header_row_idx + 1, values_only=True))
     wb.close()
-
-    # Detectar sistema de sexo
-    has_f = False
-    if 'sexo' in col_map:
-        has_f = _detect_sex_system(data_rows, col_map['sexo'])
 
     importados = actualizados = omitidos = 0
     errores = []
 
     for row_num, row in enumerate(data_rows, start=header_row_idx + 1):
-        # Saltar filas completamente vacías
         if all(v is None or str(v).strip() == '' for v in row):
             continue
 
@@ -426,12 +401,11 @@ def importar_excel(file_obj, tenant):
             if 'nombre_completo' in col_map:
                 nombre, ap_pat, ap_mat = _split_nombre_completo(get('nombre_completo') or '')
             elif 'apellido_paterno' in col_map:
-                nombre  = _clean(get('nombre') or '').title()
-                ap_pat  = _clean(get('apellido_paterno') or '').title()
-                ap_mat  = _clean(get('apellido_materno') or '').title()
+                nombre = _clean(get('nombre') or '').title()
+                ap_pat = _clean(get('apellido_paterno') or '').title()
+                ap_mat = _clean(get('apellido_materno') or '').title()
             elif 'nombre' in col_map:
                 raw = get('nombre')
-                # En Hermosillo "Nombre" es un código numérico
                 try:
                     int(float(raw))
                     nombre, ap_pat, ap_mat = '', '', ''
@@ -446,7 +420,6 @@ def importar_excel(file_obj, tenant):
 
             # ── No. empleado ─────────────────────────────────────────────────
             raw_codigo = get('num_empleado')
-            # Si "Nombre" en Hermosillo es int, úsalo como código
             if raw_codigo is None and 'nombre' in col_map:
                 raw_n = get('nombre')
                 try:
@@ -457,35 +430,23 @@ def importar_excel(file_obj, tenant):
             num_empleado = str(int(float(raw_codigo))) if raw_codigo is not None else ''
 
             # ── Campos Guía V ────────────────────────────────────────────────
-            sexo            = _norm_sexo(get('sexo'), has_f)
-            edad            = _norm_edad(get('edad') or get('fecha_nacimiento'))
-            estado_civil    = _norm_estado_civil(get('estado_civil'))
-            nivel_estudios  = _norm_nivel_estudios(get('nivel_estudios'))
-            tipo_personal   = _norm_tipo_personal(get('tipo_personal'))
-            tipo_jornada    = _norm_tipo_jornada(get('tipo_jornada'))
-            rotacion_turnos = _norm_rotacion(get('rotacion_turnos'))
-            experiencia     = _norm_experiencia(get('experiencia_anios'))
-            tiempo_puesto   = _norm_experiencia(get('tiempo_puesto_actual'))
-            tipo_contrat    = _norm_contratacion(get('tipo_contratacion') or '')
-            puesto          = _clean(get('puesto') or '').title()
-            area            = _clean(get('area') or '').title()
-
             defaults = dict(
                 nombre=nombre or ap_pat,
                 apellido_paterno=ap_pat,
                 apellido_materno=ap_mat,
-                puesto=puesto,
-                area=area,
-                tipo_contratacion=tipo_contrat,
-                sexo=sexo,
-                edad=edad,
-                estado_civil=estado_civil,
-                nivel_estudios=nivel_estudios,
-                tipo_personal=tipo_personal,
-                tipo_jornada=tipo_jornada,
-                rotacion_turnos=rotacion_turnos,
-                experiencia_anios=experiencia,
-                tiempo_puesto_actual=tiempo_puesto,
+                puesto=_clean(get('puesto') or '').title(),
+                area=_clean(get('area') or '').title(),
+                tipo_contratacion=_norm_contratacion(get('tipo_contratacion') or ''),
+                sexo=_norm_sexo(get('sexo')),
+                edad=_norm_edad(get('edad')),
+                estado_civil=_norm_estado_civil(get('estado_civil')),
+                nivel_estudios=_norm_nivel_estudios(get('nivel_estudios')),
+                tipo_personal=_norm_tipo_personal(get('tipo_personal')),
+                tipo_jornada=_norm_tipo_jornada(get('tipo_jornada')),
+                rotacion_turnos=_norm_rotacion(get('rotacion_turnos')),
+                tiempo_puesto_actual=_norm_experiencia(get('tiempo_puesto_actual')),
+                experiencia_empresa_anios=_norm_experiencia(get('experiencia_empresa_anios')),
+                experiencia_anios=_norm_experiencia(get('experiencia_anios')),
             )
 
             if num_empleado:
@@ -495,8 +456,6 @@ def importar_excel(file_obj, tenant):
                     defaults=defaults,
                 )
             else:
-                # Sin código de empleado: buscar por nombre completo
-                # Si hay duplicados de nombre, actualizar el primero
                 qs = Trabajador.objects.filter(
                     tenant=tenant,
                     nombre=defaults['nombre'],

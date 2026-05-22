@@ -5,7 +5,7 @@ from .models import Trabajador, CicloNOM
 GUIA_V_FIELDS = [
     'sexo', 'edad', 'estado_civil', 'nivel_estudios',
     'tipo_personal', 'tipo_jornada', 'rotacion_turnos',
-    'experiencia_anios', 'tiempo_puesto_actual',
+    'experiencia_anios', 'experiencia_empresa_anios', 'tiempo_puesto_actual',
 ]
 
 

@@ -65,8 +65,9 @@ class Trabajador(TenantAwareModel):
     tipo_personal    = models.CharField(max_length=20, choices=TIPO_PERSONAL_CHOICES,  blank=True, verbose_name='Tipo de personal')
     tipo_jornada     = models.CharField(max_length=10, choices=TIPO_JORNADA_CHOICES,   blank=True, verbose_name='Tipo de jornada')
     rotacion_turnos  = models.BooleanField(null=True, blank=True,                                  verbose_name='Realiza rotacion de turnos')
-    experiencia_anios      = models.FloatField(null=True, blank=True, verbose_name='Experiencia en anos')
-    tiempo_puesto_actual   = models.FloatField(null=True, blank=True, verbose_name='Tiempo en puesto actual')
+    experiencia_anios          = models.FloatField(null=True, blank=True, verbose_name='Experiencia laboral (anos)')
+    experiencia_empresa_anios  = models.FloatField(null=True, blank=True, verbose_name='Experiencia en empresa actual (anos)')
+    tiempo_puesto_actual       = models.FloatField(null=True, blank=True, verbose_name='Tiempo en puesto actual')
 
     class Meta:
         verbose_name        = 'Trabajador'

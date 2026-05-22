@@ -56,7 +56,7 @@ export default function Configuracion() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Configuracion de empresa</h1>
-          <p className={styles.subtitle}>Personaliza la informacion y marca de tu empresa en Intra NOM-035</p>
+          <p className={styles.subtitle}>Personaliza la informacion y marca de tu empresa en NOM-035</p>
         </div>
       </div>
 
