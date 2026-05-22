@@ -153,7 +153,8 @@
       "PowerShell(New-Item *)",
       "Bash(git *)",
       "Bash(docker cp *)",
-      "PowerShell(& \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\reset_demo.ps1\")"
+      "PowerShell(& \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\reset_demo.ps1\")",
+      "Bash(dir C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\\\\m00_onboarding\\\\migrations\\\\ *)"
     ]
   }
 }

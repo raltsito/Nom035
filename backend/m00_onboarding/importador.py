@@ -395,6 +395,7 @@ def importar_excel(file_obj, tenant):
 
     importados = actualizados = omitidos = 0
     errores = []
+    muestra_omitidos = []  # primeras filas omitidas para debug
 
     for row_num, row in enumerate(data_rows, start=header_row_idx + 1):
         if all(v is None or str(v).strip() == '' for v in row):
@@ -427,6 +428,12 @@ def importar_excel(file_obj, tenant):
 
             if not nombre and not ap_pat:
                 omitidos += 1
+                if len(muestra_omitidos) < 3:
+                    muestra_omitidos.append({
+                        'fila': row_num,
+                        'raw': [str(v) for v in row[:10]],
+                        'col_map_nombres': {k: col_map[k] for k in ('nombre_completo', 'nombre', 'apellido_paterno') if k in col_map},
+                    })
                 continue
 
             # ── No. empleado ─────────────────────────────────────────────────
@@ -495,4 +502,11 @@ def importar_excel(file_obj, tenant):
         'actualizados': actualizados,
         'omitidos': omitidos,
         'errores': errores,
+        '_debug': {
+            'hoja': ws.title if hasattr(ws, 'title') else '?',
+            'fila_encabezado': header_row_idx,
+            'headers_detectados': headers,
+            'col_map': col_map,
+            'muestra_omitidos': muestra_omitidos,
+        },
     }
