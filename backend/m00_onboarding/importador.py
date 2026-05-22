@@ -322,7 +322,20 @@ def _detect_header_row(ws, max_scan=6):
         if score > best_score:
             best_score = score
             best_row = row_idx
-    return best_row
+    return best_row, best_score
+
+
+def _detect_best_sheet(wb, max_scan=6):
+    """Devuelve la hoja con más columnas reconocidas; si hay empate, la primera."""
+    best_ws, best_score, best_row = wb.active, -1, 1
+    for name in wb.sheetnames:
+        ws = wb[name]
+        row, score = _detect_header_row(ws, max_scan)
+        if score > best_score:
+            best_score = score
+            best_ws = ws
+            best_row = row
+    return best_ws, best_row
 
 
 # ---------------------------------------------------------------------------
@@ -364,9 +377,7 @@ def importar_excel(file_obj, tenant):
     """
     content = file_obj.read() if hasattr(file_obj, 'read') else file_obj
     wb = openpyxl.load_workbook(BytesIO(content), read_only=True, data_only=True)
-    ws = wb.active
-
-    header_row_idx = _detect_header_row(ws)
+    ws, header_row_idx = _detect_best_sheet(wb)
 
     headers_raw = list(ws.iter_rows(
         min_row=header_row_idx, max_row=header_row_idx, values_only=True
