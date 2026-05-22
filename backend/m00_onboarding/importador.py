@@ -105,11 +105,13 @@ COLUMN_ALIASES = {
         'area / departamento', 'departamento/area', 'area/departamento',
         'direccion departamento',
     ],
-    # Columna 7 "Tipo de Puesto" del estándar nuevo es redundante con puesto/personal,
-    # se omite intencionalmente para no pisar col 5.
     'tipo_contratacion': [
         '8. tipo de contratacion',
         'tipo de contratacion', 'tipo contratacion',
+    ],
+    'tipo_puesto': [
+        '7. tipo de puesto',
+        'tipo de puesto', 'tipo puesto',
     ],
     'tipo_personal': [
         '9. tipo de personal',
@@ -234,6 +236,7 @@ def _norm_tipo_personal(value):
     except (ValueError, TypeError):
         pass
     return 'otro'
+
 
 
 def _norm_tipo_jornada(value):
@@ -395,7 +398,6 @@ def importar_excel(file_obj, tenant):
 
     importados = actualizados = omitidos = 0
     errores = []
-    muestra_omitidos = []  # primeras filas omitidas para debug
 
     for row_num, row in enumerate(data_rows, start=header_row_idx + 1):
         if all(v is None or str(v).strip() == '' for v in row):
@@ -428,12 +430,6 @@ def importar_excel(file_obj, tenant):
 
             if not nombre and not ap_pat:
                 omitidos += 1
-                if len(muestra_omitidos) < 3:
-                    muestra_omitidos.append({
-                        'fila': row_num,
-                        'raw': [str(v) for v in row[:10]],
-                        'col_map_nombres': {k: col_map[k] for k in ('nombre_completo', 'nombre', 'apellido_paterno') if k in col_map},
-                    })
                 continue
 
             # ── No. empleado ─────────────────────────────────────────────────
@@ -460,6 +456,7 @@ def importar_excel(file_obj, tenant):
                 estado_civil=_norm_estado_civil(get('estado_civil')),
                 nivel_estudios=_norm_nivel_estudios(get('nivel_estudios')),
                 tipo_personal=_norm_tipo_personal(get('tipo_personal')),
+                tipo_puesto=_clean(get('tipo_puesto') or '').title(),
                 tipo_jornada=_norm_tipo_jornada(get('tipo_jornada')),
                 rotacion_turnos=_norm_rotacion(get('rotacion_turnos')),
                 tiempo_puesto_actual=_norm_experiencia(get('tiempo_puesto_actual')),
@@ -502,11 +499,4 @@ def importar_excel(file_obj, tenant):
         'actualizados': actualizados,
         'omitidos': omitidos,
         'errores': errores,
-        '_debug': {
-            'hoja': ws.title if hasattr(ws, 'title') else '?',
-            'fila_encabezado': header_row_idx,
-            'headers_detectados': headers,
-            'col_map': col_map,
-            'muestra_omitidos': muestra_omitidos,
-        },
     }

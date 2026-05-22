@@ -28,6 +28,7 @@ const DETALLE_SECCIONES = [
     campos: [
       { key: 'puesto',             label: 'Puesto / Profesión' },
       { key: 'area',               label: 'Departamento / Área' },
+      { key: 'tipo_puesto',        label: 'Tipo de puesto' },
       { key: 'tipo_contratacion',  label: 'Tipo de contratación',  map: CONTRAT_LABELS },
       { key: 'tipo_personal',      label: 'Tipo de personal',      map: PERSONAL_LABELS },
     ],
