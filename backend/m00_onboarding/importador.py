@@ -8,6 +8,8 @@ Formato estándar (columnas numeradas por Benja):
   10. Jornada de Trabajo | 11. ¿Rota Turnos? | 12. Exp. Puesto Actual (Años) |
   13. Exp. Empresa Actual (Años) | 14. Exp. Laboral (Años)
 
+El archivo debe tener una hoja llamada "Hoja 1" con el formato estándar.
+Si no existe esa hoja, se usa la hoja con más columnas reconocidas (fallback).
 También soporta los formatos heredados de plantas Lear (columnas con nombres
 distintos, nombres en una o tres columnas, valores numéricos para sexo/jornada).
 """
@@ -329,7 +331,12 @@ def _detect_header_row(ws, max_scan=6):
 
 
 def _detect_best_sheet(wb, max_scan=6):
-    """Devuelve la hoja con más columnas reconocidas; si hay empate, la primera."""
+    """Usa la hoja llamada 'Hoja 1' si existe; si no, la de más columnas reconocidas."""
+    for name in wb.sheetnames:
+        if name.strip().lower() == 'hoja 1':
+            ws = wb[name]
+            row, _ = _detect_header_row(ws, max_scan)
+            return ws, row
     best_ws, best_score, best_row = wb.active, -1, 1
     for name in wb.sheetnames:
         ws = wb[name]
