@@ -333,7 +333,7 @@ def _detect_header_row(ws, max_scan=6):
 def _detect_best_sheet(wb, max_scan=6):
     """Usa la hoja llamada 'Hoja 1' si existe; si no, la de más columnas reconocidas."""
     for name in wb.sheetnames:
-        if name.strip().lower() == 'hoja 1':
+        if name.strip().lower() in ('hoja1', 'hoja 1'):
             ws = wb[name]
             row, _ = _detect_header_row(ws, max_scan)
             return ws, row
