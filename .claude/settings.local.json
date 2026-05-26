@@ -157,7 +157,25 @@
       "Bash(dir C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\\\\m00_onboarding\\\\migrations\\\\ *)",
       "Bash(railway run *)",
       "Bash(railway ssh *)",
-      "Bash(railway connect *)"
+      "Bash(railway connect *)",
+      "Bash(venvScriptspython -c ' *)",
+      "Bash(pip install *)",
+      "Bash(\"venv/Scripts/python.exe\" \"../_test_excel.py\")",
+      "Bash(\"backend/venv/Scripts/python.exe\" \"_test_excel.py\")",
+      "Bash(\"venv/Scripts/python.exe\" manage.py runserver)",
+      "Bash(findstr \":8000\")",
+      "Bash(findstr \"LISTENING\")",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; .\\\\venv\\\\Scripts\\\\python.exe \"..\\\\`_test_excel.py\" 2>&1 | Where-Object { $_ -notmatch \"WeasyPrint\" -and $_ -notmatch \"^\\\\\\(0\\\\.\" })",
+      "PowerShell(Start-Sleep 5; try { $r = Invoke-WebRequest \"http://localhost:8000/health/\" -TimeoutSec 4; \"Django OK: $\\($r.StatusCode\\)\" } catch { \"Django no responde: $_\" })",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(.\\\\venv\\\\Scripts\\\\python.exe manage.py runserver)",
+      "PowerShell(Start-Process -FilePath \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\\\\venv\\\\Scripts\\\\python.exe\" -ArgumentList \"manage.py\",\"runserver\" -WorkingDirectory \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\" -WindowStyle Normal)",
+      "PowerShell(Start-Sleep -Seconds 5; try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/api/v1/\" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop; \"HTTP $\\($r.StatusCode\\)\" } catch { \"not up: $_\" })",
+      "PowerShell(Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\" -ErrorAction SilentlyContinue; Write-Host \"Docker Desktop launch attempted\")",
+      "PowerShell($timeout = 120; $elapsed = 0; do { Start-Sleep -Seconds 5; $elapsed += 5; $status = docker ps 2>&1; if \\($status -notmatch \"error|failed\"\\) { Write-Host \"Docker ready after ${elapsed}s\"; break } Write-Host \"Waiting... ${elapsed}s\" } while \\($elapsed -lt $timeout\\); docker ps --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\" 2>&1)",
+      "Bash(venvScriptspython.exe -c ' *)",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE = \"intra_nom035.settings.dev\"; .\\\\venv\\\\Scripts\\\\python.exe -c \"import django; django.setup\\(\\); import m00_onboarding.views; print\\('views imported OK'\\)\" 2>&1)",
+      "PowerShell(cd \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backend\"; $env:DJANGO_SETTINGS_MODULE = \"intra_nom035.settings.development\"; .\\\\venv\\\\Scripts\\\\python.exe -c \"import django; django.setup\\(\\); import m00_onboarding.views; print\\('views imported OK'\\)\" 2>&1)"
     ]
   }
 }

@@ -1,9 +1,12 @@
 import math
+import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from accounts.permissions import IsTenantAdmin
+
+logger = logging.getLogger(__name__)
 from .models import Trabajador, CicloNOM
 from .serializers import (
     TrabajadorSerializer, TrabajadorCreateSerializer, TrabajadorUpdateSerializer,
@@ -512,6 +515,17 @@ def sugeridos_muestra_view(request):
 @api_view(['GET'])
 @drf_permission_classes([IsTenantAdmin])
 def exportar_muestra_excel(request):
+    try:
+        return _exportar_muestra_excel_impl(request)
+    except Exception as exc:
+        logger.exception('exportar_muestra_excel falló: %s', exc)
+        return Response(
+            {'data': None, 'meta': {}, 'errors': {'detail': 'Error al generar el archivo Excel.'}},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+def _exportar_muestra_excel_impl(request):
     user = request.user
     if user.is_super_admin:
         qs = Trabajador.objects.all()
@@ -544,12 +558,12 @@ def exportar_muestra_excel(request):
     EXP_R  = [('Menos de 1 año', 0, 1), ('1-5 años', 1, 6), ('6-10 años', 6, 11), ('Más de 10 años', 11, 9999)]
 
     estratos_cfg = [
-        ('Área / Departamento',   _agrupar(workers_raw, 'area')),
-        ('Sexo',                  _agrupar(workers_raw, 'sexo', SEXO_L)),
-        ('Tipo de contratación',  _agrupar(workers_raw, 'tipo_contratacion', CONT_L)),
-        ('Tipo de puesto',        _agrupar(workers_raw, 'tipo_personal', PERS_L)),
-        ('Edad',                  _agrupar_rangos(workers_raw, 'edad', EDAD_R)),
-        ('Antigüedad',            _agrupar_rangos(workers_raw, 'experiencia_anios', EXP_R)),
+        ('Área / Departamento',   _con_muestra(_agrupar(workers_raw, 'area'), n, N)),
+        ('Sexo',                  _con_muestra(_agrupar(workers_raw, 'sexo', SEXO_L), n, N)),
+        ('Tipo de contratación',  _con_muestra(_agrupar(workers_raw, 'tipo_contratacion', CONT_L), n, N)),
+        ('Tipo de puesto',        _con_muestra(_agrupar(workers_raw, 'tipo_personal', PERS_L), n, N)),
+        ('Edad',                  _con_muestra(_agrupar_rangos(workers_raw, 'edad', EDAD_R), n, N)),
+        ('Antigüedad',            _con_muestra(_agrupar_rangos(workers_raw, 'experiencia_anios', EXP_R), n, N)),
     ]
 
     # ── Sugeridos ────────────────────────────────────────────────────────────
@@ -662,7 +676,7 @@ def exportar_muestra_excel(request):
                 (f['label'],                               _left()),
                 (f['total'],                               _center()),
                 (f'{f["pct"]}%',                           _center()),
-                (_estrato(n, N, f['total']),               _center()),
+                (f['muestra'],                             _center()),
             ]
             for col, (val, aln) in enumerate(cells, 1):
                 c = ws1.cell(row=row, column=col, value=val)

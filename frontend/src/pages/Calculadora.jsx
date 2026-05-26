@@ -125,13 +125,10 @@ export default function Calculadora() {
     if (!data || exportando) return;
     setExportando(true);
     try {
-      const res  = await trabajadoresService.exportarMuestra(seed);
-      const blob = new Blob([res.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url  = URL.createObjectURL(blob);
-      const hoy  = new Date().toISOString().slice(0, 10);
-      const a    = document.createElement('a');
+      const res = await trabajadoresService.exportarMuestra(seed);
+      const url = URL.createObjectURL(res.data);
+      const hoy = new Date().toISOString().slice(0, 10);
+      const a   = document.createElement('a');
       a.href     = url;
       a.download = `muestra_nom035_${hoy}.xlsx`;
       document.body.appendChild(a);
@@ -139,7 +136,14 @@ export default function Calculadora() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Error al exportar Excel:', err);
+      // Si el servidor devolvió un blob con el error (4xx/5xx), leerlo para debuggear
+      if (err?.response?.data instanceof Blob) {
+        err.response.data.text().then(t =>
+          console.error(`Error HTTP ${err.response.status} al exportar:`, t.slice(0, 1000))
+        );
+      } else {
+        console.error('Error al exportar Excel:', err?.message || err);
+      }
       alert('No se pudo generar el archivo. Intenta de nuevo.');
     } finally {
       setExportando(false);
