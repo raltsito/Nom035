@@ -246,6 +246,8 @@ def _norm_tipo_jornada(value):
     if not v or v == 'none':
         return ''
     # Texto descriptivo
+    if 'tiempo completo' in v or 'tiempo_completo' in v:
+        return 'tiempo_completo'
     if 'diurno' in v or 'diurna' in v or 'primer turno' in v:
         return 'diurno'
     if 'nocturno' in v or 'nocturna' in v or 'tercer turno' in v:

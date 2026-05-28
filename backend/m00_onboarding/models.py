@@ -37,9 +37,10 @@ class Trabajador(TenantAwareModel):
         ('otro',          'Otro'),
     ]
     TIPO_JORNADA_CHOICES = [
-        ('diurno',   'Diurno'),
-        ('mixto',    'Mixto'),
-        ('nocturno', 'Nocturno'),
+        ('diurno',          'Diurno'),
+        ('mixto',           'Mixto'),
+        ('nocturno',        'Nocturno'),
+        ('tiempo_completo', 'Tiempo completo'),
     ]
 
     nombre            = models.CharField(max_length=100, verbose_name='Nombre(s)')
@@ -64,7 +65,7 @@ class Trabajador(TenantAwareModel):
     nivel_estudios   = models.CharField(max_length=20, choices=NIVEL_ESTUDIOS_CHOICES, blank=True, verbose_name='Nivel de estudios')
     tipo_personal    = models.CharField(max_length=20,  choices=TIPO_PERSONAL_CHOICES, blank=True, verbose_name='Tipo de personal')
     tipo_puesto      = models.CharField(max_length=100, blank=True, verbose_name='Tipo de puesto')
-    tipo_jornada     = models.CharField(max_length=10,  choices=TIPO_JORNADA_CHOICES,  blank=True, verbose_name='Tipo de jornada')
+    tipo_jornada     = models.CharField(max_length=15,  choices=TIPO_JORNADA_CHOICES,  blank=True, verbose_name='Tipo de jornada')
     rotacion_turnos  = models.BooleanField(null=True, blank=True,                                  verbose_name='Realiza rotacion de turnos')
     experiencia_anios          = models.FloatField(null=True, blank=True, verbose_name='Experiencia laboral (anos)')
     experiencia_empresa_anios  = models.FloatField(null=True, blank=True, verbose_name='Experiencia en empresa actual (anos)')
