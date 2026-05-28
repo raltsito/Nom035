@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Calculator, Users, Target, PieChart, Info,
   Loader2, Building2, UserCircle, Briefcase,
-  Clock, BarChart2, Download, RefreshCw, Shuffle,
+  BarChart2, Download, RefreshCw, Shuffle,
   ChevronUp, ChevronDown, ListChecks, Search, X,
 } from 'lucide-react';
 import { trabajadoresService } from '../services/trabajadores';
@@ -14,7 +14,6 @@ const ESTRATOS_CFG = [
   { key: 'tipo_contratacion', label: 'Por tipo de contratación',   icon: Briefcase,   color: '#f59e0b' },
   { key: 'tipo_puesto',       label: 'Por tipo de puesto',         icon: BarChart2,   color: '#34d399' },
   { key: 'edad',              label: 'Por edad',                   icon: Users,       color: '#f87171' },
-  { key: 'antiguedad',        label: 'Por antigüedad en empresa',  icon: Clock,       color: '#60a5fa' },
 ];
 
 function EstratoCard({ cfg, filas, n }) {
