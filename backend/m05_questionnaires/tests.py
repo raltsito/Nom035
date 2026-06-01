@@ -9,7 +9,7 @@ from PIL import Image
 from accounts.models import User
 from m00_onboarding.models import CicloNOM, Trabajador
 from tenants.models import Tenant
-from .models import Aplicacion, AplicacionFoto, Cuestionario, GuiaLink
+from .models import Aplicacion, AplicacionFoto, Cuestionario, Dominio, GuiaLink, Pregunta
 from .services import obtener_clave_guia_pendiente
 
 
@@ -282,3 +282,100 @@ class FotoGuiaIIITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['data']['foto_estado'], 'pendiente')
+
+
+class ReinicioGuiaVTests(TestCase):
+    def setUp(self):
+        self.consultor = User.objects.create_user(
+            username='consultor_reinicio',
+            email='consultor_reinicio@example.com',
+            password='test',
+            first_name='Con',
+            last_name='Sultor',
+            rol=User.SUPER_ADMIN,
+        )
+        self.tenant = Tenant.objects.create(
+            nombre='Empresa Reinicio',
+            rfc='REI010101ABC',
+            giro='Servicios',
+            num_trabajadores=100,
+            consultor=self.consultor,
+        )
+        self.trabajador = Trabajador.objects.create(
+            tenant=self.tenant,
+            nombre='Luis',
+            apellido_paterno='Reinicio',
+            num_empleado='R01',
+            email='luis@example.com',
+            puesto='Analista',
+            area='Operaciones',
+        )
+        self.ciclo = CicloNOM.objects.create(
+            tenant=self.tenant,
+            anio=2026,
+            fecha_inicio=timezone.localdate(),
+        )
+        self.guia_v = Cuestionario.objects.create(clave='V', nombre='Datos del trabajador', tamano_min=1)
+        self.guia_iii = Cuestionario.objects.create(clave='III', nombre='Factores de riesgo', tamano_min=1)
+        self.link_v = GuiaLink.objects.create(tenant=self.tenant, ciclo=self.ciclo, cuestionario=self.guia_v)
+        self.link_iii = GuiaLink.objects.create(tenant=self.tenant, ciclo=self.ciclo, cuestionario=self.guia_iii)
+        dominio_v = Dominio.objects.create(cuestionario=self.guia_v, orden=1, clave='V', nombre='Datos')
+        self.pregunta_prefill = Pregunta.objects.create(
+            dominio=dominio_v,
+            orden=1,
+            texto='Nombre completo',
+            tipo_respuesta='texto',
+        )
+        self.pregunta_manual = Pregunta.objects.create(
+            dominio=dominio_v,
+            orden=16,
+            texto='Dato capturado por el trabajador',
+            tipo_respuesta='texto',
+        )
+        self.client = APIClient()
+
+    def confirmar_guia_v(self):
+        return self.client.post(
+            f'/api/v1/publica/guia/{self.link_v.token}/confirmar/',
+            {'trabajador_id': self.trabajador.id},
+            format='json',
+        )
+
+    def responder_manual(self, token):
+        return self.client.post(
+            f'/api/v1/publica/{token}/responder/',
+            {'respuestas': [{'pregunta_id': self.pregunta_manual.id, 'valor_texto': 'Respuesta manual'}]},
+            format='json',
+        )
+
+    def test_guia_v_reiniciada_recrea_prefill_y_desbloquea_guia_iii(self):
+        response = self.confirmar_guia_v()
+        self.assertEqual(response.status_code, 200)
+        token = response.data['data']['aplicacion_token']
+
+        response = self.responder_manual(token)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data']['estado'], 'completado')
+        self.assertEqual(response.data['data']['siguiente_guia_token'], str(self.link_iii.token))
+
+        aplicacion = Aplicacion.objects.get(token=token)
+        aplicacion.respuestas.all().delete()
+        aplicacion.estado = 'pendiente'
+        aplicacion.fecha_completado = None
+        aplicacion.save(update_fields=['estado', 'fecha_completado'])
+
+        response = self.confirmar_guia_v()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(aplicacion.respuestas.filter(pregunta=self.pregunta_prefill).exists())
+
+        response = self.responder_manual(token)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['data']['estado'], 'completado')
+        self.assertEqual(response.data['data']['siguiente_guia_token'], str(self.link_iii.token))
+
+        response = self.client.post(
+            f'/api/v1/publica/guia/{self.link_iii.token}/confirmar/',
+            {'trabajador_id': self.trabajador.id},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)

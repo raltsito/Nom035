@@ -714,7 +714,7 @@ def confirmar_trabajador(request, token):
         trabajador=trabajador,
     )
 
-    if created and link.cuestionario.clave == 'V':
+    if link.cuestionario.clave == 'V' and aplicacion.estado != 'completado':
         from .prefill_guia_v import prefill_guia_v
         prefill_guia_v(aplicacion, trabajador)
         aplicacion.refresh_from_db()
