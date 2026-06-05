@@ -36,7 +36,7 @@ class ResultadoAplicacionSerializer(serializers.ModelSerializer):
             'id', 'aplicacion', 'trabajador_nombre', 'trabajador_area',
             'cuestionario_clave', 'ciclo',
             'puntaje_total', 'puntaje_max', 'porcentaje',
-            'categoria', 'calculado_en', 'dominios',
+            'categoria', 'requiere_atencion', 'calculado_en', 'dominios',
         ]
 
     def get_porcentaje(self, obj):
@@ -47,9 +47,13 @@ class ResultadoAplicacionSerializer(serializers.ModelSerializer):
 
 class ResultadoListSerializer(ResultadoAplicacionSerializer):
     """Lista sin el detalle de dominios para la tabla principal."""
+    trabajador_tipo_puesto = serializers.CharField(
+        source='aplicacion.trabajador.tipo_puesto', read_only=True)
+
     class Meta(ResultadoAplicacionSerializer.Meta):
         fields = [
             'id', 'aplicacion', 'trabajador_nombre', 'trabajador_area',
-            'cuestionario_clave', 'ciclo',
-            'puntaje_total', 'puntaje_max', 'porcentaje', 'categoria', 'calculado_en',
+            'trabajador_tipo_puesto', 'cuestionario_clave', 'ciclo',
+            'puntaje_total', 'puntaje_max', 'porcentaje',
+            'categoria', 'requiere_atencion', 'calculado_en',
         ]

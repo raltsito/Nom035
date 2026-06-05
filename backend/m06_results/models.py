@@ -2,21 +2,27 @@ from django.db import models
 from m05_questionnaires.models import Aplicacion, Dominio
 
 CATEGORIA_CHOICES = [
-    ('nulo',     'Nulo / despreciable'),
-    ('bajo',     'Bajo'),
-    ('medio',    'Medio'),
-    ('alto',     'Alto'),
-    ('muy_alto', 'Muy alto'),
+    ('nulo',                'Nulo / despreciable'),
+    ('bajo',                'Bajo'),
+    ('medio',               'Medio'),
+    ('alto',                'Alto'),
+    ('muy_alto',            'Muy alto'),
+    # Exclusivo Guía I
+    ('requiere_atencion',   'Requiere atención clínica'),
+    ('sin_indicadores',     'Sin indicadores'),
 ]
 
 
 class ResultadoAplicacion(models.Model):
-    aplicacion    = models.OneToOneField(
+    aplicacion        = models.OneToOneField(
         Aplicacion, on_delete=models.CASCADE, related_name='resultado')
-    puntaje_total = models.PositiveSmallIntegerField()
-    puntaje_max   = models.PositiveSmallIntegerField()
-    categoria     = models.CharField(max_length=20, choices=CATEGORIA_CHOICES)
-    calculado_en  = models.DateTimeField(auto_now=True)
+    puntaje_total     = models.PositiveSmallIntegerField()
+    puntaje_max       = models.PositiveSmallIntegerField()
+    categoria         = models.CharField(max_length=20, choices=CATEGORIA_CHOICES)
+    requiere_atencion = models.BooleanField(
+        null=True, blank=True,
+        help_text='Solo Guía I. True = trabajador requiere evaluación clínica.')
+    calculado_en      = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Resultado'

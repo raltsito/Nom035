@@ -14,6 +14,16 @@ from .serializers import (
 )
 from .importador import importar_excel
 
+_PERS_LARGO  = {'sindicalizado': 'Sindicalizado / Directo', 'confianza': 'Confianza / Indirecto',
+                'salary': 'Salary / Administrativo', 'otro': 'Otro'}
+_PERS_CORTO  = {'sindicalizado': 'Directo', 'confianza': 'Indirecto',
+                'salary': 'Salary', 'otro': 'Otro'}
+
+def _pers_labels(tenant):
+    if tenant and getattr(tenant, 'etiquetas_cortas', False):
+        return _PERS_CORTO
+    return _PERS_LARGO
+
 
 def _muestra(N):
     if N < 1:
@@ -178,12 +188,7 @@ class TrabajadorViewSet(viewsets.ModelViewSet):
 
         SEXO = {'M': 'Masculino', 'F': 'Femenino', '': 'No especificado'}
         CONT = {'planta': 'Planta', 'eventual': 'Eventual', 'subcontratado': 'Subcontratado'}
-        PERS = {
-            'sindicalizado': 'Sindicalizado / Directo',
-            'confianza':     'Confianza / Indirecto',
-            'salary':        'Salary / Administrativo',
-            'otro':          'Otro',
-        }
+        PERS = _pers_labels(request.user.tenant)
         EDAD_R = [
             ('18-29 años', 18, 30),
             ('30-39 años', 30, 40),
@@ -349,11 +354,16 @@ from rest_framework.decorators import api_view, permission_classes as drf_permis
 @drf_permission_classes([IsTenantAdmin])
 def resumen_muestra_view(request):
     user = request.user
+    tenant = user.tenant
     if user.is_super_admin:
         qs = Trabajador.objects.all()
         tenant_id = request.query_params.get('tenant_id')
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
+            from tenants.models import Tenant as TenantModel
+            tenant = TenantModel.objects.filter(id=tenant_id).first()
+        else:
+            tenant = None
     else:
         qs = Trabajador.objects.filter(tenant=user.tenant)
 
@@ -368,12 +378,7 @@ def resumen_muestra_view(request):
 
     SEXO = {'M': 'Masculino', 'F': 'Femenino'}
     CONT = {'planta': 'Planta', 'eventual': 'Eventual', 'subcontratado': 'Subcontratado'}
-    PERS = {
-        'sindicalizado': 'Sindicalizado / Directo',
-        'confianza':     'Confianza / Indirecto',
-        'salary':        'Salary / Administrativo',
-        'otro':          'Otro',
-    }
+    PERS = _pers_labels(tenant)
     EDAD_R = [
         ('18-29 años', 18, 30),
         ('30-39 años', 30, 40),
@@ -445,19 +450,22 @@ def _left(wrap=False):
 
 SEXO_LABEL   = {'M': 'Masculino', 'F': 'Femenino'}
 CONT_LABEL   = {'planta': 'Planta', 'eventual': 'Eventual', 'subcontratado': 'Subcontratado'}
-PERS_LABEL   = {'sindicalizado': 'Sindicalizado / Directo', 'confianza': 'Confianza / Indirecto',
-                'salary': 'Salary / Administrativo', 'otro': 'Otro'}
 
 
 @api_view(['GET'])
 @drf_permission_classes([IsTenantAdmin])
 def sugeridos_muestra_view(request):
     user = request.user
+    tenant = user.tenant
     if user.is_super_admin:
         qs = Trabajador.objects.all()
         tenant_id = request.query_params.get('tenant_id')
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
+            from tenants.models import Tenant as TenantModel
+            tenant = TenantModel.objects.filter(id=tenant_id).first()
+        else:
+            tenant = None
     else:
         qs = Trabajador.objects.filter(tenant=user.tenant)
 
@@ -494,7 +502,7 @@ def sugeridos_muestra_view(request):
                 'sexo':            SEXO_LABEL.get(w['sexo'], '—'),
                 'edad':            w['edad'],
                 'tipo_contratacion': CONT_LABEL.get(w['tipo_contratacion'], '—'),
-                'tipo_personal':   PERS_LABEL.get(w['tipo_personal'], '—'),
+                'tipo_personal':   _pers_labels(tenant).get(w['tipo_personal'], '—'),
                 'experiencia_anios': w['experiencia_anios'],
             })
 
@@ -527,11 +535,16 @@ def exportar_muestra_excel(request):
 
 def _exportar_muestra_excel_impl(request):
     user = request.user
+    tenant = user.tenant
     if user.is_super_admin:
         qs = Trabajador.objects.all()
         tenant_id = request.query_params.get('tenant_id')
         if tenant_id:
             qs = qs.filter(tenant_id=tenant_id)
+            from tenants.models import Tenant as TenantModel
+            tenant = TenantModel.objects.filter(id=tenant_id).first()
+        else:
+            tenant = None
         tenant_nombre = 'Todas las empresas'
     else:
         qs = Trabajador.objects.filter(tenant=user.tenant)
@@ -552,8 +565,7 @@ def _exportar_muestra_excel_impl(request):
     # ── Calcular estratos ────────────────────────────────────────────────────
     SEXO_L = {'M': 'Masculino', 'F': 'Femenino'}
     CONT_L = {'planta': 'Planta', 'eventual': 'Eventual', 'subcontratado': 'Subcontratado'}
-    PERS_L = {'sindicalizado': 'Sindicalizado / Directo', 'confianza': 'Confianza / Indirecto',
-               'salary': 'Salary / Administrativo', 'otro': 'Otro'}
+    PERS_L = _pers_labels(tenant)
     EDAD_R = [('18-29 años', 18, 30), ('30-39 años', 30, 40), ('40-49 años', 40, 50), ('50+ años', 50, 9999)]
     EXP_R  = [('Menos de 1 año', 0, 1), ('1-5 años', 1, 6), ('6-10 años', 6, 11), ('Más de 10 años', 11, 9999)]
 

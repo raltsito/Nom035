@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte Psicológico NOM-035 — {{ tenant.nombre }} — Ciclo {{ ciclo.anio }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @page {
+    size: A4;
+    margin: 20mm 18mm 22mm 18mm;
+  }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 10.5pt;
+    color: #1f2937;
+    line-height: 1.65;
+  }
+  p { margin-bottom: 3mm; text-align: justify; }
+  strong { color: #0f172a; }
+
+  /* Colores de riesgo */
+  .bajo, .nulo { background: #d1fae5; color: #065f46; }
+  .medio       { background: #fef3c7; color: #92400e; }
+  .alto        { background: #fee2e2; color: #991b1b; }
+  .muy_alto    { background: #ede9fe; color: #4c1d95; }
+  .dot-nulo, .dot-bajo { background: #10b981; }
+  .dot-medio    { background: #f59e0b; }
+  .dot-alto     { background: #ef4444; }
+  .dot-muy_alto { background: #7c3aed; }
+
+  /* ---------- Portada / encabezado institucional ---------- */
+  .cover {
+    page-break-after: always;
+    min-height: 235mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .cover-head { border-bottom: 2.5px solid #0f172a; padding-bottom: 6mm; }
+  .cover-kicker {
+    font-family: 'Arial', sans-serif;
+    font-size: 8.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #64748b;
+    font-weight: 700;
+    margin-bottom: 4mm;
+  }
+  .cover-title {
+    font-size: 26pt;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #0f172a;
+    margin-bottom: 3mm;
+  }
+  .cover-sub { font-size: 12pt; color: #475569; font-style: italic; }
+
+  .cover-meta { margin-top: 10mm; }
+  .cover-meta table { width: 100%; border-collapse: collapse; font-family: 'Arial', sans-serif; }
+  .cover-meta td { padding: 2.5mm 0; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  .cover-meta td.k {
+    width: 38%;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94a3b8;
+    font-weight: 700;
+  }
+  .cover-meta td.v { font-size: 10.5pt; color: #0f172a; font-weight: 600; }
+
+  .cover-firma {
+    margin-top: 12mm;
+    font-family: 'Arial', sans-serif;
+  }
+  .firma-line {
+    margin-top: 16mm;
+    border-top: 1px dotted #475569;
+    width: 75%;
+    padding-top: 2mm;
+    font-size: 9pt;
+    color: #475569;
+  }
+
+  /* ---------- Secciones ---------- */
+  .sec { margin-bottom: 7mm; page-break-inside: auto; }
+  .sec-title {
+    font-family: 'Arial', sans-serif;
+    font-size: 13pt;
+    font-weight: 800;
+    color: #0f172a;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 2mm;
+    margin-bottom: 4mm;
+  }
+  .sub-title {
+    font-family: 'Arial', sans-serif;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 5mm 0 2.5mm;
+  }
+
+  /* ---------- Tablas (sans) ---------- */
+  table.t {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Arial', sans-serif;
+    font-size: 8.5pt;
+    margin-bottom: 4mm;
+  }
+  table.t th {
+    background: #0f172a;
+    color: #fff;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    padding: 2.2mm 3mm;
+    text-align: left;
+  }
+  table.t td {
+    padding: 2mm 3mm;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+  table.t tr:nth-child(even) td { background: #f8fafc; }
+  table.t tr { page-break-inside: avoid; }
+
+  .pill {
+    display: inline-block;
+    padding: 0.6mm 3mm;
+    border-radius: 12px;
+    font-size: 7.5pt;
+    font-weight: 700;
+    font-family: 'Arial', sans-serif;
+  }
+  .dom-key { font-weight: 800; color: #0369a1; }
+  .mute { color: #64748b; }
+  .mini-list { list-style: none; }
+
+  /* ---------- Bloque destacado ---------- */
+  .callout {
+    border-left: 3px solid #0ea5e9;
+    background: #f0f9ff;
+    padding: 3.5mm 5mm;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 4mm;
+    font-size: 10pt;
+  }
+  .callout.warn  { border-color: #ef4444; background: #fef2f2; }
+  .callout.ok    { border-color: #10b981; background: #f0fdf4; }
+
+  .nivel-box {
+    border: 1.5px solid;
+    border-radius: 8px;
+    padding: 4mm 5mm;
+    margin-bottom: 4mm;
+    display: flex;
+    align-items: center;
+    gap: 6mm;
+  }
+  .nivel-box .big {
+    font-family: 'Arial', sans-serif;
+    font-size: 16pt;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  /* interpretación por dominio prioritario */
+  .dom-interp {
+    page-break-inside: avoid;
+    margin-bottom: 4mm;
+    padding-bottom: 3mm;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .dom-interp-head {
+    font-family: 'Arial', sans-serif;
+    font-weight: 700;
+    font-size: 10pt;
+    margin-bottom: 1.5mm;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dom-interp-mide { font-size: 9pt; color: #475569; font-style: italic; margin-bottom: 1.5mm; }
+
+  .recs { list-style: none; }
+  .rec {
+    page-break-inside: avoid;
+    padding: 2.5mm 0;
+    border-bottom: 1px solid #eef2f6;
+    display: flex;
+    gap: 8px;
+  }
+  .rec-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .rec-src { font-family: 'Arial', sans-serif; font-size: 8pt; color: #94a3b8; font-style: italic; }
+  .urg {
+    display: inline-block;
+    font-family: 'Arial', sans-serif;
+    font-size: 7pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.5mm 2.5mm;
+    border-radius: 10px;
+    margin-right: 5px;
+    vertical-align: 1px;
+  }
+  .urg-muy_alto { background: #ede9fe; color: #4c1d95; }
+  .urg-alto     { background: #fee2e2; color: #991b1b; }
+  .urg-medio    { background: #fef3c7; color: #92400e; }
+
+  .nota {
+    font-size: 8.5pt;
+    color: #64748b;
+    font-style: italic;
+    margin-top: 2mm;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== 1. ENCABEZADO INSTITUCIONAL / PORTADA ===================== -->
+<div class="cover">
+  <div>
+    <div class="cover-head">
+      <div class="cover-kicker">Reporte Psicológico · NOM-035-STPS-2018</div>
+      <div class="cover-title">Evaluación de Factores de<br>Riesgo Psicosocial en el Trabajo</div>
+      <div class="cover-sub">Documento técnico para revisión y validación por especialista en salud mental laboral</div>
+    </div>
+
+    <div class="cover-meta">
+      <table>
+        <tr><td class="k">Centro de trabajo</td><td class="v">{{ tenant.nombre }}</td></tr>
+        {% if tenant.rfc %}<tr><td class="k">RFC</td><td class="v">{{ tenant.rfc }}</td></tr>{% endif %}
+        {% if tenant.giro %}<tr><td class="k">Giro</td><td class="v">{{ tenant.giro }}</td></tr>{% endif %}
+        <tr><td class="k">Total de trabajadores</td><td class="v">{{ tenant.num_trabajadores|default:"—" }}</td></tr>
+        <tr><td class="k">Ciclo evaluado</td><td class="v">{{ ciclo.anio }}</td></tr>
+        <tr><td class="k">Periodo de aplicación</td><td class="v">
+          {{ ciclo.fecha_inicio|date:"d/m/Y"|default:"—" }} &ndash; {{ ciclo.fecha_cierre|date:"d/m/Y"|default:"en curso" }}
+        </td></tr>
+        <tr><td class="k">Trabajadores evaluados</td><td class="v">{{ resumen.total_resultados }}</td></tr>
+        <tr><td class="k">Responsable de la evaluación</td><td class="v">{{ responsable|default:"_______________________" }}</td></tr>
+        <tr><td class="k">Fecha de emisión</td><td class="v">{{ fecha_generado }}</td></tr>
+        {% if anonimo %}<tr><td class="k">Confidencialidad</td><td class="v">Reporte anonimizado (claves T001…)</td></tr>{% endif %}
+      </table>
+    </div>
+  </div>
+
+  <div class="cover-firma">
+    <div class="cover-kicker">Validación profesional</div>
+    <div class="firma-line">Nombre, firma y cédula profesional del psicólogo revisor</div>
+    <p class="nota" style="margin-top:4mm">
+      Este reporte fue generado por el sistema de cumplimiento NOM-035. La interpretación
+      clínica y las recomendaciones deben ser revisadas y validadas por el profesional firmante.
+    </p>
+  </div>
+</div>
+
+<!-- ===================== 2. MARCO NORMATIVO Y METODOLÓGICO ===================== -->
+<div class="sec">
+  <div class="sec-title">1. Marco normativo y metodológico</div>
+  <p>{{ marco.fundamento }}</p>
+
+  <div class="sub-title">Instrumentos aplicados</div>
+  <table class="t">
+    <thead><tr><th style="width:26%">Instrumento</th><th>Descripción</th></tr></thead>
+    <tbody>
+      {% for nombre, desc in marco.instrumentos %}
+      <tr><td style="font-weight:700">{{ nombre }}</td><td>{{ desc }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="sub-title">Criterios de calificación</div>
+  <p><strong>Guía I.</strong> {{ marco.criterio_guia_i }}</p>
+  <p><strong>Guía III.</strong> {{ marco.criterio_guia_iii }}</p>
+
+  <div class="sub-title">Tasa de respuesta por instrumento</div>
+  <table class="t">
+    <thead><tr><th>Instrumento</th><th>Aplicados</th><th>Respondidos</th><th>Tasa</th></tr></thead>
+    <tbody>
+      {% for t in tasas_respuesta %}
+      <tr>
+        <td>{{ t.guia }}</td>
+        <td>{{ t.total }}</td>
+        <td>{{ t.completadas }}</td>
+        <td style="font-weight:700">{{ t.pct }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ===================== 3. DESCRIPCIÓN DE LA MUESTRA ===================== -->
+<div class="sec">
+  <div class="sec-title">2. Descripción de la muestra</div>
+  <p>
+    La muestra evaluada está conformada por <strong>{{ muestra.total }}</strong> trabajadores
+    que participaron en al menos uno de los instrumentos aplicados. A continuación se presenta
+    su distribución sociodemográfica y laboral conforme a la Guía de Referencia V.
+  </p>
+
+  {% for grupo in muestra_tablas %}
+  <div class="sub-title">{{ grupo.titulo }}</div>
+  <table class="t">
+    <thead><tr><th>{{ grupo.col }}</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      {% for row in grupo.datos %}
+      <tr><td>{{ row.label }}</td><td>{{ row.count }}</td><td>{{ row.pct }}%</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+</div>
+
+<!-- ===================== 4. GUÍA I — ATS ===================== -->
+<div class="sec">
+  <div class="sec-title">3. Resultados de la Guía I — Acontecimientos Traumáticos Severos</div>
+  <p class="mute" style="font-style:italic">{{ guia_i_definicion }}</p>
+
+  {% if guia_i.total == 0 %}
+  <div class="callout ok">No se aplicó la Guía de Referencia I en este ciclo de evaluación.</div>
+  {% else %}
+  <table class="t">
+    <thead><tr><th>Indicador</th><th style="width:22%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      <tr><td>Respondieron la Guía I</td><td>{{ guia_i.total }}</td><td>100%</td></tr>
+      <tr><td><strong>Casos positivos</strong> (requieren evaluación clínica)</td>
+          <td style="font-weight:700;color:#991b1b">{{ guia_i.requieren_atencion }}</td>
+          <td>{% widthratio guia_i.requieren_atencion guia_i.total 100 %}%</td></tr>
+      <tr><td>Sin indicadores de atención</td><td>{{ guia_i.sin_indicadores }}</td>
+          <td>{% widthratio guia_i.sin_indicadores guia_i.total 100 %}%</td></tr>
+    </tbody>
+  </table>
+
+  {% if guia_i.requieren_atencion > 0 %}
+  <div class="callout warn">{{ guia_i_texto }}</div>
+  <table class="t">
+    <thead>
+      <tr><th>#</th><th>Trabajador</th><th>Área</th><th>Acontecimiento</th><th>Síntomas</th><th>Recomendación</th></tr>
+    </thead>
+    <tbody>
+      {% for c in guia_i.casos %}
+      <tr>
+        <td class="mute">{{ forloop.counter }}</td>
+        <td style="font-weight:600">{{ c.trabajador_nombre }}</td>
+        <td class="mute">{{ c.trabajador_area }}</td>
+        <td>{{ c.acontecimiento }}</td>
+        <td style="font-weight:700;color:#991b1b">{{ c.sintomas }}</td>
+        <td>Canalización a evaluación clínica individual</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="nota">
+    Nota clínica: los casos positivos no implican un diagnóstico de Trastorno de Estrés
+    Postraumático. Se recomienda la canalización a evaluación individual con psicólogo clínico
+    o psiquiatra.
+  </p>
+  {% else %}
+  <div class="callout ok">{{ guia_i_texto }}</div>
+  {% endif %}
+  {% endif %}
+</div>
+
+<!-- ===================== 5. GUÍA III ===================== -->
+<div class="sec">
+  <div class="sec-title">4. Resultados de la Guía III — Factores de Riesgo Psicosocial</div>
+
+  <div class="sub-title">4.1 Nivel de riesgo global de la organización</div>
+  <div class="nivel-box {{ nivel_global }}" style="border-color:currentColor">
+    <div class="big">{{ nivel_global_label }}</div>
+    <div>
+      <div style="font-family:Arial,sans-serif;font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase">
+        Puntaje global promedio: <strong>{{ promedio_global }}</strong>
+      </div>
+    </div>
+  </div>
+  <p>{{ nivel_global_texto }}</p>
+
+  <div class="sub-title">Distribución de trabajadores por nivel de riesgo</div>
+  <table class="t">
+    <thead><tr><th>Nivel de riesgo</th><th style="width:22%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      {% for cat in distribucion %}
+      <tr>
+        <td><span class="pill {{ cat.key }}">{{ cat.label }}</span></td>
+        <td>{{ cat.count }}</td>
+        <td>{{ cat.pct }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 4.2 Resultados por dominio -->
+<div class="sec">
+  <div class="sub-title">4.2 Resultados por dominio</div>
+  <table class="t">
+    <thead>
+      <tr><th style="width:30%">Dominio</th><th>Promedio</th><th>Nivel modal</th><th>Trabajadores en Alto / Muy alto</th></tr>
+    </thead>
+    <tbody>
+      {% for dom in dominios_agregados %}
+      <tr>
+        <td><span class="dom-key">{{ dom.clave }}</span> {{ dom.nombre }}</td>
+        <td>{{ dom.puntaje_promedio }}/{{ dom.puntaje_max }}</td>
+        <td><span class="pill {{ dom.categoria_predominante }}">{{ dom.categoria_predominante|cut:"_"|capfirst }}</span></td>
+        <td>{{ dom.dist.alto|add:dom.dist.muy_alto }}{% if dom.prioritario %} &nbsp;<strong style="color:#991b1b">— Prioritario</strong>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if dominios_prioritarios %}
+  <div class="sub-title">Interpretación clínica de los dominios prioritarios (Alto / Muy alto)</div>
+  {% for dom in dominios_prioritarios %}
+  <div class="dom-interp">
+    <div class="dom-interp-head">
+      <span class="dom-key">{{ dom.clave }}</span> {{ dom.nombre }}
+      <span class="pill {{ dom.categoria_predominante }}">{{ dom.categoria_predominante|cut:"_"|capfirst }}</span>
+    </div>
+    {% if dom.mide %}<div class="dom-interp-mide">Qué mide: {{ dom.mide }}</div>{% endif %}
+    <p style="margin-bottom:0">{{ dom.interpretacion }}</p>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p class="mute">Ningún dominio alcanza nivel de riesgo Alto o Muy alto a nivel agregado.</p>
+  {% endif %}
+</div>
+
+<!-- 4.3 Análisis sociodemográfico -->
+<div class="sec">
+  <div class="sub-title">4.3 Nivel de riesgo por variables sociodemográficas</div>
+  <p class="mute" style="font-style:italic">
+    Puntaje global promedio de la Guía III según las variables de la Guía V. Permite
+    identificar si algún grupo concentra niveles de riesgo más elevados.
+  </p>
+  {% for grupo in riesgo_tablas %}
+  <div class="sub-title" style="font-size:10pt">{{ grupo.titulo }}</div>
+  <table class="t">
+    <thead><tr><th>{{ grupo.col }}</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <tbody>
+      {% for row in grupo.datos %}
+      <tr>
+        <td>{{ row.label }}</td>
+        <td>{{ row.evaluados }}</td>
+        <td style="font-weight:700">{{ row.promedio }}</td>
+        <td><span class="pill {{ row.categoria }}">{{ row.categoria|cut:"_"|capfirst }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+</div>
+
+<!-- 4.4 Análisis por área -->
+{% if areas_analisis %}
+<div class="sec">
+  <div class="sub-title">4.4 Nivel de riesgo por área o departamento</div>
+  <table class="t">
+    <thead><tr><th>Área / Departamento</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <tbody>
+      {% for a in areas_analisis %}
+      <tr>
+        <td style="font-weight:600">{{ a.nombre }}</td>
+        <td>{{ a.evaluados }}</td>
+        <td style="font-weight:700">{{ a.promedio }}</td>
+        <td><span class="pill {{ a.categoria }}">{{ a.categoria|cut:"_"|capfirst }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="nota">
+    Las áreas con mayor puntaje promedio se consideran prioritarias para la intervención.
+  </p>
+</div>
+{% endif %}
+
+<!-- ===================== 6. RECOMENDACIONES ===================== -->
+<div class="sec">
+  <div class="sec-title">5. Recomendaciones de intervención</div>
+  <p class="mute" style="font-style:italic">
+    Conforme al artículo 8 de la NOM-035-STPS-2018, las obligaciones del patrón se determinan
+    según el nivel de riesgo detectado. Las siguientes recomendaciones se derivan de los
+    hallazgos del presente ciclo.
+  </p>
+  <ul class="recs">
+    {% for rec in recomendaciones %}
+    <li class="rec">
+      <span class="rec-dot dot-{{ rec.nivel }}"></span>
+      <div>
+        <div>
+          <span class="urg urg-{{ rec.nivel }}">{{ rec.urgencia }}</span>
+          {{ rec.texto }}
+        </div>
+        <div class="rec-src">Origen: dominio {{ rec.dominio }}</div>
+      </div>
+    </li>
+    {% empty %}
+    <li class="rec">
+      <span class="rec-dot dot-nulo"></span>
+      <div>
+        Ningún dominio alcanzó nivel de riesgo Alto o Muy alto a nivel agregado. Se recomienda
+        mantener las condiciones organizacionales actuales, dar seguimiento a los dominios con
+        nivel Medio y reaplicar la evaluación en el siguiente ciclo normativo conforme a la
+        NOM-035-STPS-2018.
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+
+<!-- ===================== 7. LIMITACIONES ===================== -->
+<div class="sec">
+  <div class="sec-title">6. Limitaciones del estudio</div>
+  <p>{{ limitaciones }}</p>
+</div>
+
+<!-- ===================== 8. VALIDACIÓN ===================== -->
+<div class="sec" style="page-break-inside:avoid">
+  <div class="sec-title">7. Espacio de validación profesional</div>
+  <p>
+    El profesional firmante hace constar que revisó el contenido de este reporte, validó la
+    interpretación clínica de los resultados y avala las recomendaciones de intervención
+    propuestas.
+  </p>
+  <div style="margin-top:18mm">
+    <div class="firma-line" style="width:60%">Nombre completo del psicólogo</div>
+  </div>
+  <div style="display:flex; gap:14mm; margin-top:14mm">
+    <div class="firma-line" style="width:45%;margin-top:0">Cédula profesional</div>
+    <div class="firma-line" style="width:30%;margin-top:0">Fecha</div>
+  </div>
+  <div style="margin-top:16mm">
+    <div class="firma-line" style="width:60%">Firma</div>
+  </div>
+</div>
+
+</body>
+</html>

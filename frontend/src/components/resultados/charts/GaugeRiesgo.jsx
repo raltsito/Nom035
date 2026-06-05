@@ -1,64 +1,200 @@
-import { PieChart, Pie, Cell } from 'recharts';
-import ChartCard, { RISK_COLORS, RISK_LABELS, RiskChip, EmptyChart } from '../ChartCard';
+import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import ChartCard, { RISK_COLORS, RISK_LABELS } from '../ChartCard';
 import styles from '../ResultadosDashboard.module.css';
 
-const SEGMENTS = [
-  { value: 20, cat: 'nulo' },
-  { value: 20, cat: 'bajo' },
-  { value: 20, cat: 'medio' },
-  { value: 20, cat: 'alto' },
-  { value: 20, cat: 'muy_alto' },
-];
+// ── Layout ──────────────────────────────────────────────────────────────────
+const SVG_W     = 220;
+const SVG_H     = 220;
+const CX        = 110;
+const CY        = 110;
+const R         = 78;            // mid-radius of the arc ring
+const TRACK_W   = 15;            // ring thickness
+const CIRC      = 2 * Math.PI * R;
 
-function Needle({ cx, cy, pct, innerR }) {
-  const deg = 180 - (pct / 100) * 180;
-  const rad = (deg * Math.PI) / 180;
-  const r = innerR * 0.78;
-  const x = cx + r * Math.cos(rad);
-  const y = cy - r * Math.sin(rad);
-  const bx = cx + 8 * Math.cos(rad + Math.PI / 2);
-  const by = cy - 8 * Math.sin(rad + Math.PI / 2);
-  const bx2 = cx + 8 * Math.cos(rad - Math.PI / 2);
-  const by2 = cy - 8 * Math.sin(rad - Math.PI / 2);
+// 270° arc, gap of 90° at the bottom. Starts at 135° (lower-left) CW to 45° (lower-right).
+const TOTAL_DEG = 270;
+const START_DEG = 135;
+const SEG_N     = 5;
+const SEG_DEG   = TOTAL_DEG / SEG_N;   // 54° each
+
+// Segment dash length — fits round-capped ends without overlap
+const TOTAL_LEN  = (TOTAL_DEG / 360) * CIRC;
+const SEG_GAP_PX = TRACK_W + 2;        // visual gap between rounded caps
+const SEG_LEN    = (TOTAL_LEN - SEG_N * SEG_GAP_PX) / SEG_N;
+
+const CATS    = ['nulo', 'bajo', 'medio', 'alto', 'muy_alto'];
+const CAT_IDX = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function toRad(deg) { return (deg * Math.PI) / 180; }
+
+function arcPoint(deg) {
+  return { x: CX + R * Math.cos(toRad(deg)), y: CY + R * Math.sin(toRad(deg)) };
+}
+
+function useCounter(target, duration = 1100) {
+  const [val, setVal] = useState(0);
+  const raf = useRef(null);
+  useEffect(() => {
+    setVal(0);
+    const t0 = performance.now();
+    const tick = now => {
+      const p = Math.min((now - t0) / duration, 1);
+      setVal(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf.current);
+  }, [target, duration]);
+  return val;
+}
+
+// ── Segment (non-framer SVG) ──────────────────────────────────────────────
+// Uses a plain <g rotate> + CSS opacity transition — avoids framer+SVG transform conflicts
+function Segment({ cat, index, opacity, strokeWidth }) {
+  const rotDeg = START_DEG + index * SEG_DEG;
   return (
-    <g>
-      <polygon points={`${x},${y} ${bx},${by} ${bx2},${by2}`} fill="#E4EDF6" opacity={0.9} />
-      <circle cx={cx} cy={cy} r={9} fill="#E4EDF6" />
-      <circle cx={cx} cy={cy} r={5} fill={RISK_COLORS.medio} />
+    <g transform={`rotate(${rotDeg}, ${CX}, ${CY})`}>
+      <circle
+        cx={CX} cy={CY} r={R}
+        fill="none"
+        stroke={RISK_COLORS[cat]}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={`${SEG_LEN} ${CIRC}`}
+        style={{ opacity, transition: `opacity 0.5s ease ${index * 0.07}s` }}
+      />
     </g>
   );
 }
 
+// ── Component ─────────────────────────────────────────────────────────────
 export default function GaugeRiesgo({ data }) {
-  if (!data) return <ChartCard title="Riesgo Psicosocial Global"><EmptyChart /></ChartCard>;
-  const { pct, categoria } = data;
+  const pct      = data?.pct ?? 0;
+  const categoria = data?.categoria ?? 'nulo';
+  const count    = useCounter(pct);
+  const catIdx   = CAT_IDX[categoria] ?? 0;
+  const color    = RISK_COLORS[categoria] ?? RISK_COLORS.nulo;
+
+  if (!data) return (
+    <ChartCard title="Riesgo Psicosocial Global">
+      <div className={styles.gaugeEmpty}>Sin datos calculados</div>
+    </ChartCard>
+  );
+
+  // Dot position on arc
+  const dotDeg = START_DEG + (pct / 100) * TOTAL_DEG;
+  const dot    = arcPoint(dotDeg);
+
+  // Chip label sizing
+  const chipLabel = RISK_LABELS[categoria] ?? categoria;
+  const chipW     = Math.max(52, chipLabel.length * 7.5 + 22);
 
   return (
-    <ChartCard title="Riesgo Psicosocial Global" subtitle="Indice ponderado del ciclo">
+    <ChartCard title="Riesgo Psicosocial Global" subtitle="Índice ponderado Guía III">
       <div className={styles.gaugeWrap}>
-        <PieChart width={220} height={130}>
-          <Pie
-            data={SEGMENTS}
-            cx={110}
-            cy={115}
-            startAngle={180}
-            endAngle={0}
-            innerRadius={68}
-            outerRadius={100}
-            dataKey="value"
-            isAnimationActive={false}
-            stroke="none"
+        {/* No overflow:visible — SVG is self-contained, no backdrop-filter clipping issues */}
+        <svg
+          width={SVG_W}
+          height={SVG_H}
+          viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+          style={{ display: 'block', margin: '0 auto' }}
+        >
+          {/* ── Segments ─────────────────────────────────────────────── */}
+          {CATS.map((cat, i) => {
+            const isPast   = i < catIdx;
+            const isActive = i === catIdx;
+            const opacity  = isPast ? 0.55 : isActive ? 1.0 : 0.10;
+            const sw       = isActive ? TRACK_W + 5 : TRACK_W;
+            return (
+              <Segment key={cat} cat={cat} index={i} opacity={opacity} strokeWidth={sw} />
+            );
+          })}
+
+          {/* ── Tick marks at segment boundaries ─────────────────────── */}
+          {Array.from({ length: SEG_N + 1 }, (_, i) => {
+            const a  = toRad(START_DEG + i * SEG_DEG);
+            const r1 = R + TRACK_W / 2 + 4;
+            const r2 = R + TRACK_W / 2 + 11;
+            return (
+              <line key={i}
+                x1={CX + r1 * Math.cos(a)} y1={CY + r1 * Math.sin(a)}
+                x2={CX + r2 * Math.cos(a)} y2={CY + r2 * Math.sin(a)}
+                stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" opacity={0.18}
+              />
+            );
+          })}
+
+          {/* ── NULO / MÁX labels ─────────────────────────────────────── */}
+          {[
+            { i: 0, label: 'NULO', anchor: 'middle' },
+            { i: 5, label: 'MÁX',  anchor: 'middle' },
+          ].map(({ i, label, anchor }) => {
+            const a  = toRad(START_DEG + i * SEG_DEG);
+            const lr = R + TRACK_W / 2 + 22;
+            return (
+              <text key={label}
+                x={CX + lr * Math.cos(a)} y={CY + lr * Math.sin(a)}
+                textAnchor={anchor} fontSize="7"
+                fontFamily="var(--nom-font-mono, monospace)"
+                fontWeight="600" fill="currentColor" opacity={0.30}
+                letterSpacing="0.06em"
+              >
+                {label}
+              </text>
+            );
+          })}
+
+          {/* ── Position dot ──────────────────────────────────────────── */}
+          {pct > 0 && (
+            <motion.g
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7, duration: 0.4 }}
+            >
+              <circle cx={dot.x} cy={dot.y} r={13} fill={color} opacity={0.13} />
+              <circle cx={dot.x} cy={dot.y} r={8}  fill={color} opacity={0.28} />
+              <circle cx={dot.x} cy={dot.y} r={4.5} fill={color} />
+              <circle cx={dot.x} cy={dot.y} r={2}  fill="white" opacity={0.92} />
+            </motion.g>
+          )}
+
+          {/* ── Center % ──────────────────────────────────────────────── */}
+          <motion.text
+            x={CX} y={CY + 14}
+            textAnchor="middle"
+            fontSize="40" fontWeight="800"
+            fontFamily="var(--nom-font-display, 'Plus Jakarta Sans', sans-serif)"
+            fill={color}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.38, duration: 0.42 }}
           >
-            {SEGMENTS.map((seg, i) => (
-              <Cell key={i} fill={RISK_COLORS[seg.cat]} opacity={0.88} />
-            ))}
-          </Pie>
-          <Needle cx={110} cy={115} pct={pct} innerR={68} />
-        </PieChart>
-        <div className={styles.gaugeLabel}>
-          <span className={styles.gaugePct}>{pct}%</span>
-          <RiskChip cat={categoria} />
-        </div>
+            {count}%
+          </motion.text>
+
+          {/* ── Risk chip ─────────────────────────────────────────────── */}
+          <motion.g
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.62, duration: 0.35 }}
+          >
+            <rect
+              x={CX - chipW / 2} y={CY + 26}
+              width={chipW} height={22} rx={11}
+              fill={color} opacity={0.18}
+            />
+            <text
+              x={CX} y={CY + 42}
+              textAnchor="middle" fontSize="11" fontWeight="600"
+              fontFamily="var(--nom-font-body, Inter, sans-serif)"
+              fill={color}
+            >
+              {chipLabel}
+            </text>
+          </motion.g>
+        </svg>
       </div>
     </ChartCard>
   );

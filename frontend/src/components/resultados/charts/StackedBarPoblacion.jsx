@@ -1,7 +1,8 @@
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell,
+  Tooltip, ResponsiveContainer,
 } from 'recharts';
+import { motion } from 'framer-motion';
 import ChartCard, { RISK_COLORS, RISK_LABELS, ChartTooltip, EmptyChart } from '../ChartCard';
 
 const CATS = [
@@ -13,51 +14,57 @@ const CATS = [
 ];
 
 export default function StackedBarPoblacion({ data }) {
-  if (!data?.length) {
-    return <ChartCard title="Distribucion Poblacional"><EmptyChart /></ChartCard>;
-  }
+  if (!data?.length) return (
+    <ChartCard title="Distribución Demográfica"><EmptyChart /></ChartCard>
+  );
 
   return (
-    <ChartCard title="Distribucion Poblacional de Riesgo" subtitle="Aplicaciones por nivel y guia">
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 8 }} barSize={52}>
-          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
-          <XAxis
-            dataKey="guia"
-            tick={{ fill: '#6E8BAA', fontSize: 12 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fill: '#6E8BAA', fontSize: 10 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <Tooltip content={<ChartTooltip />} />
-          {CATS.map(c => (
-            <Bar
-              key={c.key}
-              dataKey={c.key}
-              name={c.label}
-              stackId="s"
-              fill={RISK_COLORS[c.key]}
-              radius={c.key === 'muy_alto' ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+    <ChartCard title="Distribución por Perfil de Puesto" subtitle="Nivel de riesgo según tipo de puesto (Guía V)">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 8 }} barSize={48}>
+            <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
+            <XAxis
+              dataKey="perfil"
+              tick={{ fill: '#6E8BAA', fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
             />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fill: '#6E8BAA', fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <Tooltip content={<ChartTooltip />} />
+            {CATS.map((c, i) => (
+              <Bar
+                key={c.key}
+                dataKey={c.key}
+                name={c.label}
+                stackId="s"
+                fill={RISK_COLORS[c.key]}
+                radius={i === CATS.length - 1 ? [5, 5, 0, 0] : [0, 0, 0, 0]}
+                animationBegin={i * 60}
+                animationDuration={650}
+              />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 10 }}>
+          {CATS.map(c => (
+            <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 2, background: RISK_COLORS[c.key], flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: '#6E8BAA' }}>{c.label}</span>
+            </div>
           ))}
-        </BarChart>
-      </ResponsiveContainer>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10 }}>
-        {CATS.map(c => (
-          <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{
-              width: 10, height: 10, borderRadius: 3,
-              background: RISK_COLORS[c.key], flexShrink: 0,
-            }} />
-            <span style={{ fontSize: 11, color: '#6E8BAA' }}>{c.label}</span>
-          </div>
-        ))}
-      </div>
+        </div>
+      </motion.div>
     </ChartCard>
   );
 }

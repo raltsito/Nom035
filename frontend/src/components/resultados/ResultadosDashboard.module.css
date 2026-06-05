@@ -7,40 +7,35 @@
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: var(--nom-space-4);
-  animation: nomFadeUp 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* --- Filas del bento --- */
-/* Fila 1: KPIs */
-.cellGauge       { grid-column: span 4; }
-.cellCumplimiento{ grid-column: span 4; }
-.cellViolencia   { grid-column: span 4; }
+/* --- Celdas del nuevo bento --- */
+/* Fila 1 */
+.cellGauge   { grid-column: span 4; }
+.cellTop3    { grid-column: span 4; }
+.cellRadar   { grid-column: span 4; }
+/* Fila 2 */
+.cellDominios { grid-column: span 12; }
+/* Fila 3 */
+.cellHeatmap  { grid-column: span 7; }
+.cellAreas    { grid-column: span 5; }
+/* Fila 4 */
+.cellStacked  { grid-column: span 12; }
+/* Fila 5 */
+.cellAts      { grid-column: span 12; }
 
-/* Fila 2: Analisis normativo */
-.cellRadar       { grid-column: span 5; }
-.cellDominios    { grid-column: span 7; }
-
-/* Fila 3: Demografico */
-.cellStacked     { grid-column: span 6; }
-.cellAreas       { grid-column: span 6; }
-
-/* Fila 4: ATS + Historica */
-.cellPieATS      { grid-column: span 3; }
-.cellTipologia   { grid-column: span 4; }
-.cellHistorica   { grid-column: span 5; }
-
-/* --- Animaciones escalonadas --- */
-.bento > *:nth-child(1)  { animation-delay: 0.04s; }
-.bento > *:nth-child(2)  { animation-delay: 0.08s; }
-.bento > *:nth-child(3)  { animation-delay: 0.12s; }
-.bento > *:nth-child(4)  { animation-delay: 0.16s; }
-.bento > *:nth-child(5)  { animation-delay: 0.20s; }
-.bento > *:nth-child(6)  { animation-delay: 0.24s; }
-.bento > *:nth-child(7)  { animation-delay: 0.28s; }
-.bento > *:nth-child(8)  { animation-delay: 0.32s; }
-.bento > *:nth-child(9)  { animation-delay: 0.36s; }
-.bento > *:nth-child(10) { animation-delay: 0.40s; }
-.bento > * { animation: nomFadeUp 0.44s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Entrada escalonada de celdas */
+.bento > * {
+  animation: nomFadeUp 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.bento > *:nth-child(1) { animation-delay: 0.04s; }
+.bento > *:nth-child(2) { animation-delay: 0.08s; }
+.bento > *:nth-child(3) { animation-delay: 0.12s; }
+.bento > *:nth-child(4) { animation-delay: 0.18s; }
+.bento > *:nth-child(5) { animation-delay: 0.24s; }
+.bento > *:nth-child(6) { animation-delay: 0.28s; }
+.bento > *:nth-child(7) { animation-delay: 0.33s; }
+.bento > *:nth-child(8) { animation-delay: 0.38s; }
 
 /* --- ChartCard base --- */
 .chartCard {
@@ -78,99 +73,640 @@
   min-height: 0;
 }
 
-/* --- Gauge --- */
+/* =====================================================================
+   Gauge
+   ===================================================================== */
 .gaugeWrap {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: var(--nom-space-2);
+  padding: 0;
 }
 
+/* legacy — kept for any existing references */
+.gaugeCenter { display: none; }
 .gaugeLabel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--nom-space-2);
-  margin-top: -8px;
+  gap: 6px;
+  margin-top: -12px;
 }
 
 .gaugePct {
   font-family: var(--nom-font-display);
-  font-size: var(--nom-text-3xl);
+  font-size: var(--nom-text-4xl, 2.25rem);
   font-weight: var(--nom-font-extrabold);
   color: var(--nom-text);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
-/* --- Donut shared --- */
-.donutWrap {
-  position: relative;
+.gaugeEmpty {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.donutCenter {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.donutPct {
-  font-family: var(--nom-font-display);
-  font-size: var(--nom-text-2xl);
-  font-weight: var(--nom-font-extrabold);
-  color: var(--nom-text);
-  line-height: 1;
-}
-
-.donutSub {
-  font-size: var(--nom-text-xs);
+  height: 160px;
   color: var(--nom-text-muted);
-  margin-top: 3px;
+  font-size: var(--nom-text-xs);
 }
 
-/* --- Violencia --- */
-.violenciaWrap {
+/* =====================================================================
+   CardTop3Dominios
+   ===================================================================== */
+.top3Grid {
   display: flex;
   flex-direction: column;
   gap: var(--nom-space-3);
 }
 
-.violenciaAlert {
+.top3Card {
+  padding: 12px 14px;
+  border-radius: var(--nom-radius-lg);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.top3Card:hover { transform: translateY(-2px); }
+
+.top3Header {
   display: flex;
   align-items: center;
-  gap: var(--nom-space-2);
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
-.violenciaAlertLine {
-  width: 3px;
-  height: 28px;
-  border-radius: 99px;
-  flex-shrink: 0;
-}
-
-.violenciaAlertText {
+.top3Rank  { font-size: 16px; }
+.top3Clave {
+  font-family: var(--nom-font-mono, 'JetBrains Mono', monospace);
   font-size: var(--nom-text-xs);
-  color: var(--nom-text-muted);
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+}
+
+.top3Chip {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: var(--nom-radius-full);
+  font-size: 10px;
+  font-weight: var(--nom-font-semibold);
+}
+
+.top3Nombre {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-secondary);
+  margin: 0 0 8px;
   line-height: 1.4;
 }
 
-/* --- ATS note --- */
-.atsNote {
-  font-size: var(--nom-text-xs);
-  color: var(--nom-text-muted);
-  line-height: 1.5;
-  margin-top: var(--nom-space-3);
-  border-top: 1px solid var(--nom-border);
-  padding-top: var(--nom-space-3);
+.top3BarWrap  { display: flex; align-items: center; gap: 8px; }
+.top3BarTrack {
+  flex: 1;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.top3BarFill { height: 100%; border-radius: 99px; }
+.top3Pct {
+  font-size: 11px;
+  font-weight: var(--nom-font-semibold);
+  font-variant-numeric: tabular-nums;
+  min-width: 30px;
+  text-align: right;
 }
 
-/* --- Risk chip --- */
+.top3Empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: var(--nom-text-muted);
+  font-size: var(--nom-text-xs);
+}
+
+/* =====================================================================
+   BarDominios
+   ===================================================================== */
+.dominioList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+}
+
+.dominioRow {
+  display: grid;
+  grid-template-columns: 98px 1fr 42px 70px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px 5px 0;
+  border-radius: var(--nom-radius-md);
+  transition: background 0.15s ease;
+}
+.dominioRow:hover {
+  background: rgba(0,0,0,0.03);
+}
+
+/* High-risk accent: colored left border */
+.dominioRowHigh {
+  border-left: 3px solid var(--row-accent, transparent);
+  padding-left: 5px;
+}
+
+/* Left meta column: key + truncated name */
+.dominioMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.dominioKey {
+  font-family: var(--nom-font-mono, 'JetBrains Mono', monospace);
+  font-size: 10.5px;
+  font-weight: var(--nom-font-bold);
+  color: var(--nom-text);
+  letter-spacing: 0.02em;
+}
+
+.dominioNombre {
+  font-size: 9.5px;
+  color: var(--nom-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* Bar column: track + mini dist strip */
+.dominioBarCol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dominioTrack {
+  position: relative;
+  height: 18px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 99px;
+  overflow: visible;
+}
+
+[data-theme="dark"] .dominioTrack {
+  background: rgba(255,255,255,0.07);
+}
+
+.dominioFill {
+  position: relative;
+  height: 100%;
+  border-radius: 99px;
+  min-width: 4px;
+  overflow: hidden;
+}
+
+.dominioFillShine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 55%);
+  border-radius: 99px;
+  pointer-events: none;
+}
+
+/* legacy — kept for safety */
+.dominioFillHigh { }
+
+/* Mini distribution strip */
+.dominioMiniDist {
+  display: flex;
+  height: 4px;
+  border-radius: 99px;
+  overflow: hidden;
+  gap: 1px;
+}
+
+.dominioMiniSeg {
+  height: 100%;
+  border-radius: 1px;
+  min-width: 2px;
+  flex-shrink: 0;
+}
+
+.dominioPct {
+  font-size: 11.5px;
+  font-weight: var(--nom-font-bold);
+  color: var(--nom-text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.dominioNivel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
+  border-radius: var(--nom-radius-full);
+  border: 1px solid transparent;
+  font-size: 10px;
+  font-weight: var(--nom-font-semibold);
+  white-space: nowrap;
+}
+
+/* Tooltip flotante de BarDominios */
+.domTooltip {
+  position: absolute;
+  z-index: 30;
+  background: var(--nom-surface);
+  border: 1px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-md);
+  padding: 11px 14px;
+  box-shadow: var(--nom-shadow-lg);
+  min-width: 180px;
+  pointer-events: none;
+}
+.domTooltipTitle {
+  font-size: 11px;
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+.domTooltipTotal {
+  font-size: 10px;
+  color: var(--nom-text-muted);
+  margin-bottom: 8px;
+}
+.domTooltipDivider {
+  height: 1px;
+  background: var(--nom-border-solid);
+  margin-bottom: 7px;
+}
+.domTooltipRow {
+  display: grid;
+  grid-template-columns: 8px 1fr auto auto;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--nom-text-secondary);
+  margin-bottom: 4px;
+}
+.domTooltipDot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.domTooltipCat { flex: 1; }
+.domTooltipPct {
+  color: var(--nom-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+}
+.domTooltipN {
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
+   HeatmapDominiosAreas — CSS Grid
+   ===================================================================== */
+.hmScrollContainer {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 8px;
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--nom-border-solid) transparent;
+}
+.hmScrollContainer::-webkit-scrollbar       { height: 4px; }
+.hmScrollContainer::-webkit-scrollbar-track { background: transparent; }
+.hmScrollContainer::-webkit-scrollbar-thumb { background: var(--nom-border-solid); border-radius: 99px; }
+
+/* legacy hmWrapper — kept so SVG version fallback doesn't break */
+.hmWrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 4px;
+}
+
+.hmGrid {
+  display: grid;
+  gap: 3px;
+  min-width: fit-content;
+}
+
+.hmCorner {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--nom-surface);
+}
+
+/* Column header: vertical text */
+.hmColHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 68px;
+  padding-bottom: 6px;
+}
+.hmColHeaderText {
+  display: block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9.5px;
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text-muted);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 60px;
+}
+
+/* Row label */
+.hmRowLabel {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 7px;
+  font-family: var(--nom-font-mono, monospace);
+  font-size: 9.5px;
+  font-weight: var(--nom-font-bold);
+  color: var(--nom-text-muted);
+  background: var(--nom-surface);
+  letter-spacing: 0.02em;
+}
+
+/* Data cells */
+.hmCell {
+  height: 36px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease;
+  position: relative;
+}
+.hmCell:hover,
+.hmCellHov {
+  transform: scale(1.12);
+  z-index: 5;
+  filter: brightness(1.12) saturate(1.15);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.22);
+}
+
+.hmCellEmpty {
+  height: 36px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.04);
+}
+[data-theme="dark"] .hmCellEmpty { background: rgba(255,255,255,0.03); }
+
+/* Value label inside cell */
+.hmCellVal {
+  font-size: 9px;
+  font-weight: var(--nom-font-bold);
+  color: rgba(255,255,255,0.88);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--nom-font-mono, monospace);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+/* Floating tooltip */
+.hmTooltip {
+  position: absolute;
+  z-index: 20;
+  background: var(--nom-surface);
+  border: 1px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-md);
+  padding: 9px 13px;
+  box-shadow: var(--nom-shadow-lg);
+  font-size: 11px;
+  min-width: 150px;
+  color: var(--nom-text-secondary);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.hmTooltipTitle {
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.hmTooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+}
+.hmTooltipDot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.hmTooltipSub {
+  font-size: 10px;
+  color: var(--nom-text-muted);
+  margin-top: 4px;
+}
+
+/* Color legend */
+.hmLegend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.hmLegendLabel {
+  font-size: 9.5px;
+  color: var(--nom-text-muted);
+  white-space: nowrap;
+  font-family: var(--nom-font-mono, monospace);
+  font-weight: var(--nom-font-semibold);
+  letter-spacing: 0.03em;
+}
+.hmLegendBar {
+  flex: 1;
+  height: 6px;
+  border-radius: 99px;
+  background: linear-gradient(
+    90deg,
+    #10B981 0%,
+    #84CC16 25%,
+    #F59E0B 50%,
+    #EF4444 75%,
+    #7C3AED 100%
+  );
+}
+
+/* =====================================================================
+   TablaAtencionClinica
+   ===================================================================== */
+.atsEmpty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 16px;
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--nom-radius-lg);
+}
+
+.atsEmptyTitle {
+  font-size: var(--nom-text-sm);
+  font-weight: var(--nom-font-semibold);
+  color: #10B981;
+  margin: 0 0 3px;
+}
+
+.atsEmptySub {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.atsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nom-space-2);
+}
+
+.atsAlertBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--nom-radius-md);
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+.atsAlertBanner svg { color: #EF4444; flex-shrink: 0; margin-top: 1px; }
+
+/* Pulse dot */
+.atsPulseDot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+.atsPulseDot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #EF4444;
+}
+.atsPulseRing {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid #EF4444;
+  opacity: 0;
+  animation: atsRingPulse 1.8s ease-out infinite;
+}
+
+@keyframes atsRingPulse {
+  0%   { opacity: 0.7; transform: scale(0.6); }
+  100% { opacity: 0;   transform: scale(1.8); }
+}
+
+.atsCasoWrap {
+  border: 1px solid var(--nom-border);
+  border-radius: var(--nom-radius-md);
+  overflow: hidden;
+}
+
+.atsCasoRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  color: inherit;
+}
+.atsCasoRow:hover { background: rgba(255,255,255,0.03); }
+
+.atsCasoInfo  { flex: 1; min-width: 0; }
+.atsCasoNombre {
+  display: block;
+  font-size: var(--nom-text-sm);
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.atsCasoArea {
+  display: block;
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  margin-top: 1px;
+}
+
+.atsCasoMeta { display: flex; gap: 6px; flex-shrink: 0; }
+.atsCasoTag {
+  padding: 2px 8px;
+  border-radius: var(--nom-radius-full);
+  font-size: 10px;
+  font-weight: var(--nom-font-semibold);
+  background: rgba(255,255,255,0.07);
+  color: var(--nom-text-secondary);
+  white-space: nowrap;
+}
+.atsCasoArrow { color: var(--nom-text-muted); flex-shrink: 0; }
+
+.atsCasoDetail {
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+  border-top: 1px solid var(--nom-border);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.atsCasoDetailRow {
+  display: grid;
+  grid-template-columns: 32px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--nom-text-xs);
+}
+.atsCasoDetailKey {
+  font-family: var(--nom-font-mono, monospace);
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text-muted);
+}
+.atsCasoDetailNombre { color: var(--nom-text-secondary); }
+.atsCasoDetailN {
+  text-align: right;
+  font-weight: var(--nom-font-semibold);
+  color: #EF4444;
+}
+
+/* =====================================================================
+   Shared: Risk chip
+   ===================================================================== */
 .riskChip {
   display: inline-flex;
   padding: 3px 10px;
@@ -180,7 +716,9 @@
   white-space: nowrap;
 }
 
-/* --- Tooltip --- */
+/* =====================================================================
+   Shared: Tooltip Recharts
+   ===================================================================== */
 .tooltip {
   background: var(--nom-surface);
   border: 1px solid var(--nom-border-solid);
@@ -201,11 +739,11 @@
   align-items: center;
   gap: 8px;
   color: var(--nom-text-secondary);
+  margin-bottom: 3px;
 }
 
 .tooltipDot {
-  width: 8px;
-  height: 8px;
+  width: 8px; height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -213,7 +751,9 @@
 .tooltipName { flex: 1; }
 .tooltipVal  { font-weight: var(--nom-font-semibold); color: var(--nom-text); }
 
-/* --- Empty state --- */
+/* =====================================================================
+   Empty state
+   ===================================================================== */
 .emptyChart {
   display: flex;
   align-items: center;
@@ -224,7 +764,9 @@
   height: 160px;
 }
 
-/* --- Loading skeleton --- */
+/* =====================================================================
+   Loading skeleton
+   ===================================================================== */
 .skeleton {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
@@ -248,27 +790,21 @@
   100% { background-position: -100% 50%; }
 }
 
-/* --- Responsive --- */
+/* =====================================================================
+   Responsive
+   ===================================================================== */
 @media (max-width: 1200px) {
-  .cellRadar       { grid-column: span 6; }
-  .cellDominios    { grid-column: span 6; }
+  .cellGauge, .cellTop3, .cellRadar { grid-column: span 4; }
+  .cellHeatmap { grid-column: span 12; }
+  .cellAreas   { grid-column: span 12; }
 }
 
 @media (max-width: 900px) {
-  .cellGauge,
-  .cellCumplimiento,
-  .cellViolencia   { grid-column: span 6; }
-  .cellRadar,
-  .cellDominios,
-  .cellStacked,
-  .cellAreas,
-  .cellPieATS,
-  .cellTipologia,
-  .cellHistorica   { grid-column: span 12; }
+  .cellGauge, .cellTop3, .cellRadar { grid-column: span 6; }
 }
 
 @media (max-width: 600px) {
-  .cellGauge,
-  .cellCumplimiento,
-  .cellViolencia   { grid-column: span 12; }
+  .cellGauge, .cellTop3, .cellRadar,
+  .cellDominios, .cellHeatmap, .cellAreas,
+  .cellStacked, .cellAts { grid-column: span 12; }
 }

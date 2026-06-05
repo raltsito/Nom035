@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte Psicológico NOM-035 — Orbita SIT — Ciclo 2025</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @page {
+    size: A4;
+    margin: 20mm 18mm 22mm 18mm;
+  }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 10.5pt;
+    color: #1f2937;
+    line-height: 1.65;
+  }
+  p { margin-bottom: 3mm; text-align: justify; }
+  strong { color: #0f172a; }
+
+  /* Colores de riesgo */
+  .bajo, .nulo { background: #d1fae5; color: #065f46; }
+  .medio       { background: #fef3c7; color: #92400e; }
+  .alto        { background: #fee2e2; color: #991b1b; }
+  .muy_alto    { background: #ede9fe; color: #4c1d95; }
+  .dot-nulo, .dot-bajo { background: #10b981; }
+  .dot-medio    { background: #f59e0b; }
+  .dot-alto     { background: #ef4444; }
+  .dot-muy_alto { background: #7c3aed; }
+
+  /* ---------- Portada / encabezado institucional ---------- */
+  .cover {
+    page-break-after: always;
+    min-height: 235mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .cover-head { border-bottom: 2.5px solid #0f172a; padding-bottom: 6mm; }
+  .cover-kicker {
+    font-family: 'Arial', sans-serif;
+    font-size: 8.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #64748b;
+    font-weight: 700;
+    margin-bottom: 4mm;
+  }
+  .cover-title {
+    font-size: 26pt;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #0f172a;
+    margin-bottom: 3mm;
+  }
+  .cover-sub { font-size: 12pt; color: #475569; font-style: italic; }
+
+  .cover-meta { margin-top: 10mm; }
+  .cover-meta table { width: 100%; border-collapse: collapse; font-family: 'Arial', sans-serif; }
+  .cover-meta td { padding: 2.5mm 0; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  .cover-meta td.k {
+    width: 38%;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94a3b8;
+    font-weight: 700;
+  }
+  .cover-meta td.v { font-size: 10.5pt; color: #0f172a; font-weight: 600; }
+
+  .cover-firma {
+    margin-top: 12mm;
+    font-family: 'Arial', sans-serif;
+  }
+  .firma-line {
+    margin-top: 16mm;
+    border-top: 1px dotted #475569;
+    width: 75%;
+    padding-top: 2mm;
+    font-size: 9pt;
+    color: #475569;
+  }
+
+  /* ---------- Secciones ---------- */
+  .sec { margin-bottom: 7mm; page-break-inside: auto; }
+  .sec-title {
+    font-family: 'Arial', sans-serif;
+    font-size: 13pt;
+    font-weight: 800;
+    color: #0f172a;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 2mm;
+    margin-bottom: 4mm;
+  }
+  .sub-title {
+    font-family: 'Arial', sans-serif;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 5mm 0 2.5mm;
+  }
+
+  /* ---------- Tablas (sans) ---------- */
+  table.t {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Arial', sans-serif;
+    font-size: 8.5pt;
+    margin-bottom: 4mm;
+  }
+  table.t th {
+    background: #0f172a;
+    color: #fff;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    padding: 2.2mm 3mm;
+    text-align: left;
+  }
+  table.t td {
+    padding: 2mm 3mm;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+  table.t tr:nth-child(even) td { background: #f8fafc; }
+  table.t tr { page-break-inside: avoid; }
+
+  .pill {
+    display: inline-block;
+    padding: 0.6mm 3mm;
+    border-radius: 12px;
+    font-size: 7.5pt;
+    font-weight: 700;
+    font-family: 'Arial', sans-serif;
+  }
+  .dom-key { font-weight: 800; color: #0369a1; }
+  .mute { color: #64748b; }
+  .mini-list { list-style: none; }
+
+  /* ---------- Bloque destacado ---------- */
+  .callout {
+    border-left: 3px solid #0ea5e9;
+    background: #f0f9ff;
+    padding: 3.5mm 5mm;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 4mm;
+    font-size: 10pt;
+  }
+  .callout.warn  { border-color: #ef4444; background: #fef2f2; }
+  .callout.ok    { border-color: #10b981; background: #f0fdf4; }
+
+  .nivel-box {
+    border: 1.5px solid;
+    border-radius: 8px;
+    padding: 4mm 5mm;
+    margin-bottom: 4mm;
+    display: flex;
+    align-items: center;
+    gap: 6mm;
+  }
+  .nivel-box .big {
+    font-family: 'Arial', sans-serif;
+    font-size: 16pt;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  /* interpretación por dominio prioritario */
+  .dom-interp {
+    page-break-inside: avoid;
+    margin-bottom: 4mm;
+    padding-bottom: 3mm;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .dom-interp-head {
+    font-family: 'Arial', sans-serif;
+    font-weight: 700;
+    font-size: 10pt;
+    margin-bottom: 1.5mm;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dom-interp-mide { font-size: 9pt; color: #475569; font-style: italic; margin-bottom: 1.5mm; }
+
+  .recs { list-style: none; }
+  .rec {
+    page-break-inside: avoid;
+    padding: 2.5mm 0;
+    border-bottom: 1px solid #eef2f6;
+    display: flex;
+    gap: 8px;
+  }
+  .rec-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .rec-src { font-family: 'Arial', sans-serif; font-size: 8pt; color: #94a3b8; font-style: italic; }
+  .urg {
+    display: inline-block;
+    font-family: 'Arial', sans-serif;
+    font-size: 7pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.5mm 2.5mm;
+    border-radius: 10px;
+    margin-right: 5px;
+    vertical-align: 1px;
+  }
+  .urg-muy_alto { background: #ede9fe; color: #4c1d95; }
+  .urg-alto     { background: #fee2e2; color: #991b1b; }
+  .urg-medio    { background: #fef3c7; color: #92400e; }
+
+  .nota {
+    font-size: 8.5pt;
+    color: #64748b;
+    font-style: italic;
+    margin-top: 2mm;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== 1. ENCABEZADO INSTITUCIONAL / PORTADA ===================== -->
+<div class="cover">
+  <div>
+    <div class="cover-head">
+      <div class="cover-kicker">Reporte Psicológico · NOM-035-STPS-2018</div>
+      <div class="cover-title">Evaluación de Factores de<br>Riesgo Psicosocial en el Trabajo</div>
+      <div class="cover-sub">Documento técnico para revisión y validación por especialista en salud mental laboral</div>
+    </div>
+
+    <div class="cover-meta">
+      <table>
+        <tr><td class="k">Centro de trabajo</td><td class="v">Orbita SIT</td></tr>
+        <tr><td class="k">RFC</td><td class="v">ORS900215KL3</td></tr>
+        <tr><td class="k">Giro</td><td class="v">Desarrollo de software y soluciones tecnológicas</td></tr>
+        <tr><td class="k">Total de trabajadores</td><td class="v">25</td></tr>
+        <tr><td class="k">Ciclo evaluado</td><td class="v">2025</td></tr>
+        <tr><td class="k">Periodo de aplicación</td><td class="v">
+          06/01/2025 &ndash; en curso
+        </td></tr>
+        <tr><td class="k">Trabajadores evaluados</td><td class="v">21</td></tr>
+        <tr><td class="k">Responsable de la evaluación</td><td class="v">Lic. Ejemplo</td></tr>
+        <tr><td class="k">Fecha de emisión</td><td class="v">01 de June de 2026</td></tr>
+        
+      </table>
+    </div>
+  </div>
+
+  <div class="cover-firma">
+    <div class="cover-kicker">Validación profesional</div>
+    <div class="firma-line">Nombre, firma y cédula profesional del psicólogo revisor</div>
+    <p class="nota" style="margin-top:4mm">
+      Este reporte fue generado por el sistema de cumplimiento NOM-035. La interpretación
+      clínica y las recomendaciones deben ser revisadas y validadas por el profesional firmante.
+    </p>
+  </div>
+</div>
+
+<!-- ===================== 2. MARCO NORMATIVO Y METODOLÓGICO ===================== -->
+<div class="sec">
+  <div class="sec-title">1. Marco normativo y metodológico</div>
+  <p>El presente reporte se elabora conforme a la Norma Oficial Mexicana NOM-035-STPS-2018, “Factores de riesgo psicosocial en el trabajo — Identificación, análisis y prevención”, publicada en el Diario Oficial de la Federación el 23 de octubre de 2018, con entrada en vigor de su segunda etapa el 23 de octubre de 2020.</p>
+
+  <div class="sub-title">Instrumentos aplicados</div>
+  <table class="t">
+    <thead><tr><th style="width:26%">Instrumento</th><th>Descripción</th></tr></thead>
+    <tbody>
+      
+      <tr><td style="font-weight:700">Guía de Referencia I</td><td>Identificación de los trabajadores que fueron sujetos a Acontecimientos Traumáticos Severos (ATS).</td></tr>
+      
+      <tr><td style="font-weight:700">Guía de Referencia III</td><td>Identificación y análisis de los factores de riesgo psicosocial y evaluación del entorno organizacional. 72 reactivos en escala tipo Likert de frecuencia (0 = Nunca a 4 = Siempre), agrupados en 5 categorías y 14 dominios.</td></tr>
+      
+      <tr><td style="font-weight:700">Guía de Referencia V</td><td>Datos del centro de trabajo y del trabajador: variables sociodemográficas y laborales.</td></tr>
+      
+    </tbody>
+  </table>
+
+  <div class="sub-title">Criterios de calificación</div>
+  <p><strong>Guía I.</strong> Se considera caso positivo cuando el trabajador reporta al menos un (1) acontecimiento traumático severo (Sección I) y al menos dos (2) síntomas asociados de las Secciones II, III y IV (recuerdos persistentes, esfuerzo por evitar y afectación), conforme a la Guía de Referencia I.</p>
+  <p><strong>Guía III.</strong> La calificación de la Guía III se realiza por dominio y de forma global, comparando el puntaje obtenido contra los rangos normativos del cuadro oficial de puntajes, que define cinco niveles de riesgo: Nulo o despreciable, Bajo, Medio, Alto y Muy alto.</p>
+
+  <div class="sub-title">Tasa de respuesta por instrumento</div>
+  <table class="t">
+    <thead><tr><th>Instrumento</th><th>Aplicados</th><th>Respondidos</th><th>Tasa</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>Guía I — Acontecimientos Traumáticos Severos</td>
+        <td>12</td>
+        <td>0</td>
+        <td style="font-weight:700">0%</td>
+      </tr>
+      
+      <tr>
+        <td>Guía III — Factores de Riesgo Psicosocial</td>
+        <td>12</td>
+        <td>0</td>
+        <td style="font-weight:700">0%</td>
+      </tr>
+      
+      <tr>
+        <td>Guía V — Datos del Trabajador</td>
+        <td>12</td>
+        <td>2</td>
+        <td style="font-weight:700">17%</td>
+      </tr>
+      
+    </tbody>
+  </table>
+</div>
+
+<!-- ===================== 3. DESCRIPCIÓN DE LA MUESTRA ===================== -->
+<div class="sec">
+  <div class="sec-title">2. Descripción de la muestra</div>
+  <p>
+    La muestra evaluada está conformada por <strong>14</strong> trabajadores
+    que participaron en al menos uno de los instrumentos aplicados. A continuación se presenta
+    su distribución sociodemográfica y laboral conforme a la Guía de Referencia V.
+  </p>
+
+  
+  <div class="sub-title">Distribución por sexo</div>
+  <table class="t">
+    <thead><tr><th>Sexo</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      
+      <tr><td>Sin dato</td><td>12</td><td>86%</td></tr>
+      
+      <tr><td>Masculino</td><td>2</td><td>14%</td></tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title">Distribución por grupo de edad</div>
+  <table class="t">
+    <thead><tr><th>Grupo de edad</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      
+      <tr><td>Sin dato</td><td>12</td><td>86%</td></tr>
+      
+      <tr><td>18–24 años</td><td>2</td><td>14%</td></tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title">Distribución por nivel de estudios</div>
+  <table class="t">
+    <thead><tr><th>Nivel de estudios</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      
+      <tr><td>Sin dato</td><td>12</td><td>86%</td></tr>
+      
+      <tr><td>Bachillerato / Preparatoria</td><td>1</td><td>7%</td></tr>
+      
+      <tr><td>Tecnico</td><td>1</td><td>7%</td></tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title">Distribución por tipo de puesto</div>
+  <table class="t">
+    <thead><tr><th>Tipo de puesto</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      
+      <tr><td>Sin dato</td><td>14</td><td>100%</td></tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title">Distribución por tipo de jornada</div>
+  <table class="t">
+    <thead><tr><th>Tipo de jornada</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      
+      <tr><td>Sin dato</td><td>12</td><td>86%</td></tr>
+      
+      <tr><td>Diurno</td><td>1</td><td>7%</td></tr>
+      
+      <tr><td>Nocturno</td><td>1</td><td>7%</td></tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title">Rotación de turnos</div>
+  <table class="t">
+    <thead><tr><th>Realiza rotación</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      
+      <tr><td>Sin dato</td><td>12</td><td>86%</td></tr>
+      
+      <tr><td>No</td><td>2</td><td>14%</td></tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title">Antigüedad en la empresa</div>
+  <table class="t">
+    <thead><tr><th>Antigüedad</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      
+      <tr><td>Sin dato</td><td>14</td><td>100%</td></tr>
+      
+    </tbody>
+  </table>
+  
+</div>
+
+<!-- ===================== 4. GUÍA I — ATS ===================== -->
+<div class="sec">
+  <div class="sec-title">3. Resultados de la Guía I — Acontecimientos Traumáticos Severos</div>
+  <p class="mute" style="font-style:italic">Acontecimiento Traumático Severo (Apartado 4.4 NOM-035): aquél que puede amenazar la vida o la integridad física de una persona o de varias, ante el que se experimenta miedo intenso, horror o sensación de desamparo, y que genera en quien lo vive o lo presencia una respuesta de estrés severa.</p>
+
+  
+  <table class="t">
+    <thead><tr><th>Indicador</th><th style="width:22%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      <tr><td>Respondieron la Guía I</td><td>10</td><td>100%</td></tr>
+      <tr><td><strong>Casos positivos</strong> (requieren evaluación clínica)</td>
+          <td style="font-weight:700;color:#991b1b">0</td>
+          <td>0%</td></tr>
+      <tr><td>Sin indicadores de atención</td><td>10</td>
+          <td>100%</td></tr>
+    </tbody>
+  </table>
+
+  
+  <div class="callout ok">Los trabajadores evaluados no reportan exposición a acontecimientos traumáticos severos o, habiéndola reportado, no presentan síntomas asociados que alcancen el umbral de atención establecido por la norma. No se requiere canalización inmediata por este instrumento.</div>
+  
+  
+</div>
+
+<!-- ===================== 5. GUÍA III ===================== -->
+<div class="sec">
+  <div class="sec-title">4. Resultados de la Guía III — Factores de Riesgo Psicosocial</div>
+
+  <div class="sub-title">4.1 Nivel de riesgo global de la organización</div>
+  <div class="nivel-box medio" style="border-color:currentColor">
+    <div class="big">Medio</div>
+    <div>
+      <div style="font-family:Arial,sans-serif;font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase">
+        Puntaje global promedio: <strong>67</strong>
+      </div>
+    </div>
+  </div>
+  <p>Se detecta una exposición media a factores de riesgo psicosocial. Este nivel indica que las condiciones de trabajo están generando tensión psicológica que puede afectar el bienestar, la satisfacción laboral y la productividad de los trabajadores. Conforme al Apartado 8 de la NOM-035-STPS-2018, el patrón debe elaborar un plan de acción con medidas concretas, plazos definidos y responsables asignados, orientadas a reducir los factores identificados como prioritarios.</p>
+
+  <div class="sub-title">Distribución de trabajadores por nivel de riesgo</div>
+  <table class="t">
+    <thead><tr><th>Nivel de riesgo</th><th style="width:22%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td><span class="pill nulo">Nulo / Despreciable</span></td>
+        <td>8</td>
+        <td>73%</td>
+      </tr>
+      
+      <tr>
+        <td><span class="pill bajo">Bajo</span></td>
+        <td>0</td>
+        <td>0%</td>
+      </tr>
+      
+      <tr>
+        <td><span class="pill medio">Medio</span></td>
+        <td>0</td>
+        <td>0%</td>
+      </tr>
+      
+      <tr>
+        <td><span class="pill alto">Alto</span></td>
+        <td>1</td>
+        <td>9%</td>
+      </tr>
+      
+      <tr>
+        <td><span class="pill muy_alto">Muy alto</span></td>
+        <td>2</td>
+        <td>18%</td>
+      </tr>
+      
+    </tbody>
+  </table>
+</div>
+
+<!-- 4.2 Resultados por dominio -->
+<div class="sec">
+  <div class="sub-title">4.2 Resultados por dominio</div>
+  <table class="t">
+    <thead>
+      <tr><th style="width:30%">Dominio</th><th>Promedio</th><th>Nivel modal</th><th>Trabajadores en Alto / Muy alto</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td><span class="dom-key">D1</span> Carga de trabajo</td>
+        <td>6.5/20</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>1</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D2</span> Ritmo de trabajo</td>
+        <td>5.8/29</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>0</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D3</span> Esfuerzo mental</td>
+        <td>9.9/25</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>2</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D4</span> Actividades y responsabilidades</td>
+        <td>6.0/13</td>
+        <td><span class="pill muy_alto">Muyalto</span></td>
+        <td>10 &nbsp;<strong style="color:#991b1b">— Prioritario</strong></td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D5</span> Jornada de trabajo</td>
+        <td>10.3/21</td>
+        <td><span class="pill muy_alto">Muyalto</span></td>
+        <td>8 &nbsp;<strong style="color:#991b1b">— Prioritario</strong></td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D6</span> Decisiones en el trabajo</td>
+        <td>6.0/24</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>0</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D7</span> Cambios en el trabajo</td>
+        <td>2.6/8</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>0</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D8</span> Capacitacion</td>
+        <td>4.6/24</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>2</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D9</span> Subordinacion</td>
+        <td>3.7/20</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>1</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D10</span> Relaciones con los companeros</td>
+        <td>3.3/20</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>2</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D11</span> Rendimiento y reconocimiento</td>
+        <td>7.3/40</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>0</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D12</span> Violencia laboral</td>
+        <td>4.6/32</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>0</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D13</span> Atencion a clientes y usuarios</td>
+        <td>0.6/16</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>0</td>
+      </tr>
+      
+      <tr>
+        <td><span class="dom-key">D14</span> Actitudes de las personas que supervisa</td>
+        <td>0.9/16</td>
+        <td><span class="pill nulo">Nulo</span></td>
+        <td>0</td>
+      </tr>
+      
+    </tbody>
+  </table>
+
+  
+  <div class="sub-title">Interpretación clínica de los dominios prioritarios (Alto / Muy alto)</div>
+  
+  <div class="dom-interp">
+    <div class="dom-interp-head">
+      <span class="dom-key">D4</span> Actividades y responsabilidades
+      <span class="pill muy_alto">Muyalto</span>
+    </div>
+    <div class="dom-interp-mide">Qué mide: Ambigüedad y conflicto de rol: recibir instrucciones contradictorias, realizar actividades percibidas como innecesarias, y asumir responsabilidades sobre resultados de otras personas.</div>
+    <p style="margin-bottom:0">El trabajador experimenta ambigüedad y conflicto de rol de forma crónica. La falta de claridad sobre las responsabilidades propias y la percepción de contradicción en las instrucciones recibidas generan tensión psicológica constante, reducen el sentido de eficacia personal y se asocian a mayor incidencia de ansiedad y síntomas depresivos. Se recomienda revisar y comunicar con claridad las descripciones de puesto, establecer canales únicos de instrucción y eliminar duplicidad de mandos.</p>
+  </div>
+  
+  <div class="dom-interp">
+    <div class="dom-interp-head">
+      <span class="dom-key">D5</span> Jornada de trabajo
+      <span class="pill muy_alto">Muyalto</span>
+    </div>
+    <div class="dom-interp-mide">Qué mide: Extensión y gestión del tiempo de trabajo: horas extras frecuentes, trabajo en días de descanso o festivos, y conflicto entre el tiempo dedicado al trabajo y las responsabilidades familiares o personales.</div>
+    <p style="margin-bottom:0">La jornada de trabajo está interfiriendo significativamente con la vida personal y familiar del trabajador, configurando un conflicto trabajo-familia de alta intensidad. Este factor es uno de los predictores más robustos de agotamiento emocional, deterioro de la salud cardiovascular y trastornos del sueño en la literatura de salud ocupacional. Se recomienda auditar las horas extra reales trabajadas, implementar políticas de desconexión digital fuera del horario laboral y revisar la dotación de personal en las áreas con mayor reporte de sobrecarga.</p>
+  </div>
+  
+  
+</div>
+
+<!-- 4.3 Análisis sociodemográfico -->
+<div class="sec">
+  <div class="sub-title">4.3 Nivel de riesgo por variables sociodemográficas</div>
+  <p class="mute" style="font-style:italic">
+    Puntaje global promedio de la Guía III según las variables de la Guía V. Permite
+    identificar si algún grupo concentra niveles de riesgo más elevados.
+  </p>
+  
+  <div class="sub-title" style="font-size:10pt">Por sexo</div>
+  <table class="t">
+    <thead><tr><th>Sexo</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>Sin dato</td>
+        <td>11</td>
+        <td style="font-weight:700">67</td>
+        <td><span class="pill medio">Medio</span></td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title" style="font-size:10pt">Por grupo de edad</div>
+  <table class="t">
+    <thead><tr><th>Grupo de edad</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>Sin dato</td>
+        <td>11</td>
+        <td style="font-weight:700">67</td>
+        <td><span class="pill medio">Medio</span></td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title" style="font-size:10pt">Por tipo de puesto</div>
+  <table class="t">
+    <thead><tr><th>Tipo de puesto</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>Sin dato</td>
+        <td>11</td>
+        <td style="font-weight:700">67</td>
+        <td><span class="pill medio">Medio</span></td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+  <div class="sub-title" style="font-size:10pt">Por tipo de jornada</div>
+  <table class="t">
+    <thead><tr><th>Tipo de jornada</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>Sin dato</td>
+        <td>11</td>
+        <td style="font-weight:700">67</td>
+        <td><span class="pill medio">Medio</span></td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+</div>
+
+<!-- 4.4 Análisis por área -->
+
+<div class="sec">
+  <div class="sub-title">4.4 Nivel de riesgo por área o departamento</div>
+  <table class="t">
+    <thead><tr><th>Área / Departamento</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td style="font-weight:600">Recursos Humanos</td>
+        <td>1</td>
+        <td style="font-weight:700">143</td>
+        <td><span class="pill muy_alto">Muyalto</span></td>
+      </tr>
+      
+      <tr>
+        <td style="font-weight:600">Infraestructura</td>
+        <td>2</td>
+        <td style="font-weight:700">88</td>
+        <td><span class="pill alto">Alto</span></td>
+      </tr>
+      
+      <tr>
+        <td style="font-weight:600">Tecnología</td>
+        <td>4</td>
+        <td style="font-weight:700">66</td>
+        <td><span class="pill medio">Medio</span></td>
+      </tr>
+      
+      <tr>
+        <td style="font-weight:600">Diseño</td>
+        <td>1</td>
+        <td style="font-weight:700">46</td>
+        <td><span class="pill medio">Medio</span></td>
+      </tr>
+      
+      <tr>
+        <td style="font-weight:600">Calidad</td>
+        <td>1</td>
+        <td style="font-weight:700">44</td>
+        <td><span class="pill bajo">Bajo</span></td>
+      </tr>
+      
+      <tr>
+        <td style="font-weight:600">Dirección</td>
+        <td>1</td>
+        <td style="font-weight:700">40</td>
+        <td><span class="pill bajo">Bajo</span></td>
+      </tr>
+      
+      <tr>
+        <td style="font-weight:600">PMO</td>
+        <td>1</td>
+        <td style="font-weight:700">29</td>
+        <td><span class="pill bajo">Bajo</span></td>
+      </tr>
+      
+    </tbody>
+  </table>
+  <p class="nota">
+    Las áreas con mayor puntaje promedio se consideran prioritarias para la intervención.
+  </p>
+</div>
+
+
+<!-- ===================== 6. RECOMENDACIONES ===================== -->
+<div class="sec">
+  <div class="sec-title">5. Recomendaciones de intervención</div>
+  <p class="mute" style="font-style:italic">
+    Conforme al artículo 8 de la NOM-035-STPS-2018, las obligaciones del patrón se determinan
+    según el nivel de riesgo detectado. Las siguientes recomendaciones se derivan de los
+    hallazgos del presente ciclo.
+  </p>
+  <ul class="recs">
+    
+    <li class="rec">
+      <span class="rec-dot dot-muy_alto"></span>
+      <div>
+        <div>
+          <span class="urg urg-muy_alto">Inmediata</span>
+          Se recomienda auditar las horas extra reales trabajadas, implementar políticas de desconexión digital fuera del horario laboral y revisar la dotación de personal en las áreas con mayor reporte de sobrecarga.
+        </div>
+        <div class="rec-src">Origen: dominio D5 — Jornada de trabajo</div>
+      </div>
+    </li>
+    
+    <li class="rec">
+      <span class="rec-dot dot-muy_alto"></span>
+      <div>
+        <div>
+          <span class="urg urg-muy_alto">Inmediata</span>
+          Se recomienda revisar y comunicar con claridad las descripciones de puesto, establecer canales únicos de instrucción y eliminar duplicidad de mandos.
+        </div>
+        <div class="rec-src">Origen: dominio D4 — Actividades y responsabilidades</div>
+      </div>
+    </li>
+    
+  </ul>
+</div>
+
+<!-- ===================== 7. LIMITACIONES ===================== -->
+<div class="sec">
+  <div class="sec-title">6. Limitaciones del estudio</div>
+  <p>Los resultados presentados reflejan la percepción de los trabajadores respecto a sus condiciones de trabajo durante el periodo evaluado y no constituyen un diagnóstico clínico individual. La identificación de factores de riesgo psicosocial mediante las Guías de Referencia de la NOM-035-STPS-2018 tiene una finalidad preventiva y organizacional; los casos que requieren atención especializada deben ser confirmados mediante evaluación clínica individual por un profesional de la salud mental. La validez de las conclusiones depende de la tasa de respuesta obtenida y de la veracidad con que los trabajadores respondieron los instrumentos. Los resultados deben interpretarse en el contexto organizacional específico del centro de trabajo.</p>
+</div>
+
+<!-- ===================== 8. VALIDACIÓN ===================== -->
+<div class="sec" style="page-break-inside:avoid">
+  <div class="sec-title">7. Espacio de validación profesional</div>
+  <p>
+    El profesional firmante hace constar que revisó el contenido de este reporte, validó la
+    interpretación clínica de los resultados y avala las recomendaciones de intervención
+    propuestas.
+  </p>
+  <div style="margin-top:18mm">
+    <div class="firma-line" style="width:60%">Nombre completo del psicólogo</div>
+  </div>
+  <div style="display:flex; gap:14mm; margin-top:14mm">
+    <div class="firma-line" style="width:45%;margin-top:0">Cédula profesional</div>
+    <div class="firma-line" style="width:30%;margin-top:0">Fecha</div>
+  </div>
+  <div style="margin-top:16mm">
+    <div class="firma-line" style="width:60%">Firma</div>
+  </div>
+</div>
+
+</body>
+</html>

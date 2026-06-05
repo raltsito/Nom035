@@ -15,6 +15,7 @@ class Tenant(models.Model):
         verbose_name='Consultor asignado',
     )
     activo            = models.BooleanField(default=True, verbose_name='Activo')
+    etiquetas_cortas  = models.BooleanField(default=False, verbose_name='Usar etiquetas cortas de tipo personal')
     logo_url          = models.URLField(blank=True, verbose_name='URL del logo')
     sitio_web         = models.URLField(blank=True, verbose_name='Sitio web')
     telefono_contacto = models.CharField(max_length=30, blank=True, verbose_name='Telefono de contacto')

@@ -11,7 +11,7 @@ class TenantSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'nombre', 'rfc', 'giro', 'num_trabajadores',
             'guias_aplicables', 'categoria_tamano', 'consultor',
-            'activo', 'logo_url', 'sitio_web', 'telefono_contacto', 'direccion',
+            'activo', 'etiquetas_cortas', 'logo_url', 'sitio_web', 'telefono_contacto', 'direccion',
             'creado_en', 'actualizado_en',
         )
         read_only_fields = ('id', 'consultor', 'creado_en', 'actualizado_en',
@@ -44,5 +44,5 @@ class TenantBrandingSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Tenant
         fields = ('id', 'nombre', 'rfc', 'giro', 'num_trabajadores',
-                  'logo_url', 'sitio_web', 'telefono_contacto', 'direccion')
+                  'etiquetas_cortas', 'logo_url', 'sitio_web', 'telefono_contacto', 'direccion')
         read_only_fields = ('id', 'nombre', 'rfc')

@@ -6,58 +6,62 @@ import {
   Calendar, ChevronRight, Upload, FileSpreadsheet, CheckCheck, Eye,
 } from 'lucide-react';
 import { trabajadoresService, ciclosService } from '../services/trabajadores';
+import { configuracionService } from '../services/configuracion';
 import styles from './Trabajadores.module.css';
 
 const SEXO_LABELS          = { M: 'Masculino', F: 'Femenino' };
 const ESTADO_CIVIL_LABELS  = { soltero: 'Soltero', casado: 'Casado', union_libre: 'Unión libre', divorciado: 'Divorciado', viudo: 'Viudo', otro: 'Otro' };
 const NIVEL_LABELS         = { primaria: 'Primaria', secundaria: 'Secundaria', bachillerato: 'Bachillerato / Preparatoria', tecnico: 'Técnico', licenciatura: 'Licenciatura', ingenieria: 'Ingeniería', posgrado: 'Posgrado', otro: 'Otro' };
-const PERSONAL_LABELS      = { sindicalizado: 'Sindicalizado / Directo', confianza: 'Confianza / Indirecto', salary: 'Salary / Administrativo', otro: 'Otro' };
+const PERSONAL_LABELS_LARGO = { sindicalizado: 'Sindicalizado / Directo', confianza: 'Confianza / Indirecto', salary: 'Salary / Administrativo', otro: 'Otro' };
+const PERSONAL_LABELS_CORTO = { sindicalizado: 'Directo', confianza: 'Indirecto', salary: 'Salary', otro: 'Otro' };
 const JORNADA_LABELS       = { diurno: 'Diurno', mixto: 'Mixto', nocturno: 'Nocturno' };
 const CONTRAT_LABELS       = { planta: 'Planta', eventual: 'Eventual', subcontratado: 'Subcontratado' };
 
-const DETALLE_SECCIONES = [
-  {
-    titulo: 'Identificación',
-    campos: [
-      { key: 'num_empleado',   label: 'No. empleado' },
-      { key: 'email',          label: 'Correo electrónico' },
-    ],
-  },
-  {
-    titulo: 'Posición',
-    campos: [
-      { key: 'puesto',             label: 'Puesto / Profesión' },
-      { key: 'area',               label: 'Departamento / Área' },
-      { key: 'tipo_puesto',        label: 'Tipo de puesto' },
-      { key: 'tipo_contratacion',  label: 'Tipo de contratación',  map: CONTRAT_LABELS },
-      { key: 'tipo_personal',      label: 'Tipo de personal',      map: PERSONAL_LABELS },
-    ],
-  },
-  {
-    titulo: 'Perfil demográfico',
-    campos: [
-      { key: 'sexo',           label: 'Sexo',             map: SEXO_LABELS },
-      { key: 'edad',           label: 'Edad',             suffix: 'años' },
-      { key: 'estado_civil',   label: 'Estado civil',     map: ESTADO_CIVIL_LABELS },
-      { key: 'nivel_estudios', label: 'Nivel de estudios', map: NIVEL_LABELS },
-    ],
-  },
-  {
-    titulo: 'Jornada',
-    campos: [
-      { key: 'tipo_jornada',    label: 'Jornada de trabajo', map: JORNADA_LABELS },
-      { key: 'rotacion_turnos', label: '¿Rota turnos?',      bool: true },
-    ],
-  },
-  {
-    titulo: 'Experiencia',
-    campos: [
-      { key: 'experiencia_anios',         label: 'Exp. laboral total',       suffix: 'años' },
-      { key: 'experiencia_empresa_anios', label: 'Exp. empresa actual',       suffix: 'años' },
-      { key: 'tiempo_puesto_actual',      label: 'Tiempo en puesto actual',   suffix: 'años' },
-    ],
-  },
-];
+function getDetalleSecciones(personalLabels) {
+  return [
+    {
+      titulo: 'Identificación',
+      campos: [
+        { key: 'num_empleado',   label: 'No. empleado' },
+        { key: 'email',          label: 'Correo electrónico' },
+      ],
+    },
+    {
+      titulo: 'Posición',
+      campos: [
+        { key: 'puesto',             label: 'Puesto / Profesión' },
+        { key: 'area',               label: 'Departamento / Área' },
+        { key: 'tipo_puesto',        label: 'Tipo de puesto' },
+        { key: 'tipo_contratacion',  label: 'Tipo de contratación',  map: CONTRAT_LABELS },
+        { key: 'tipo_personal',      label: 'Tipo de personal',      map: personalLabels },
+      ],
+    },
+    {
+      titulo: 'Perfil demográfico',
+      campos: [
+        { key: 'sexo',           label: 'Sexo',             map: SEXO_LABELS },
+        { key: 'edad',           label: 'Edad',             suffix: 'años' },
+        { key: 'estado_civil',   label: 'Estado civil',     map: ESTADO_CIVIL_LABELS },
+        { key: 'nivel_estudios', label: 'Nivel de estudios', map: NIVEL_LABELS },
+      ],
+    },
+    {
+      titulo: 'Jornada',
+      campos: [
+        { key: 'tipo_jornada',    label: 'Jornada de trabajo', map: JORNADA_LABELS },
+        { key: 'rotacion_turnos', label: '¿Rota turnos?',      bool: true },
+      ],
+    },
+    {
+      titulo: 'Experiencia',
+      campos: [
+        { key: 'experiencia_anios',         label: 'Exp. laboral total',       suffix: 'años' },
+        { key: 'experiencia_empresa_anios', label: 'Exp. empresa actual',       suffix: 'años' },
+        { key: 'tiempo_puesto_actual',      label: 'Tiempo en puesto actual',   suffix: 'años' },
+      ],
+    },
+  ];
+}
 
 function formatVal(t, campo) {
   const raw = t[campo.key];
@@ -73,7 +77,7 @@ function formatVal(t, campo) {
 }
 
 function completitud(t) {
-  const todos = DETALLE_SECCIONES.flatMap(s => s.campos).filter(c => c.key !== 'email');
+  const todos = getDetalleSecciones(PERSONAL_LABELS_LARGO).flatMap(s => s.campos).filter(c => c.key !== 'email');
   const llenos = todos.filter(c => {
     const v = t[c.key];
     return v !== null && v !== undefined && v !== '';
@@ -81,8 +85,9 @@ function completitud(t) {
   return Math.round((llenos.length / todos.length) * 100);
 }
 
-function DetalleModal({ t, onClose }) {
+function DetalleModal({ t, onClose, personalLabels }) {
   const pct = completitud(t);
+  const secciones = getDetalleSecciones(personalLabels);
   const initials = [t.nombre?.[0], t.apellido_paterno?.[0]].filter(Boolean).join('').toUpperCase();
 
   return (
@@ -137,7 +142,7 @@ function DetalleModal({ t, onClose }) {
 
         {/* Secciones */}
         <div style={{ padding: '1.25rem 1.75rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {DETALLE_SECCIONES.map(sec => (
+          {secciones.map(sec => (
             <div key={sec.titulo}>
               <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--nom-text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.65rem' }}>
                 {sec.titulo}
@@ -188,6 +193,7 @@ export default function Trabajadores() {
   const [search, setSearch]             = useState('');
   const [soloActivos, setSoloActivos]   = useState(false);
   const [detalle, setDetalle]           = useState(null);   // null | trabajador obj
+  const [personalLabels, setPersonalLabels] = useState(PERSONAL_LABELS_LARGO);
   const [modal, setModal]               = useState(null);   // null | 'create' | obj
   const [form, setForm]                 = useState(EMPTY_FORM);
   const [saving, setSaving]             = useState(false);
@@ -250,6 +256,12 @@ export default function Trabajadores() {
   }, []);
 
   useEffect(() => { fetchCiclos(); }, [fetchCiclos]);
+
+  useEffect(() => {
+    configuracionService.get().then(res => {
+      if (res.data.data?.etiquetas_cortas) setPersonalLabels(PERSONAL_LABELS_CORTO);
+    }).catch(() => {});
+  }, []);
 
   const handleSaveCiclo = async (e) => {
     e.preventDefault();
@@ -810,7 +822,7 @@ export default function Trabajadores() {
       )}
 
       {/* Detalle trabajador */}
-      {detalle && <DetalleModal t={detalle} onClose={() => setDetalle(null)} />}
+      {detalle && <DetalleModal t={detalle} onClose={() => setDetalle(null)} personalLabels={personalLabels} />}
 
       {/* Confirmar eliminación */}
       {confirmDel && (

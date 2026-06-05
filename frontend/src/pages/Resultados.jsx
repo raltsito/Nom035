@@ -3,10 +3,12 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart2, RefreshCw, Loader2, ChevronDown, X,
   ChevronRight, AlertTriangle, CheckCircle2, TrendingUp, FileDown,
+  FileText, ShieldCheck, User,
 } from 'lucide-react';
-import { resultadosService } from '../services/resultados';
+import { resultadosService, documentosUrls } from '../services/resultados';
 import { ciclosService } from '../services/trabajadores';
 import ResultadosDashboard from '../components/resultados/ResultadosDashboard';
+import DashboardErrorBoundary from '../components/resultados/DashboardErrorBoundary';
 import styles from './Resultados.module.css';
 
 const CAT = {
@@ -47,6 +49,9 @@ export default function Resultados() {
   const [catFilter, setCatFilter]     = useState('');
   const [dashKey, setDashKey]         = useState(0);
   const [tablaAbierta, setTablaAbierta] = useState(false);
+  const [psicoModal, setPsicoModal]   = useState(false);
+  const [psicoAnonimo, setPsicoAnonimo] = useState(false);
+  const [responsable, setResponsable] = useState('');
 
   useEffect(() => {
     ciclosService.list().then(res => {
@@ -69,6 +74,8 @@ export default function Resultados() {
       ]);
       setResultados(rRes.data.data);
       setResumen(sumRes.data.data);
+    } catch (err) {
+      console.error('Error al cargar resultados:', err);
     } finally {
       setLoading(false);
     }
@@ -95,11 +102,10 @@ export default function Resultados() {
     }
   };
 
-  const handleDescargar = () => {
-    if (!cicloId) return;
+  // Descarga un documento protegido (PDF) o abre la vista imprimible (fallback HTML local).
+  const descargarDocumento = (url, fallbackName) => {
     const token = localStorage.getItem('access_token') || '';
-    const url = `/api/v1/documentos/informe-nom035/?ciclo_id=${cicloId}`;
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => {
         const ct = r.headers.get('content-type') || '';
         const cd = r.headers.get('content-disposition') || '';
@@ -114,13 +120,27 @@ export default function Resultados() {
           const burl = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = burl;
-          a.download = cd.match(/filename="?([^";]+)"?/)?.[1]
-            || `informe_nom035_ciclo_${cicloId}.pdf`;
+          a.download = cd.match(/filename="?([^";]+)"?/)?.[1] || fallbackName;
           a.click();
           URL.revokeObjectURL(burl);
         });
       })
-      .catch(() => alert('Error al generar el informe. Verifica que existan resultados calculados.'));
+      .catch(() => alert('Error al generar el documento. Verifica que existan resultados calculados.'));
+  };
+
+  const handleDescargar = () => {
+    if (!cicloId) return;
+    descargarDocumento(documentosUrls.informe(cicloId), `informe_nom035_ciclo_${cicloId}.pdf`);
+  };
+
+  const handleReportePsicologico = () => {
+    if (!cicloId) return;
+    const url = documentosUrls.reportePsicologico(cicloId, {
+      anonimo: psicoAnonimo,
+      responsable: responsable.trim(),
+    });
+    descargarDocumento(url, `reporte_psicologico_ciclo_${cicloId}.pdf`);
+    setPsicoModal(false);
   };
 
   const openDetalle = async (r) => {
@@ -131,8 +151,10 @@ export default function Resultados() {
     } catch {}
   };
 
+  // Solo cuenta Guía I y III — Guía V nunca genera resultado
   const pendienteCalculo = resumen
-    ? resumen.total_completadas - resumen.total_resultados
+    ? ((resumen.guia_iii?.completadas ?? 0) - (resumen.guia_iii?.con_resultado ?? 0))
+      + ((resumen.guia_i?.completadas ?? 0) - (resumen.guia_i?.con_resultado ?? 0))
     : 0;
 
   const dist      = resumen?.distribucion || {};
@@ -170,6 +192,15 @@ export default function Resultados() {
           >
             <FileDown size={15} strokeWidth={2} />
             Descargar PDF
+          </button>
+          <button
+            className="nom-btn nom-btn-ghost"
+            onClick={() => setPsicoModal(true)}
+            disabled={!cicloId || resultados.length === 0}
+            title="Generar reporte psicológico para revisión de especialistas"
+          >
+            <FileText size={15} strokeWidth={2} />
+            Reporte psicológico
           </button>
           <button
             className="nom-btn nom-btn-primary"
@@ -357,7 +388,11 @@ export default function Resultados() {
       {cicloId && resumen && <div className={styles.sectionDivider} />}
 
       {/* ---- Dashboard analitico (Bento Grid) ---- */}
-      {cicloId && <ResultadosDashboard key={dashKey} cicloId={cicloId} />}
+      {cicloId && (
+        <DashboardErrorBoundary key={dashKey}>
+          <ResultadosDashboard cicloId={cicloId} />
+        </DashboardErrorBoundary>
+      )}
 
       {/* ---- Modal detalle por trabajador ---- */}
       {detalle && (
@@ -411,6 +446,88 @@ export default function Resultados() {
           </div>
         </Overlay>
       )}
+
+      {/* ---- Modal opciones reporte psicológico ---- */}
+      {psicoModal && (
+        <Overlay onClick={() => setPsicoModal(false)}>
+          <div className={`${styles.modal} nom-glass`} onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div className={styles.modalHeader}>
+              <div>
+                <h2 className={styles.modalTitle}>Reporte psicológico</h2>
+                <p className={styles.modalSub}>Documento técnico para revisión de un especialista</p>
+              </div>
+              <button className={styles.modalClose} onClick={() => setPsicoModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '4px 2px 8px' }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--nom-text)' }}>
+                Responsable de la evaluación <span style={{ fontWeight: 400, color: 'var(--nom-text-muted)' }}>(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={responsable}
+                onChange={e => setResponsable(e.target.value)}
+                placeholder="Nombre del responsable"
+                style={{
+                  width: '100%', padding: '9px 12px', borderRadius: 8,
+                  border: '1px solid var(--nom-border)', background: 'var(--nom-bg)',
+                  color: 'var(--nom-text)', fontSize: 14, marginBottom: 16,
+                }}
+              />
+
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--nom-text)' }}>
+                Identificación de los trabajadores
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setPsicoAnonimo(false)}
+                  style={optStyle(!psicoAnonimo)}
+                >
+                  <User size={16} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 600 }}>Incluir nombres</div>
+                    <div style={{ fontSize: 12, color: 'var(--nom-text-muted)' }}>Muestra el nombre real de cada trabajador.</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPsicoAnonimo(true)}
+                  style={optStyle(psicoAnonimo)}
+                >
+                  <ShieldCheck size={16} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 600 }}>Usar claves anónimas</div>
+                    <div style={{ fontSize: 12, color: 'var(--nom-text-muted)' }}>Sustituye los nombres por claves (T001, T002…).</div>
+                  </div>
+                </button>
+              </div>
+
+              <button
+                className="nom-btn nom-btn-primary"
+                onClick={handleReportePsicologico}
+                style={{ width: '100%', marginTop: 18, justifyContent: 'center' }}
+              >
+                <FileText size={15} strokeWidth={2} />
+                Generar reporte
+              </button>
+            </div>
+          </div>
+        </Overlay>
+      )}
     </div>
   );
+}
+
+function optStyle(active) {
+  return {
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+    border: `1.5px solid ${active ? 'var(--nom-accent)' : 'var(--nom-border)'}`,
+    background: active ? 'var(--nom-accent-subtle)' : 'transparent',
+    color: 'var(--nom-text)', width: '100%', textAlign: 'left',
+    transition: 'all .15s ease',
+  };
 }
