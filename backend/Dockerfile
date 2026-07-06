@@ -27,7 +27,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 EXPOSE 8000
 
-CMD gunicorn intra_nom035.wsgi:application \
+# migrate en el arranque: el releaseCommand de railway.toml no se ejecuta
+# (Railway no lee ese archivo con la config actual del servicio) y desplegar
+# codigo nuevo sin sus migraciones tumba el API (visto 2026-07-06).
+CMD python manage.py migrate --noinput && \
+    python manage.py collectstatic --noinput && \
+    gunicorn intra_nom035.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
     --workers 2 \
     --timeout 120 \
