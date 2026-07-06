@@ -51,15 +51,16 @@ class TrabajadorUpdateSerializer(serializers.ModelSerializer):
 class CicloNOMSerializer(serializers.ModelSerializer):
     guias_aplicables = serializers.SerializerMethodField()
     total_trabajadores = serializers.SerializerMethodField()
+    tenant_nombre = serializers.CharField(source='tenant.nombre', read_only=True)
 
     class Meta:
         model  = CicloNOM
         fields = [
             'id', 'anio', 'estado', 'fecha_inicio', 'fecha_cierre',
-            'notas', 'guias_aplicables', 'total_trabajadores',
+            'notas', 'guias_aplicables', 'total_trabajadores', 'tenant_nombre',
             'creado_en', 'actualizado_en',
         ]
-        read_only_fields = ['id', 'guias_aplicables', 'total_trabajadores', 'creado_en', 'actualizado_en']
+        read_only_fields = ['id', 'guias_aplicables', 'total_trabajadores', 'tenant_nombre', 'creado_en', 'actualizado_en']
 
     def get_guias_aplicables(self, obj):
         return obj.tenant.guias_aplicables

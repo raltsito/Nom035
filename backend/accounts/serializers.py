@@ -15,11 +15,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.ReadOnlyField()
+    is_super_admin = serializers.ReadOnlyField()
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'nombre_completo', 'rol', 'tenant', 'is_active')
-        read_only_fields = ('id', 'nombre_completo', 'rol', 'tenant')
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'nombre_completo',
+                  'rol', 'tenant', 'is_active', 'is_super_admin', 'cedula_profesional')
+        read_only_fields = ('id', 'nombre_completo', 'rol', 'tenant', 'is_super_admin')
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

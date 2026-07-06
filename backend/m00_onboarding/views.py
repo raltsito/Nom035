@@ -417,35 +417,15 @@ import random
 import io
 from datetime import date as _date
 from openpyxl import Workbook
-from openpyxl.styles import (
-    PatternFill, Font, Alignment, Border, Side, GradientFill,
-)
+from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from django.http import HttpResponse
 
-# ── Paleta ────────────────────────────────────────────────────────────────────
-_ACCENT   = '03C4CE'   # teal principal
-_NAVY     = '0A2540'   # azul oscuro para títulos
-_LIGHT    = 'E8FAFB'   # fondo alterno claro
-_WHITE    = 'FFFFFF'
-_GRAY     = 'F4F6F8'   # fondo headers de estrato
-_SUBHEAD  = '64748B'   # texto gris medio
-
-def _fill(hex_color):
-    return PatternFill('solid', fgColor=hex_color)
-
-def _font(bold=False, color=_NAVY, size=10):
-    return Font(bold=bold, color=color, name='Calibri', size=size)
-
-def _border():
-    s = Side(style='thin', color='DDE1E7')
-    return Border(left=s, right=s, top=s, bottom=s)
-
-def _center(wrap=False):
-    return Alignment(horizontal='center', vertical='center', wrap_text=wrap)
-
-def _left(wrap=False):
-    return Alignment(horizontal='left', vertical='center', wrap_text=wrap)
+from core.xlsx_styles import (
+    ACCENT as _ACCENT, NAVY as _NAVY, LIGHT as _LIGHT, WHITE as _WHITE,
+    GRAY as _GRAY, SUBHEAD as _SUBHEAD,
+    fill as _fill, font as _font, border as _border, center as _center, left as _left,
+)
 
 
 SEXO_LABEL   = {'M': 'Masculino', 'F': 'Femenino'}

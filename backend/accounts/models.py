@@ -24,6 +24,13 @@ class User(AbstractUser):
         blank=True,
         related_name='usuarios',
     )
+    cedula_profesional = models.CharField(
+        max_length=30,
+        blank=True,
+        default='',
+        verbose_name='Cédula profesional',
+        help_text='Cédula del psicólogo/consultor responsable. Vacía = no puede aprobar reportes psicológicos.',
+    )
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']

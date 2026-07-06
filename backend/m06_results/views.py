@@ -8,7 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.permissions import IsTenantAdmin
-from m00_onboarding.models import CicloNOM
+from m00_onboarding.models import CicloNOM, Trabajador
+from m00_onboarding.views import _muestra
 from m05_questionnaires.models import Aplicacion
 from .models import ResultadoAplicacion, ResultadoDominio
 from .serializers import ResultadoAplicacionSerializer, ResultadoListSerializer
@@ -17,6 +18,15 @@ from .scoring import calcular_resultado
 
 def _wrap(data, meta=None, errors=None, status_code=status.HTTP_200_OK):
     return Response({'data': data, 'meta': meta or {}, 'errors': errors}, status=status_code)
+
+
+def _tenant_para_ciclo(request, ciclo_id):
+    """Resuelve el tenant a consultar: para super admins, el del ciclo elegido
+    (pueden operar sobre cualquier tenant); para tenant_admin, siempre el suyo."""
+    if request.user.is_super_admin and ciclo_id:
+        ciclo = CicloNOM.objects.filter(id=ciclo_id).select_related('tenant').first()
+        return ciclo.tenant if ciclo else None
+    return request.user.tenant
 
 
 DIST_KEYS = ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')
@@ -32,9 +42,9 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
             'aplicacion__ciclo',
         ).prefetch_related('dominios__dominio')
 
-        tenant   = self.request.user.tenant
-        qs       = qs.filter(aplicacion__tenant=tenant)
         ciclo_id = self.request.query_params.get('ciclo_id')
+        tenant   = _tenant_para_ciclo(self.request, ciclo_id)
+        qs       = qs.filter(aplicacion__tenant=tenant)
         if ciclo_id:
             qs = qs.filter(aplicacion__ciclo_id=ciclo_id)
 
@@ -74,7 +84,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 errors={'ciclo_id': ['Este campo es requerido.']},
                 status_code=status.HTTP_400_BAD_REQUEST)
 
-        tenant = request.user.tenant
+        tenant = _tenant_para_ciclo(request, ciclo_id)
         try:
             ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
         except CicloNOM.DoesNotExist:
@@ -150,7 +160,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 errors={'ciclo_id': ['Requerido.']},
                 status_code=status.HTTP_400_BAD_REQUEST)
 
-        tenant = request.user.tenant
+        tenant = _tenant_para_ciclo(request, ciclo_id)
         qs_iii = self.get_queryset().filter(
             aplicacion__ciclo_id=ciclo_id,
             aplicacion__cuestionario__clave='III',
@@ -182,11 +192,25 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
         requieren    = qs_i.filter(requiere_atencion=True).count()
         sin_indicadores = qs_i.filter(requiere_atencion=False).count()
 
+        # HeadCount total y tamaño de muestra requerido (Ecuación 1, NOM-035-STPS-2018)
+        headcount_total = Trabajador.objects.filter(tenant=tenant, activo=True).count()
+        muestra_requerida = _muestra(headcount_total)
+
+        # Empleados (no aplicaciones) que ya completaron TODAS sus guías asignadas en el ciclo
+        por_trabajador = base.values('trabajador_id').annotate(
+            total=Count('id'),
+            completadas=Count('id', filter=Q(estado='completado')),
+        )
+        empleados_completos = sum(1 for row in por_trabajador if row['total'] == row['completadas'])
+
         return _wrap({
-            'total_resultados':   qs_iii.count() + qs_i.count(),
-            'total_completadas':  total_completadas,
-            'total_aplicaciones': total_apps,
-            'distribucion':       dist_iii,
+            'total_resultados':    qs_iii.count() + qs_i.count(),
+            'total_completadas':   total_completadas,
+            'total_aplicaciones':  total_apps,
+            'headcount_total':     headcount_total,
+            'muestra_requerida':   muestra_requerida,
+            'empleados_completos': empleados_completos,
+            'distribucion':        dist_iii,
             'guia_i': {
                 'total':              total_i,
                 'completadas':        completadas_i,
@@ -222,7 +246,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 errors={'ciclo_id': ['Requerido.']},
                 status_code=status.HTTP_400_BAD_REQUEST)
 
-        tenant = request.user.tenant
+        tenant = _tenant_para_ciclo(request, ciclo_id)
 
         dominios_qs = ResultadoDominio.objects.filter(
             resultado__aplicacion__tenant=tenant,
@@ -314,7 +338,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 errors={'ciclo_id': ['Requerido.']},
                 status_code=status.HTTP_400_BAD_REQUEST)
 
-        tenant = request.user.tenant
+        tenant = _tenant_para_ciclo(request, ciclo_id)
         qs = ResultadoAplicacion.objects.filter(
             aplicacion__tenant=tenant,
             aplicacion__ciclo_id=ciclo_id,

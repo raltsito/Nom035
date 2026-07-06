@@ -1,14 +1,24 @@
-<!DOCTYPE html>
+{% load static reporte_extras %}<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Reporte Psicológico NOM-035 — {{ tenant.nombre }} — Ciclo {{ ciclo.anio }}</title>
+<title>Informe diagnóstico NOM-035 — {{ tenant.nombre }} — Ciclo {{ ciclo.anio }}</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   @page {
     size: A4;
-    margin: 20mm 18mm 22mm 18mm;
+    margin: 34mm 18mm 20mm 18mm;
+    @top-left  { content: url({% static 'documents/img/lear_logo.png' %}); width: 28mm; }
+    @top-right { content: "NOM-035-STPS-2018"; font-family: Arial, sans-serif; font-size: 8pt;
+                 color: #64748b; letter-spacing: .04em; vertical-align: middle; }
+    @bottom-center { content: counter(page); font-family: Arial, sans-serif; font-size: 9pt; color: #64748b; }
+  }
+  @page portada {
+    margin: 20mm 18mm 20mm 18mm;
+    @top-left  { content: none; }
+    @top-right { content: none; }
+    @bottom-center { content: none; }
   }
 
   body {
@@ -30,50 +40,64 @@
   .dot-alto     { background: #ef4444; }
   .dot-muy_alto { background: #7c3aed; }
 
-  /* ---------- Portada / encabezado institucional ---------- */
+  /* ---------- Portada ---------- */
   .cover {
+    page: portada;
     page-break-after: always;
-    min-height: 235mm;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    text-align: center;
+    padding-top: 70mm;
   }
-  .cover-head { border-bottom: 2.5px solid #0f172a; padding-bottom: 6mm; }
   .cover-kicker {
     font-family: 'Arial', sans-serif;
-    font-size: 8.5pt;
-    letter-spacing: 0.18em;
+    font-size: 11pt;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: #64748b;
     font-weight: 700;
-    margin-bottom: 4mm;
+    margin-bottom: 10mm;
   }
   .cover-title {
-    font-size: 26pt;
+    font-size: 27pt;
     font-weight: 700;
-    line-height: 1.15;
+    line-height: 1.2;
     color: #0f172a;
-    margin-bottom: 3mm;
+    margin-bottom: 8mm;
   }
-  .cover-sub { font-size: 12pt; color: #475569; font-style: italic; }
-
-  .cover-meta { margin-top: 10mm; }
-  .cover-meta table { width: 100%; border-collapse: collapse; font-family: 'Arial', sans-serif; }
-  .cover-meta td { padding: 2.5mm 0; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-  .cover-meta td.k {
-    width: 38%;
-    font-size: 8.5pt;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #94a3b8;
-    font-weight: 700;
+  .cover-sub {
+    font-size: 12pt;
+    color: #475569;
+    max-width: 130mm;
+    margin: 0 auto 16mm;
   }
-  .cover-meta td.v { font-size: 10.5pt; color: #0f172a; font-weight: 600; }
-
-  .cover-firma {
-    margin-top: 12mm;
+  .cover-norma {
     font-family: 'Arial', sans-serif;
+    font-size: 14pt;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: .04em;
   }
+  .cover-stps {
+    font-family: 'Arial', sans-serif;
+    font-size: 10pt;
+    color: #475569;
+    margin-top: 2mm;
+    margin-bottom: 18mm;
+  }
+  .cover-empresa {
+    font-family: 'Arial', sans-serif;
+    font-size: 13pt;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 2mm;
+  }
+  .cover-fecha {
+    font-family: 'Arial', sans-serif;
+    font-size: 10pt;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
   .firma-line {
     margin-top: 16mm;
     border-top: 1px dotted #475569;
@@ -102,6 +126,22 @@
     margin: 5mm 0 2.5mm;
   }
 
+  /* ---------- Índice ---------- */
+  .indice-item {
+    display: flex;
+    align-items: baseline;
+    gap: 2mm;
+    font-family: 'Arial', sans-serif;
+    font-size: 10pt;
+    padding: 1mm 0;
+    text-decoration: none;
+    color: #0f172a;
+  }
+  .indice-item.lvl1 { font-weight: 800; margin-top: 2mm; }
+  .indice-item.lvl2 { padding-left: 6mm; color: #334155; font-weight: 400; }
+  .indice-fill { flex: 1; border-bottom: 1px dotted #94a3b8; height: 0; margin: 0 1mm; }
+  .indice-item::after { content: target-counter(attr(href), page); font-weight: 700; flex-shrink: 0; }
+
   /* ---------- Tablas (sans) ---------- */
   table.t {
     width: 100%;
@@ -127,6 +167,7 @@
   }
   table.t tr:nth-child(even) td { background: #f8fafc; }
   table.t tr { page-break-inside: avoid; }
+  table.t.compact th, table.t.compact td { padding: 1.3mm 1.8mm; font-size: 7pt; }
 
   .pill {
     display: inline-block;
@@ -139,6 +180,12 @@
   .dom-key { font-weight: 800; color: #0369a1; }
   .mute { color: #64748b; }
   .mini-list { list-style: none; }
+
+  ul.bullets, ol.bullets { margin: 0 0 3mm 5mm; }
+  ul.bullets li, ol.bullets li { margin-bottom: 1.5mm; text-align: justify; }
+
+  dl.definiciones dt { font-weight: 700; color: #0f172a; margin-top: 3mm; }
+  dl.definiciones dd { margin-left: 0; }
 
   /* ---------- Bloque destacado ---------- */
   .callout {
@@ -222,61 +269,151 @@
 </head>
 <body>
 
-<!-- ===================== 1. ENCABEZADO INSTITUCIONAL / PORTADA ===================== -->
+<!-- ===================== PORTADA ===================== -->
 <div class="cover">
-  <div>
-    <div class="cover-head">
-      <div class="cover-kicker">Reporte Psicológico · NOM-035-STPS-2018</div>
-      <div class="cover-title">Evaluación de Factores de<br>Riesgo Psicosocial en el Trabajo</div>
-      <div class="cover-sub">Documento técnico para revisión y validación por especialista en salud mental laboral</div>
-    </div>
-
-    <div class="cover-meta">
-      <table>
-        <tr><td class="k">Centro de trabajo</td><td class="v">{{ tenant.nombre }}</td></tr>
-        {% if tenant.rfc %}<tr><td class="k">RFC</td><td class="v">{{ tenant.rfc }}</td></tr>{% endif %}
-        {% if tenant.giro %}<tr><td class="k">Giro</td><td class="v">{{ tenant.giro }}</td></tr>{% endif %}
-        <tr><td class="k">Total de trabajadores</td><td class="v">{{ tenant.num_trabajadores|default:"—" }}</td></tr>
-        <tr><td class="k">Ciclo evaluado</td><td class="v">{{ ciclo.anio }}</td></tr>
-        <tr><td class="k">Periodo de aplicación</td><td class="v">
-          {{ ciclo.fecha_inicio|date:"d/m/Y"|default:"—" }} &ndash; {{ ciclo.fecha_cierre|date:"d/m/Y"|default:"en curso" }}
-        </td></tr>
-        <tr><td class="k">Trabajadores evaluados</td><td class="v">{{ resumen.total_resultados }}</td></tr>
-        <tr><td class="k">Responsable de la evaluación</td><td class="v">{{ responsable|default:"_______________________" }}</td></tr>
-        <tr><td class="k">Fecha de emisión</td><td class="v">{{ fecha_generado }}</td></tr>
-        {% if anonimo %}<tr><td class="k">Confidencialidad</td><td class="v">Reporte anonimizado (claves T001…)</td></tr>{% endif %}
-      </table>
-    </div>
+  <div class="cover-kicker">Informe diagnóstico</div>
+  <div class="cover-title">Factores de Riesgo Psicosocial<br>en el Trabajo</div>
+  <div class="cover-sub">
+    Diagnóstico situacional de los factores de riesgo psicosocial y evaluación del
+    entorno organizacional favorable; así como los acontecimientos traumáticos severos.
   </div>
-
-  <div class="cover-firma">
-    <div class="cover-kicker">Validación profesional</div>
-    <div class="firma-line">Nombre, firma y cédula profesional del psicólogo revisor</div>
-    <p class="nota" style="margin-top:4mm">
-      Este reporte fue generado por el sistema de cumplimiento NOM-035. La interpretación
-      clínica y las recomendaciones deben ser revisadas y validadas por el profesional firmante.
-    </p>
-  </div>
+  <div class="cover-norma">NOM-035-STPS-2018</div>
+  <div class="cover-stps">Secretaría del Trabajo y Previsión Social</div>
+  <div class="cover-empresa">{{ tenant.nombre }}</div>
+  <div class="cover-fecha">{{ fecha_generado }}</div>
 </div>
 
-<!-- ===================== 2. MARCO NORMATIVO Y METODOLÓGICO ===================== -->
+<!-- ===================== 1. ÍNDICE ===================== -->
 <div class="sec">
-  <div class="sec-title">1. Marco normativo y metodológico</div>
-  <p>{{ marco.fundamento }}</p>
+  <div class="sec-title">1. ÍNDICE</div>
 
-  <div class="sub-title">Instrumentos aplicados</div>
+  <a href="#sec-2" class="indice-item lvl1">2. DATOS DEL CENTRO DE TRABAJO<span class="indice-fill"></span></a>
+  <a href="#sec-2-1" class="indice-item lvl2">2.1. Centro de trabajo<span class="indice-fill"></span></a>
+  <a href="#sec-2-2" class="indice-item lvl2">2.2. Domicilio<span class="indice-fill"></span></a>
+  <a href="#sec-2-3" class="indice-item lvl2">2.3. Actividad principal<span class="indice-fill"></span></a>
+
+  <a href="#sec-3" class="indice-item lvl1">3. OBJETIVO<span class="indice-fill"></span></a>
+  <a href="#sec-3-1" class="indice-item lvl2">3.1. Objetivo general<span class="indice-fill"></span></a>
+  <a href="#sec-3-2" class="indice-item lvl2">3.2. Objetivos específicos<span class="indice-fill"></span></a>
+
+  <a href="#sec-4" class="indice-item lvl1">4. DEFINICIONES<span class="indice-fill"></span></a>
+  <a href="#sec-5" class="indice-item lvl1">5. JUSTIFICACIÓN DE LA MUESTRA<span class="indice-fill"></span></a>
+
+  <a href="#sec-6" class="indice-item lvl1">6. METODOLOGÍA<span class="indice-fill"></span></a>
+  <a href="#sec-6-1" class="indice-item lvl2">6.1. Objetivo de la evaluación<span class="indice-fill"></span></a>
+  <a href="#sec-6-2" class="indice-item lvl2">6.2. Instrumentos utilizados<span class="indice-fill"></span></a>
+  <a href="#sec-6-3" class="indice-item lvl2">6.3. Procedimiento de aplicación<span class="indice-fill"></span></a>
+  <a href="#sec-6-4" class="indice-item lvl2">6.4. Procesamiento a digital<span class="indice-fill"></span></a>
+  <a href="#sec-6-5" class="indice-item lvl2">6.5. Evaluación y análisis de resultados<span class="indice-fill"></span></a>
+
+  <a href="#sec-7" class="indice-item lvl1">7. INFORME DEMOGRÁFICO<span class="indice-fill"></span></a>
+  <a href="#sec-7-1" class="indice-item lvl2">7.1. Informe de datos generales<span class="indice-fill"></span></a>
+  <a href="#sec-7-1-1" class="indice-item lvl2">7.1.1. Informe de datos laborales<span class="indice-fill"></span></a>
+
+  <a href="#sec-8" class="indice-item lvl1">8. INFORME DE ACONTECIMIENTOS TRAUMÁTICOS SEVEROS<span class="indice-fill"></span></a>
+
+  <a href="#sec-9" class="indice-item lvl1">9. INFORME DIAGNÓSTICO SOBRE LOS FACTORES DE RIESGO PSICOSOCIAL Y DEL ENTORNO ORGANIZACIONAL<span class="indice-fill"></span></a>
+  <a href="#sec-9-1" class="indice-item lvl2">9.1. Calificación final<span class="indice-fill"></span></a>
+  <a href="#sec-9-2" class="indice-item lvl2">9.2. Calificaciones por categoría<span class="indice-fill"></span></a>
+  <a href="#sec-9-3" class="indice-item lvl2">9.3. Calificaciones por dominio<span class="indice-fill"></span></a>
+  <a href="#sec-9-4" class="indice-item lvl2">9.4. Dimensiones<span class="indice-fill"></span></a>
+
+  <a href="#sec-10" class="indice-item lvl1">10. CONCLUSIONES<span class="indice-fill"></span></a>
+
+  <a href="#sec-11" class="indice-item lvl1">11. RECOMENDACIONES<span class="indice-fill"></span></a>
+  <a href="#sec-11-1" class="indice-item lvl2">11.1. Recomendaciones específicas<span class="indice-fill"></span></a>
+
+  <a href="#sec-12" class="indice-item lvl1">12. DATOS DEL RESPONSABLE DE LA EVALUACIÓN<span class="indice-fill"></span></a>
+
+  <a href="#sec-13" class="indice-item lvl1">13. ANEXOS<span class="indice-fill"></span></a>
+  <a href="#sec-13-1" class="indice-item lvl2">13.1. ATS y Calificación final<span class="indice-fill"></span></a>
+  <a href="#sec-13-2" class="indice-item lvl2">13.2. Categorías<span class="indice-fill"></span></a>
+  <a href="#sec-13-3" class="indice-item lvl2">13.3. Dominios<span class="indice-fill"></span></a>
+  <a href="#sec-13-4" class="indice-item lvl2">13.4. Tabla de agrupación de dominios<span class="indice-fill"></span></a>
+</div>
+
+<!-- ===================== 2. DATOS DEL CENTRO DE TRABAJO ===================== -->
+<div class="sec" id="sec-2">
+  <div class="sec-title">2. DATOS DEL CENTRO DE TRABAJO</div>
+
+  <div class="sub-title" id="sec-2-1">2.1. Centro de trabajo</div>
+  <p>Nombre, denominación o razón social: <strong>{{ datos_centro_trabajo.nombre }}</strong></p>
+
+  <div class="sub-title" id="sec-2-2">2.2. Domicilio</div>
+  <p>{{ datos_centro_trabajo.direccion|default:"—" }}</p>
+
+  <div class="sub-title" id="sec-2-3">2.3. Actividad principal</div>
+  <p>{{ datos_centro_trabajo.giro|default:"—" }}</p>
+</div>
+
+<!-- ===================== 3. OBJETIVO ===================== -->
+<div class="sec" id="sec-3">
+  <div class="sec-title">3. OBJETIVO</div>
+
+  <div class="sub-title" id="sec-3-1">3.1. Objetivo general</div>
+  <p>{{ objetivo_general }}</p>
+
+  <div class="sub-title" id="sec-3-2">3.2. Objetivos específicos</div>
+  <ol class="bullets">
+    {% for obj in objetivos_especificos %}<li>{{ obj }}</li>{% endfor %}
+  </ol>
+</div>
+
+<!-- ===================== 4. DEFINICIONES ===================== -->
+<div class="sec" id="sec-4">
+  <div class="sec-title">4. DEFINICIONES</div>
+  <dl class="definiciones">
+    {% for termino, definicion in definiciones %}
+    <dt>{{ termino }}</dt>
+    <dd>{{ definicion }}</dd>
+    {% endfor %}
+  </dl>
+</div>
+
+<!-- ===================== 5. JUSTIFICACIÓN DE LA MUESTRA ===================== -->
+<div class="sec" id="sec-5">
+  <div class="sec-title">5. JUSTIFICACIÓN DE LA MUESTRA</div>
+  <p>{{ justificacion_muestra.intro }}</p>
+  <p>
+    La población del centro de trabajo es de <strong>{{ justificacion_muestra.poblacion }}</strong>
+    trabajadores; se evaluó una muestra de <strong>{{ justificacion_muestra.muestra }}</strong>
+    participantes, de los cuales {{ justificacion_muestra.hombres }} fueron hombres y
+    {{ justificacion_muestra.mujeres }} mujeres.
+  </p>
+</div>
+
+<!-- ===================== 6. METODOLOGÍA ===================== -->
+<div class="sec" id="sec-6">
+  <div class="sec-title">6. METODOLOGÍA</div>
+
+  <div class="sub-title" id="sec-6-1">6.1. Objetivo de la evaluación</div>
+  <p>{{ metodologia.objetivo_evaluacion }}</p>
+
+  <div class="sub-title" id="sec-6-2">6.2. Instrumentos utilizados</div>
   <table class="t">
-    <thead><tr><th style="width:26%">Instrumento</th><th>Descripción</th></tr></thead>
+    <thead><tr><th style="width:30%">Instrumento</th><th>Descripción</th></tr></thead>
     <tbody>
-      {% for nombre, desc in marco.instrumentos %}
+      {% for nombre, desc in metodologia.instrumentos %}
       <tr><td style="font-weight:700">{{ nombre }}</td><td>{{ desc }}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <div class="sub-title">Criterios de calificación</div>
-  <p><strong>Guía I.</strong> {{ marco.criterio_guia_i }}</p>
-  <p><strong>Guía III.</strong> {{ marco.criterio_guia_iii }}</p>
+  <div class="sub-title" id="sec-6-3">6.3. Procedimiento de aplicación</div>
+  <p class="mute" style="font-style:italic">Antes de la aplicación:</p>
+  <ol class="bullets">{% for paso in metodologia.procedimiento_antes %}<li>{{ paso }}</li>{% endfor %}</ol>
+  <p class="mute" style="font-style:italic">Durante la aplicación del cuestionario:</p>
+  <ol class="bullets">{% for paso in metodologia.procedimiento_durante %}<li>{{ paso }}</li>{% endfor %}</ol>
+  <p class="mute" style="font-style:italic">Después de la aplicación del cuestionario:</p>
+  <ol class="bullets">{% for paso in metodologia.procedimiento_despues %}<li>{{ paso }}</li>{% endfor %}</ol>
+  <p class="mute" style="font-style:italic">Se aplicaron los cuestionarios en el orden siguiente:</p>
+  <ol class="bullets">{% for paso in metodologia.orden_aplicacion %}<li>{{ paso }}</li>{% endfor %}</ol>
+
+  <div class="sub-title" id="sec-6-4">6.4. Procesamiento a digital</div>
+  <p>{{ metodologia.procesamiento_digital }}</p>
+
+  <div class="sub-title" id="sec-6-5">6.5. Evaluación y análisis de resultados</div>
+  <p>{{ metodologia.evaluacion_analisis }}</p>
 
   <div class="sub-title">Tasa de respuesta por instrumento</div>
   <table class="t">
@@ -294,17 +431,19 @@
   </table>
 </div>
 
-<!-- ===================== 3. DESCRIPCIÓN DE LA MUESTRA ===================== -->
-<div class="sec">
-  <div class="sec-title">2. Descripción de la muestra</div>
+<!-- ===================== 7. INFORME DEMOGRÁFICO ===================== -->
+<div class="sec" id="sec-7">
+  <div class="sec-title">7. INFORME DEMOGRÁFICO</div>
   <p>
     La muestra evaluada está conformada por <strong>{{ muestra.total }}</strong> trabajadores
     que participaron en al menos uno de los instrumentos aplicados. A continuación se presenta
     su distribución sociodemográfica y laboral conforme a la Guía de Referencia V.
   </p>
 
+  <div class="sub-title" id="sec-7-1">7.1. Informe de datos generales</div>
   {% for grupo in muestra_tablas %}
-  <div class="sub-title">{{ grupo.titulo }}</div>
+  {% if grupo.col == "Sexo" or grupo.col == "Grupo de edad" or grupo.col == "Nivel de estudios" %}
+  <div class="sub-title" style="font-size:10pt">{{ grupo.titulo }}</div>
   <table class="t">
     <thead><tr><th>{{ grupo.col }}</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
     <tbody>
@@ -313,12 +452,28 @@
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
+  {% endfor %}
+
+  <div class="sub-title" id="sec-7-1-1">7.1.1. Informe de datos laborales</div>
+  {% for grupo in muestra_tablas %}
+  {% if grupo.col == "Tipo de puesto" or grupo.col == "Tipo de jornada" or grupo.col == "Realiza rotación" or grupo.col == "Antigüedad" %}
+  <div class="sub-title" style="font-size:10pt">{{ grupo.titulo }}</div>
+  <table class="t">
+    <thead><tr><th>{{ grupo.col }}</th><th style="width:18%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
+    <tbody>
+      {% for row in grupo.datos %}
+      <tr><td>{{ row.label }}</td><td>{{ row.count }}</td><td>{{ row.pct }}%</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
   {% endfor %}
 </div>
 
-<!-- ===================== 4. GUÍA I — ATS ===================== -->
-<div class="sec">
-  <div class="sec-title">3. Resultados de la Guía I — Acontecimientos Traumáticos Severos</div>
+<!-- ===================== 8. ATS ===================== -->
+<div class="sec" id="sec-8">
+  <div class="sec-title">8. INFORME DE ACONTECIMIENTOS TRAUMÁTICOS SEVEROS</div>
   <p class="mute" style="font-style:italic">{{ guia_i_definicion }}</p>
 
   {% if guia_i.total == 0 %}
@@ -366,11 +521,11 @@
   {% endif %}
 </div>
 
-<!-- ===================== 5. GUÍA III ===================== -->
-<div class="sec">
-  <div class="sec-title">4. Resultados de la Guía III — Factores de Riesgo Psicosocial</div>
+<!-- ===================== 9. INFORME DIAGNÓSTICO ===================== -->
+<div class="sec" id="sec-9">
+  <div class="sec-title">9. INFORME DIAGNÓSTICO SOBRE LOS FACTORES DE RIESGO PSICOSOCIAL Y DEL ENTORNO ORGANIZACIONAL</div>
 
-  <div class="sub-title">4.1 Nivel de riesgo global de la organización</div>
+  <div class="sub-title" id="sec-9-1">9.1. Calificación final</div>
   <div class="nivel-box {{ nivel_global }}" style="border-color:currentColor">
     <div class="big">{{ nivel_global_label }}</div>
     <div>
@@ -381,7 +536,6 @@
   </div>
   <p>{{ nivel_global_texto }}</p>
 
-  <div class="sub-title">Distribución de trabajadores por nivel de riesgo</div>
   <table class="t">
     <thead><tr><th>Nivel de riesgo</th><th style="width:22%">Trabajadores</th><th style="width:18%">%</th></tr></thead>
     <tbody>
@@ -396,20 +550,44 @@
   </table>
 </div>
 
-<!-- 4.2 Resultados por dominio -->
 <div class="sec">
-  <div class="sub-title">4.2 Resultados por dominio</div>
+  <div class="sub-title" id="sec-9-2">9.2. Calificaciones por categoría</div>
+  <p class="mute" style="font-style:italic">
+    Con referencia en la Tabla 6 de la Guía de Referencia III (NOM-035-STPS-2018), se obtuvo la
+    calificación de cada categoría agregando los dominios que la integran.
+  </p>
   <table class="t">
-    <thead>
-      <tr><th style="width:30%">Dominio</th><th>Promedio</th><th>Nivel modal</th><th>Trabajadores en Alto / Muy alto</th></tr>
-    </thead>
+    <thead><tr><th style="width:32%">Categoría</th><th>Nulo</th><th>Bajo</th><th>Medio</th><th>Alto</th><th>Muy alto</th><th>Intervención</th><th>%</th></tr></thead>
     <tbody>
-      {% for dom in dominios_agregados %}
+      {% for c in categorias_agregadas %}
       <tr>
-        <td><span class="dom-key">{{ dom.clave }}</span> {{ dom.nombre }}</td>
-        <td>{{ dom.puntaje_promedio }}/{{ dom.puntaje_max }}</td>
-        <td><span class="pill {{ dom.categoria_predominante }}">{{ dom.categoria_predominante|cut:"_"|capfirst }}</span></td>
-        <td>{{ dom.dist.alto|add:dom.dist.muy_alto }}{% if dom.prioritario %} &nbsp;<strong style="color:#991b1b">— Prioritario</strong>{% endif %}</td>
+        <td style="font-weight:600">{{ c.nombre }}</td>
+        <td>{{ c.dist.nulo }}</td><td>{{ c.dist.bajo }}</td><td>{{ c.dist.medio }}</td>
+        <td>{{ c.dist.alto }}</td><td>{{ c.dist.muy_alto }}</td>
+        <td style="font-weight:700">{{ c.requieren_atencion }}</td>
+        <td>{{ c.pct_intervencion }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sub-title" id="sec-9-3">9.3. Calificaciones por dominio</div>
+  <p class="mute" style="font-style:italic">
+    Con referencia en la Tabla 6 de la Guía de Referencia III, se obtuvo la calificación de
+    cada dominio sumando el puntaje de los dominios D1-D14 que lo integran.
+  </p>
+  <table class="t">
+    <thead><tr><th style="width:32%">Dominio</th><th>Nulo</th><th>Bajo</th><th>Medio</th><th>Alto</th><th>Muy alto</th><th>Intervención</th><th>%</th></tr></thead>
+    <tbody>
+      {% for d in dominios_oficiales_agregados %}
+      <tr>
+        <td style="font-weight:600">{{ d.nombre }}</td>
+        <td>{{ d.dist.nulo }}</td><td>{{ d.dist.bajo }}</td><td>{{ d.dist.medio }}</td>
+        <td>{{ d.dist.alto }}</td><td>{{ d.dist.muy_alto }}</td>
+        <td style="font-weight:700">{{ d.requieren_atencion }}</td>
+        <td>{{ d.pct_intervencion }}%</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -421,7 +599,7 @@
   <div class="dom-interp">
     <div class="dom-interp-head">
       <span class="dom-key">{{ dom.clave }}</span> {{ dom.nombre }}
-      <span class="pill {{ dom.categoria_predominante }}">{{ dom.categoria_predominante|cut:"_"|capfirst }}</span>
+      <span class="pill {{ dom.categoria_predominante }}">{{ dom.categoria_predominante|nivel_label }}</span>
     </div>
     {% if dom.mide %}<div class="dom-interp-mide">Qué mide: {{ dom.mide }}</div>{% endif %}
     <p style="margin-bottom:0">{{ dom.interpretacion }}</p>
@@ -432,13 +610,31 @@
   {% endif %}
 </div>
 
-<!-- 4.3 Análisis sociodemográfico -->
 <div class="sec">
-  <div class="sub-title">4.3 Nivel de riesgo por variables sociodemográficas</div>
+  <div class="sub-title" id="sec-9-4">9.4. Dimensiones</div>
   <p class="mute" style="font-style:italic">
-    Puntaje global promedio de la Guía III según las variables de la Guía V. Permite
-    identificar si algún grupo concentra niveles de riesgo más elevados.
+    Desagregación de cada dominio oficial en sus dimensiones (D1-D14), calculadas
+    promediando el puntaje de los ítems que las componen.
   </p>
+  <table class="t">
+    <thead><tr><th style="width:14%">Clave</th><th style="width:36%">Dimensión</th><th>Dominio</th><th>Promedio</th><th>Nivel</th></tr></thead>
+    <tbody>
+      {% for dim in dimensiones %}
+      <tr>
+        <td class="dom-key">{{ dim.clave }}</td>
+        <td>{{ dim.nombre }}</td>
+        <td class="mute">{{ dim.dominio_oficial }}</td>
+        <td>{{ dim.puntaje_promedio }}/{{ dim.puntaje_max }}</td>
+        <td><span class="pill {{ dim.categoria_predominante }}">{{ dim.categoria_predominante|nivel_label }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if riesgo_tablas %}
+<div class="sec">
+  <div class="sub-title">Nivel de riesgo por variables sociodemográficas</div>
   {% for grupo in riesgo_tablas %}
   <div class="sub-title" style="font-size:10pt">{{ grupo.titulo }}</div>
   <table class="t">
@@ -449,18 +645,18 @@
         <td>{{ row.label }}</td>
         <td>{{ row.evaluados }}</td>
         <td style="font-weight:700">{{ row.promedio }}</td>
-        <td><span class="pill {{ row.categoria }}">{{ row.categoria|cut:"_"|capfirst }}</span></td>
+        <td><span class="pill {{ row.categoria }}">{{ row.categoria|nivel_label }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% endfor %}
 </div>
+{% endif %}
 
-<!-- 4.4 Análisis por área -->
 {% if areas_analisis %}
 <div class="sec">
-  <div class="sub-title">4.4 Nivel de riesgo por área o departamento</div>
+  <div class="sub-title">Nivel de riesgo por área o departamento</div>
   <table class="t">
     <thead><tr><th>Área / Departamento</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
     <tbody>
@@ -469,25 +665,56 @@
         <td style="font-weight:600">{{ a.nombre }}</td>
         <td>{{ a.evaluados }}</td>
         <td style="font-weight:700">{{ a.promedio }}</td>
-        <td><span class="pill {{ a.categoria }}">{{ a.categoria|cut:"_"|capfirst }}</span></td>
+        <td><span class="pill {{ a.categoria }}">{{ a.categoria|nivel_label }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  <p class="nota">
-    Las áreas con mayor puntaje promedio se consideran prioritarias para la intervención.
-  </p>
 </div>
 {% endif %}
 
-<!-- ===================== 6. RECOMENDACIONES ===================== -->
-<div class="sec">
-  <div class="sec-title">5. Recomendaciones de intervención</div>
+<!-- ===================== 10. CONCLUSIONES ===================== -->
+<div class="sec" id="sec-10">
+  <div class="sec-title">10. CONCLUSIONES</div>
+  <p>
+    Conforme a la información analizada la calificación final, de una muestra representativa de
+    {{ conclusiones.muestra }} trabajadores, de un total de {{ conclusiones.poblacion }}
+    trabajadores; el {{ conclusiones.pct_riesgo }}% ({{ conclusiones.riesgo_alto }} trabajadores)
+    perciben que las condiciones de trabajo se tienen que mejorar.
+  </p>
+  {% if conclusiones.categorias_destacadas %}
+  <p>
+    De acuerdo a la información analizada en la agrupación correspondiente a las categorías se
+    llega a la conclusión, de que el personal del centro de trabajo presenta la mayor
+    ponderación en:
+  </p>
+  <ol class="bullets">
+    {% for c in conclusiones.categorias_destacadas %}<li>{{ c.nombre }} — {{ c.pct_intervencion }}%</li>{% endfor %}
+  </ol>
+  {% endif %}
+  {% if conclusiones.dominios_destacados %}
+  <p>
+    Por otra parte, de acuerdo a la información analizada en la agrupación correspondiente a los
+    dominios se llega a la conclusión, de que el personal del centro de trabajo presenta la
+    mayor ponderación en:
+  </p>
+  <ol class="bullets">
+    {% for d in conclusiones.dominios_destacados %}<li>{{ d.nombre }} — {{ d.pct_intervencion }}%</li>{% endfor %}
+  </ol>
+  {% endif %}
+  {% if not conclusiones.categorias_destacadas and not conclusiones.dominios_destacados %}
+  <p>Ninguna categoría o dominio alcanzó nivel de riesgo Alto o Muy alto a nivel agregado en este ciclo.</p>
+  {% endif %}
+</div>
+
+<!-- ===================== 11. RECOMENDACIONES ===================== -->
+<div class="sec" id="sec-11">
+  <div class="sec-title">11. RECOMENDACIONES</div>
   <p class="mute" style="font-style:italic">
     Conforme al artículo 8 de la NOM-035-STPS-2018, las obligaciones del patrón se determinan
-    según el nivel de riesgo detectado. Las siguientes recomendaciones se derivan de los
-    hallazgos del presente ciclo.
+    según el nivel de riesgo detectado.
   </p>
+  <div class="sub-title" id="sec-11-1">11.1. Recomendaciones específicas</div>
   <ul class="recs">
     {% for rec in recomendaciones %}
     <li class="rec">
@@ -514,30 +741,87 @@
   </ul>
 </div>
 
-<!-- ===================== 7. LIMITACIONES ===================== -->
-<div class="sec">
-  <div class="sec-title">6. Limitaciones del estudio</div>
-  <p>{{ limitaciones }}</p>
+<!-- ===================== 12. DATOS DEL RESPONSABLE ===================== -->
+<div class="sec" id="sec-12" style="page-break-inside:avoid">
+  <div class="sec-title">12. DATOS DEL RESPONSABLE DE LA EVALUACIÓN</div>
+  <table class="t">
+    <tbody>
+      <tr><td style="width:30%;font-weight:700">Nombre</td>
+          <td>{% if validacion %}{{ validacion.nombre_revisor }}{% else %}_______________________{% endif %}</td></tr>
+      <tr><td style="font-weight:700">Número de cédula profesional</td>
+          <td>{% if validacion %}{{ validacion.cedula_revisor }}{% else %}_______________________{% endif %}</td></tr>
+      <tr><td style="font-weight:700">Fecha de aprobación</td>
+          <td>{% if validacion %}{{ validacion.fecha_aprobacion }}{% else %}_______________________{% endif %}</td></tr>
+    </tbody>
+  </table>
 </div>
 
-<!-- ===================== 8. VALIDACIÓN ===================== -->
-<div class="sec" style="page-break-inside:avoid">
-  <div class="sec-title">7. Espacio de validación profesional</div>
-  <p>
-    El profesional firmante hace constar que revisó el contenido de este reporte, validó la
-    interpretación clínica de los resultados y avala las recomendaciones de intervención
-    propuestas.
-  </p>
-  <div style="margin-top:18mm">
-    <div class="firma-line" style="width:60%">Nombre completo del psicólogo</div>
-  </div>
-  <div style="display:flex; gap:14mm; margin-top:14mm">
-    <div class="firma-line" style="width:45%;margin-top:0">Cédula profesional</div>
-    <div class="firma-line" style="width:30%;margin-top:0">Fecha</div>
-  </div>
-  <div style="margin-top:16mm">
-    <div class="firma-line" style="width:60%">Firma</div>
-  </div>
+<!-- ===================== 13. ANEXOS ===================== -->
+<div class="sec" id="sec-13">
+  <div class="sec-title">13. ANEXOS</div>
+
+  <div class="sub-title" id="sec-13-1">13.1. ATS y Calificación final</div>
+  <table class="t compact">
+    <thead><tr><th>Folio</th><th>Guía I — ATS</th><th>Calificación final</th><th>Nivel</th></tr></thead>
+    <tbody>
+      {% for fila in anexos.ats_final %}
+      <tr>
+        <td class="dom-key">{{ fila.clave }}</td>
+        <td>{{ fila.ats }}</td>
+        <td>{{ fila.calificacion_final }}</td>
+        <td><span class="pill {{ fila.nivel_final }}">{{ fila.nivel_final|nivel_label }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="sub-title" id="sec-13-2">13.2. Categorías</div>
+  <table class="t compact">
+    <thead>
+      <tr><th>Folio</th>{% for c in anexos.categorias_columnas %}<th>{{ c }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for fila in anexos.categorias_filas %}
+      <tr>
+        <td class="dom-key">{{ fila.clave }}</td>
+        {% for nivel in fila.niveles %}
+        <td>{% if nivel %}<span class="pill {{ nivel }}">{{ nivel|nivel_label }}</span>{% else %}<span class="mute">—</span>{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="sub-title" id="sec-13-3">13.3. Dominios</div>
+  <table class="t compact">
+    <thead>
+      <tr><th>Folio</th>{% for d in anexos.dominios_columnas %}<th>{{ d }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for fila in anexos.dominios_filas %}
+      <tr>
+        <td class="dom-key">{{ fila.clave }}</td>
+        {% for nivel in fila.niveles %}
+        <td>{% if nivel %}<span class="pill {{ nivel }}">{{ nivel|nivel_label }}</span>{% else %}<span class="mute">—</span>{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="sub-title" id="sec-13-4">13.4. Tabla de agrupación de dominios</div>
+  <table class="t">
+    <thead><tr><th style="width:28%">Categoría</th><th style="width:32%">Dominio</th><th>Dimensiones (D1-D14)</th></tr></thead>
+    <tbody>
+      {% for fila in anexos.agrupacion %}
+      <tr>
+        <td style="font-weight:600">{{ fila.categoria }}</td>
+        <td>{{ fila.dominio }}</td>
+        <td>{{ fila.claves|join:", " }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 
 </body>

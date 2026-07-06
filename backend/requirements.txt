@@ -18,12 +18,19 @@ redis==5.2.1
 
 # Generacion de PDF
 WeasyPrint==62.3
+pydyf==0.11.0  # pin: pydyf>=0.12 rompe WeasyPrint 62.3 (AttributeError en pdf/stream.py)
+
+# Generacion de DOCX (borrador editable para revision)
+python-docx==1.1.2
 
 # Excel
 openpyxl==3.1.5
 
 # Imagenes
 Pillow>=10.0
+
+# Graficas del informe diagnostico (DOCX)
+matplotlib==3.10.8
 
 # Servidor de produccion
 gunicorn==23.0.0

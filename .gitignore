@@ -16,6 +16,18 @@ diagnostico*
 DIAGNOSTICO*
 LEAR_*
 
+# CONFIDENCIAL — Dumps y extractos de la BD de producción
+*.dump
+dump_produccion*
+resultados_informe.txt
+schema_tablas.txt
+consultas_informe.sql
+
+# Notas y scripts locales de trabajo (no son parte del sistema)
+plan_informe_diagnostico.md
+planinformes.md
+generar_informe.py
+
 # Variables de entorno y secretos
 .env
 .env.*
