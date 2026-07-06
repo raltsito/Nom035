@@ -3,7 +3,7 @@ import {
   ResponsiveContainer, Tooltip,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import ChartCard, { ACCENT, ChartTooltip, EmptyChart } from '../ChartCard';
+import ChartCard, { ACCENT, EmptyChart, RISK_COLORS, RISK_LABELS } from '../ChartCard';
 import styles from '../ResultadosDashboard.module.css';
 
 function AxisTick({ payload, x, y, textAnchor }) {
@@ -28,6 +28,25 @@ function CustomDot(props) {
       transition={{ duration: 0.4, delay: 0.8 }}
       style={{ transformOrigin: `${cx}px ${cy}px` }}
     />
+  );
+}
+
+// Tooltip con la calificación (nivel de riesgo) en lugar del porcentaje
+function RadarTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  const color = RISK_COLORS[d.categoria] || ACCENT;
+  return (
+    <div className={styles.tooltip}>
+      <div className={styles.tooltipLabel}>{d.subject.replace('\n', ' ')}</div>
+      <div className={styles.tooltipRow}>
+        <span className={styles.tooltipDot} style={{ background: color }} />
+        <span className={styles.tooltipName}>Nivel de riesgo</span>
+        <span className={styles.tooltipVal} style={{ color }}>
+          {RISK_LABELS[d.categoria] || d.categoria}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -57,7 +76,7 @@ export default function RadarCategorias({ data }) {
             animationBegin={100}
             animationDuration={1100}
           />
-          <Tooltip content={<ChartTooltip formatter={v => `${v}%`} />} />
+          <Tooltip content={<RadarTooltip />} />
         </RadarChart>
       </ResponsiveContainer>
     </ChartCard>

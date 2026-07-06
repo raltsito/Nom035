@@ -9,13 +9,12 @@ export const resultadosService = {
   atencionClinica:   (params = {}) => api.get('/resultados/atencion-clinica/', { params }),
 };
 
-// URLs de documentos descargables (se abren con fetch + token para soportar PDF y fallback HTML)
-export const documentosUrls = {
-  informe:          (cicloId) => `/api/v1/documentos/informe-nom035/?ciclo_id=${cicloId}`,
-  reportePsicologico: (cicloId, { anonimo = false, responsable = '' } = {}) => {
-    const params = new URLSearchParams({ ciclo_id: cicloId });
-    if (anonimo) params.set('anonimo', 'true');
-    if (responsable) params.set('responsable', responsable);
-    return `/api/v1/documentos/reporte-psicologico/?${params.toString()}`;
-  },
+// Documentos descargables del ciclo (DOCX / Excel), vía blob autenticado.
+export const documentosService = {
+  informeDiagnostico:   (cicloId) => api.get('/documentos/informe-diagnostico/', {
+    params: { ciclo_id: cicloId }, responseType: 'blob',
+  }),
+  exportarRespuestas:   (cicloId) => api.get('/documentos/respuestas-nom035/', {
+    params: { ciclo_id: cicloId }, responseType: 'blob',
+  }),
 };

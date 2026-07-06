@@ -63,7 +63,10 @@ function procesarDatos(resultados, resumen, dominiosAgregados, atencionClinica) 
     const pct  = pcts.length
       ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length)
       : 0;
-    return { subject: dim.subject, valor: pct, fullMark: 100 };
+    const catScore = doms.length
+      ? doms.reduce((s, d) => s + (RISK_WEIGHT[d.categoria_modal] ?? 0), 0) / doms.length
+      : 0;
+    return { subject: dim.subject, valor: pct, categoria: scoreToCategoria(catScore), fullMark: 100 };
   });
 
   // ---- Chart 3: Bar de 14 dominios (datos reales) ------------------------

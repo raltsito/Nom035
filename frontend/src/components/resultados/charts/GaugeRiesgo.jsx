@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import ChartCard, { RISK_COLORS, RISK_LABELS } from '../ChartCard';
 import styles from '../ResultadosDashboard.module.css';
@@ -33,23 +32,6 @@ function arcPoint(deg) {
   return { x: CX + R * Math.cos(toRad(deg)), y: CY + R * Math.sin(toRad(deg)) };
 }
 
-function useCounter(target, duration = 1100) {
-  const [val, setVal] = useState(0);
-  const raf = useRef(null);
-  useEffect(() => {
-    setVal(0);
-    const t0 = performance.now();
-    const tick = now => {
-      const p = Math.min((now - t0) / duration, 1);
-      setVal(Math.round(target * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
-  }, [target, duration]);
-  return val;
-}
-
 // ── Segment (non-framer SVG) ──────────────────────────────────────────────
 // Uses a plain <g rotate> + CSS opacity transition — avoids framer+SVG transform conflicts
 function Segment({ cat, index, opacity, strokeWidth }) {
@@ -73,7 +55,6 @@ function Segment({ cat, index, opacity, strokeWidth }) {
 export default function GaugeRiesgo({ data }) {
   const pct      = data?.pct ?? 0;
   const categoria = data?.categoria ?? 'nulo';
-  const count    = useCounter(pct);
   const catIdx   = CAT_IDX[categoria] ?? 0;
   const color    = RISK_COLORS[categoria] ?? RISK_COLORS.nulo;
 
@@ -87,9 +68,9 @@ export default function GaugeRiesgo({ data }) {
   const dotDeg = START_DEG + (pct / 100) * TOTAL_DEG;
   const dot    = arcPoint(dotDeg);
 
-  // Chip label sizing
-  const chipLabel = RISK_LABELS[categoria] ?? categoria;
-  const chipW     = Math.max(52, chipLabel.length * 7.5 + 22);
+  // Etiqueta central — solo la calificación, sin porcentaje
+  const nivelLabel  = RISK_LABELS[categoria] ?? categoria;
+  const nivelFontSz = nivelLabel.length > 6 ? 27 : 34;
 
   return (
     <ChartCard title="Riesgo Psicosocial Global" subtitle="Índice ponderado Guía III">
@@ -160,40 +141,32 @@ export default function GaugeRiesgo({ data }) {
             </motion.g>
           )}
 
-          {/* ── Center % ──────────────────────────────────────────────── */}
+          {/* ── Calificación central (sin porcentaje) ─────────────────── */}
           <motion.text
-            x={CX} y={CY + 14}
+            x={CX} y={CY + 6}
             textAnchor="middle"
-            fontSize="40" fontWeight="800"
+            fontSize={nivelFontSz} fontWeight="800"
             fontFamily="var(--nom-font-display, 'Plus Jakarta Sans', sans-serif)"
             fill={color}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.38, duration: 0.42 }}
           >
-            {count}%
+            {nivelLabel}
           </motion.text>
-
-          {/* ── Risk chip ─────────────────────────────────────────────── */}
-          <motion.g
+          <motion.text
+            x={CX} y={CY + 30}
+            textAnchor="middle"
+            fontSize="10" fontWeight="600"
+            fontFamily="var(--nom-font-body, Inter, sans-serif)"
+            fill="currentColor" opacity={0.45}
+            letterSpacing="0.04em"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: 0.45 }}
             transition={{ delay: 0.62, duration: 0.35 }}
           >
-            <rect
-              x={CX - chipW / 2} y={CY + 26}
-              width={chipW} height={22} rx={11}
-              fill={color} opacity={0.18}
-            />
-            <text
-              x={CX} y={CY + 42}
-              textAnchor="middle" fontSize="11" fontWeight="600"
-              fontFamily="var(--nom-font-body, Inter, sans-serif)"
-              fill={color}
-            >
-              {chipLabel}
-            </text>
-          </motion.g>
+            Nivel de riesgo
+          </motion.text>
         </svg>
       </div>
     </ChartCard>
