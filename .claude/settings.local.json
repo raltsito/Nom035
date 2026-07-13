@@ -294,7 +294,29 @@
       "PowerShell($env:PYTHONIOENCODING='utf-8'; python \"C:\\\\Users\\\\carlo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-carlo-Documents-Freelancer-NOM035\\\\d08f9c4a-ae61-41f1-a358-981cc99be93d\\\\scratchpad\\\\check_docx.py\")",
       "PowerShell($env:PYTHONIOENCODING='utf-8'; Select-String -Path \"C:\\\\Users\\\\carlo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-carlo-Documents-Freelancer-NOM035\\\\d08f9c4a-ae61-41f1-a358-981cc99be93d\\\\scratchpad\\\\toluca_texto.txt\" -Pattern 'calificacion' | Select-Object -First 10 | ForEach-Object { $_.Line })",
       "PowerShell($env:PYTHONIOENCODING='utf-8'; Select-String -Path \"C:\\\\Users\\\\carlo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-carlo-Documents-Freelancer-NOM035\\\\d08f9c4a-ae61-41f1-a358-981cc99be93d\\\\scratchpad\\\\toluca_texto.txt\" -Pattern '\\\\btraumatico|\\\\bAccion\\\\b|\\\\bDescripcion\\\\b' | Select-Object -First 8 | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(140, $_.Line.Length\\)\\) })",
-      "PowerShell(cd C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035; $env:PYTHONIOENCODING='utf-8'; $out = \"C:\\\\Users\\\\carlo\\\\Downloads\\\\LEAR\\\\Documentos para revision\"; foreach \\($p in @\\('Huamantla','Querétaro','Saltillo','San Luis','Silao','Toluca','Zapotitlan'\\)\\) { python generar_informe.py --planta $p --ciclo 2026 --output $out })"
+      "PowerShell(cd C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035; $env:PYTHONIOENCODING='utf-8'; $out = \"C:\\\\Users\\\\carlo\\\\Downloads\\\\LEAR\\\\Documentos para revision\"; foreach \\($p in @\\('Huamantla','Querétaro','Saltillo','San Luis','Silao','Toluca','Zapotitlan'\\)\\) { python generar_informe.py --planta $p --ciclo 2026 --output $out })",
+      "Skill(run)",
+      "Bash(find . -path ./node_modules -prune -o -iname \"SKILL.md\" -print)",
+      "Bash(ls -la .claude/skills)",
+      "Bash(powershell -NoProfile -Command \"Get-Service | Where-Object {\\\\$_.Name -like '*postgres*'} | Select-Object Name, Status, DisplayName\" 2>&1)",
+      "Bash(PGPASSWORD=carl32928 \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -d nom035_local -c \"SHOW port;\")",
+      "Bash(PGPASSWORD=carl32928 'C:/Program Files/PostgreSQL/18/bin/psql.exe' -U postgres -h localhost -d nom035_local -c ' *)",
+      "Bash(command -v npx)",
+      "Bash(npm ls *)",
+      "Bash(npx *)",
+      "Bash(PGPASSWORD=carl32928 C:/Program Files/PostgreSQL/18/bin/psql.exe *)",
+      "Bash(PGPASSWORD=carl32928 \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -d nom035_local -c \"\\\\d accounts_user\")",
+      "Bash(export VITE_API_URL=\"http://127.0.0.1:8010/api/v1\")",
+      "Bash(nohup npm run dev -- --port 5183)",
+      "Bash(echo \"PID $!\")",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"CommandLine LIKE '%runserver 8010%'\\\\\" | Select-Object ProcessId, CommandLine\" 2>&1)",
+      "Bash(npm init *)",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"CommandLine LIKE '%runserver 8010%' OR CommandLine LIKE '%vite --port 5183%'\\\\\" | Select-Object ProcessId, CommandLine\" 2>&1)",
+      "Bash(\"backend\\\\venv\\\\Scripts\\\\python.exe\" generar_doc_autorizacion.py)",
+      "Bash('backend\\\\venv\\\\Scripts\\\\python.exe' -c ' *)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/pg_restore.exe\" --list \"backups/dump_produccion_pre_guia3_20260713_110045.dump\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\16\\\\bin\\\\pg_restore.exe\" --list \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backups\\\\dump_produccion_pre_guia3_20260713_110045.dump\" 2>&1 | Select-Object -First 60)",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\pg_restore.exe\" --list \"C:\\\\Users\\\\carlo\\\\Documents\\\\Freelancer\\\\NOM035\\\\backups\\\\dump_produccion_pre_guia3_20260713_110045.dump\" 2>&1 | Select-Object -First 200)"
     ]
   }
 }
