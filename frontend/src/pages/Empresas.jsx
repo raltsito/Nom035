@@ -382,19 +382,25 @@ export default function Empresas() {
                         <div className={styles.kpiNum}>{drawerStats.total_ciclos}</div>
                         <div className={styles.kpiLabel}>Ciclos</div>
                       </div>
-                      <div className={`${styles.kpiCard} nom-card`}>
+                      <div
+                        className={`${styles.kpiCard} nom-card`}
+                        title="Suma de registros de Guía V + III + I, de todos los ciclos de esta empresa (no son trabajadores únicos: cada trabajador puede generar hasta 3 registros)."
+                      >
                         <div className={styles.kpiIcon} style={{ background: 'rgba(245,158,11,0.12)', color: '#d97706' }}>
                           <ClipboardList size={16} strokeWidth={1.75} />
                         </div>
                         <div className={styles.kpiNum}>{drawerStats.total_aplicaciones}</div>
-                        <div className={styles.kpiLabel}>Aplicaciones</div>
+                        <div className={styles.kpiLabel}>Aplicaciones (V+III+I, todos los ciclos)</div>
                       </div>
-                      <div className={`${styles.kpiCard} nom-card`}>
+                      <div
+                        className={`${styles.kpiCard} nom-card`}
+                        title="Aplicaciones (de cualquier guía) marcadas como completadas, de todos los ciclos. No equivale a trabajadores que terminaron todas sus guías."
+                      >
                         <div className={styles.kpiIcon} style={{ background: 'rgba(139,92,246,0.12)', color: '#7c3aed' }}>
                           <TrendingUp size={16} strokeWidth={1.75} />
                         </div>
                         <div className={styles.kpiNum}>{drawerStats.total_completadas}</div>
-                        <div className={styles.kpiLabel}>Completadas</div>
+                        <div className={styles.kpiLabel}>Aplicaciones completadas</div>
                       </div>
                       <div className={`${styles.kpiCard} nom-card`}>
                         <div className={styles.kpiIcon} style={{ background: 'var(--nom-accent-subtle)', color: 'var(--nom-accent)' }}>

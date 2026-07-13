@@ -15,21 +15,26 @@ from rest_framework.response import Response
 from accounts.permissions import IsSuperAdmin, IsTenantAdmin
 from core import xlsx_styles as xs
 from m00_onboarding.models import CicloNOM, Trabajador
+from m00_onboarding.views import _muestra
 from m05_questionnaires.models import Aplicacion, Pregunta, RespuestaPregunta
-from m06_results.models import ResultadoAplicacion
-from m06_results.scoring import GUIA_III_GLOBAL, _categoria_por_rangos
+from m06_results.models import ResultadoAplicacion, ResultadoDominio
+from m06_results.scoring import (
+    _CORTES_FINAL,
+    _CORTES_CATEGORIA,
+    _CORTES_DOMINIO,
+    _CATEGORIA_DOMINIOS,
+    _DOMINIOS_OFICIALES,
+    _categoria_por_rangos,
+)
 from . import contenido_normativo as norm
 from . import graficas as graf
 from . import interpretaciones as interp
 from .docx_builder import build_informe_diagnostico_docx, build_reporte_psicologico_docx
 from .models import ReportePsicologico
 
-# Cutoffs genéricos de porcentaje usados para clasificar agregados que el
-# sistema deriva (categorías, dominios oficiales) y que no tienen una tabla
-# de puntajes propia en la norma — la norma solo define cutoffs absolutos
-# por dominio (`GUIA_III_DOMINIOS`). Mismo esquema ya usado en `_build_context`
-# para el desglose por área.
-_CUTOFFS_PCT = [(20, 'nulo'), (45, 'bajo'), (60, 'medio'), (75, 'alto')]
+# nombre de dominio oficial → categoría (5 grupos), derivado de la misma
+# jerarquía que usa el motor de calificación.
+_CATEGORIA_DE_DOMINIO = {dom: cat for cat, doms in _CATEGORIA_DOMINIOS for dom in doms}
 
 
 _MESES_ES = [
@@ -186,15 +191,34 @@ def _get_recomendaciones(distribucion: dict) -> list:
 
 
 def _clave_map(resultados) -> dict:
-    """Asigna una clave anónima estable (T001, T002…) por trabajador,
-    ordenada por nombre para que el mismo trabajador conserve su clave."""
-    claves, seen = {}, []
-    for r in sorted(resultados, key=lambda x: x.aplicacion.trabajador.nombre_completo):
-        tid = r.aplicacion.trabajador_id
-        if tid not in claves:
-            seen.append(tid)
-            claves[tid] = ''  # placeholder, se llena abajo
-    return {tid: f'T{idx:03d}' for idx, tid in enumerate(seen, 1)}
+    """Asigna el folio de identificación por trabajador: su número de
+    empleado (Guía V, importado vía Excel — `Trabajador.num_empleado`). Si
+    algún trabajador no tiene número de empleado capturado, se usa un folio
+    genérico T001, T002… como respaldo, ordenado por nombre para que sea
+    estable."""
+    trabajadores = {r.aplicacion.trabajador_id: r.aplicacion.trabajador for r in resultados}
+    ordenados = sorted(trabajadores, key=lambda tid: trabajadores[tid].nombre_completo)
+    claves = {}
+    for idx, tid in enumerate(ordenados, 1):
+        num = trabajadores[tid].num_empleado
+        claves[tid] = num if num else f'T{idx:03d}'
+    return claves
+
+
+def _formato_rangos(cortes_dict, orden):
+    """Convierte los cortes oficiales (max_exclusive, nivel) de
+    `m06_results.scoring` en filas de rango legibles para la tabla de
+    referencia de la §9.2/§9.3 (ej. 'Nulo': '0-4', 'Muy alto': '15+')."""
+    filas = []
+    for nombre in orden:
+        lo = 0
+        rangos = {}
+        for max_excl, nivel in cortes_dict[nombre]:
+            rangos[nivel] = f'{lo}-{max_excl - 1}'
+            lo = max_excl
+        rangos['muy_alto'] = f'{lo}+'
+        filas.append({'nombre': nombre, 'rangos': rangos})
+    return filas
 
 
 def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
@@ -202,7 +226,7 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
         resultados_qs.select_related(
             'aplicacion__trabajador',
             'aplicacion__cuestionario',
-        ).prefetch_related('dominios__dominio')
+        ).prefetch_related('dominios__dominio', 'dominios_oficiales')
     )
 
     res_iii = [r for r in resultados if r.aplicacion.cuestionario.clave == 'III']
@@ -241,7 +265,7 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
 
     # Nivel de riesgo global de la organización = promedio de puntajes globales
     promedio_global = round(sum(r.puntaje_total for r in res_iii) / total_iii) if total_iii else 0
-    nivel_global = _categoria_por_rangos(promedio_global, GUIA_III_GLOBAL) if total_iii else 'nulo'
+    nivel_global = _categoria_por_rangos(promedio_global, _CORTES_FINAL) if total_iii else 'nulo'
 
     # ------------------------------------------------------------------
     # Guía III — resultados individuales por trabajador
@@ -371,7 +395,7 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
             'nombre':    nombre,
             'evaluados': info['n'],
             'promedio':  prom,
-            'categoria': _categoria_por_rangos(prom, GUIA_III_GLOBAL),
+            'categoria': _categoria_por_rangos(prom, _CORTES_FINAL),
             'dist':      info['dist'],
         })
     areas_analisis.sort(key=lambda a: a['promedio'], reverse=True)
@@ -389,6 +413,11 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
         }
         for k, texto in ACCIONES_CUADRO2
     ]
+
+    # Tabla de rangos oficiales de corte (Tabla 6, Guía III) — contenido
+    # normativo fijo, no depende de los resultados de este ciclo.
+    rangos_categoria = _formato_rangos(_CORTES_CATEGORIA, [c for c, _ in _CATEGORIA_DOMINIOS])
+    rangos_dominio   = _formato_rangos(_CORTES_DOMINIO, _DOMINIOS_OFICIALES)
 
     pct_completado = round(total_res / total_apl * 100) if total_apl else 0
 
@@ -415,6 +444,8 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
         'dominios_agregados':dominios_agregados,
         'areas_analisis':    areas_analisis,
         'acciones':          acciones,
+        'rangos_categoria':  rangos_categoria,
+        'rangos_dominio':    rangos_dominio,
         'recomendaciones':   _get_recomendaciones(dist_count),
     }
 
@@ -688,17 +719,116 @@ def _build_muestra(tenant, ciclo):
             [t.get_sexo_display() if t.sexo else None for t in trabajadores]),
         'edad':       _distribucion_simple(
             [_grupo_edad(t.edad) for t in trabajadores]),
+        'estado_civil': _distribucion_simple(
+            [t.get_estado_civil_display() if t.estado_civil else None for t in trabajadores]),
         'estudios':   _distribucion_simple(
             [t.get_nivel_estudios_display() if t.nivel_estudios else None for t in trabajadores]),
         'puesto':     _distribucion_simple(
             [t.tipo_puesto or None for t in trabajadores]),
+        'contratacion': _distribucion_simple(
+            [t.get_tipo_contratacion_display() if t.tipo_contratacion else None for t in trabajadores]),
+        'personal':   _distribucion_simple(
+            [t.get_tipo_personal_display() if t.tipo_personal else None for t in trabajadores]),
         'jornada':    _distribucion_simple(
             [t.get_tipo_jornada_display() if t.tipo_jornada else None for t in trabajadores]),
         'rotacion':   _distribucion_simple(
             [('Sí' if t.rotacion_turnos else 'No') if t.rotacion_turnos is not None else None
              for t in trabajadores]),
-        'antiguedad': _distribucion_simple(
-            [_grupo_antiguedad(t.experiencia_empresa_anios) for t in trabajadores]),
+        'tiempo_puesto': _distribucion_simple(
+            [_grupo_antiguedad(t.tiempo_puesto_actual) for t in trabajadores]),
+        'experiencia_total': _distribucion_simple(
+            [_grupo_antiguedad(t.experiencia_anios) for t in trabajadores]),
+    }
+
+
+def _datos_muestra_ecuacion1(tenant, ciclo):
+    """Universo (activos por sexo) + muestra real de Guía III por sexo +
+    tamaño mínimo de muestra (Ecuación 1, NOM-035-STPS-2018: IC 95%,
+    Z=1.96, p=q=0.5, e=5%). Reusa `_muestra()`, la misma fórmula que ya usa
+    el dashboard de Resultados — no es un segundo cálculo paralelo."""
+    activos = Trabajador.objects.filter(tenant=tenant, activo=True)
+    total   = activos.count()
+    hombres = activos.filter(sexo='M').count()
+    mujeres = activos.filter(sexo='F').count()
+
+    completaron_iii = Aplicacion.objects.filter(
+        tenant=tenant, ciclo=ciclo, cuestionario__clave='III', estado='completado',
+    )
+    muestra   = completaron_iii.count()
+    m_hombres = completaron_iii.filter(trabajador__sexo='M').count()
+    m_mujeres = completaron_iii.filter(trabajador__sexo='F').count()
+
+    return {
+        'total':           total,
+        'hombres':         hombres,
+        'mujeres':         mujeres,
+        'muestra':         muestra,
+        'muestra_hombres': m_hombres,
+        'muestra_mujeres': m_mujeres,
+        'n_min':           _muestra(total),
+    }
+
+
+_ATS_SECCIONES = [
+    ('D1', 'Sección I: Acontecimientos traumáticos severos'),
+    ('D2', 'Sección II: Recuerdos persistentes sobre el acontecimiento'),
+    ('D3', 'Sección III: Esfuerzo por evitar circunstancias parecidas o asociadas al acontecimiento'),
+    ('D4', 'Sección IV: Afectación'),
+]
+
+
+def _ats_desglose(tenant, ciclo):
+    """Desglose de Guía I por pregunta y sexo, agrupado en las 4 secciones
+    oficiales (I-IV, D1-D4). Es una consulta de solo lectura para mostrar el
+    detalle en el informe — el criterio de `requiere_atencion` lo sigue
+    decidiendo únicamente `scoring.py`, ya calculado en `ResultadoAplicacion`."""
+    respuestas = RespuestaPregunta.objects.filter(
+        aplicacion__tenant=tenant, aplicacion__ciclo=ciclo,
+        aplicacion__cuestionario__clave='I', aplicacion__estado='completado',
+    ).select_related('pregunta__dominio', 'aplicacion__trabajador')
+
+    preguntas = defaultdict(dict)  # {dominio_clave: {pregunta_id: fila}}
+    for r in respuestas:
+        p = r.pregunta
+        fila = preguntas[p.dominio.clave].setdefault(p.id, {
+            'orden': p.orden, 'texto': p.texto,
+            'h_si': 0, 'h_no': 0, 'm_si': 0, 'm_no': 0, 't_si': 0, 't_no': 0,
+        })
+        si = r.valor == 1
+        fila['t_si' if si else 't_no'] += 1
+        sexo = r.aplicacion.trabajador.sexo
+        if sexo == 'M':
+            fila['h_si' if si else 'h_no'] += 1
+        elif sexo == 'F':
+            fila['m_si' if si else 'm_no'] += 1
+
+    secciones = []
+    for clave, nombre in _ATS_SECCIONES:
+        filas = sorted(preguntas.get(clave, {}).values(), key=lambda f: f['orden'])
+        secciones.append({'clave': clave, 'nombre': nombre, 'filas': filas})
+
+    muestra = Aplicacion.objects.filter(
+        tenant=tenant, ciclo=ciclo, cuestionario__clave='I', estado='completado',
+    ).count()
+    con_ats = ResultadoDominio.objects.filter(
+        resultado__aplicacion__tenant=tenant, resultado__aplicacion__ciclo=ciclo,
+        resultado__aplicacion__cuestionario__clave='I',
+        dominio__clave='D1', puntaje__gt=0,
+    ).count()
+    clinica = ResultadoAplicacion.objects.filter(
+        aplicacion__tenant=tenant, aplicacion__ciclo=ciclo,
+        aplicacion__cuestionario__clave='I', requiere_atencion=True,
+    ).count()
+
+    return {
+        'secciones': secciones,
+        'resumen': {
+            'muestra':      muestra,
+            'con_ats':      con_ats,
+            'pct_ats':      round(con_ats / muestra * 100) if muestra else 0,
+            'clinica':      clinica,
+            'pct_clinica':  round(clinica / muestra * 100) if muestra else 0,
+        },
     }
 
 
@@ -784,6 +914,13 @@ def _build_graficas_informe(ctx):
     existente, para no alterar su comportamiento ya validado."""
     graficas = {}
 
+    if ctx.get('ats_desglose'):
+        graficas['ats'] = {
+            seccion['clave']: graf.chart_ats(seccion['filas'])
+            for seccion in ctx['ats_desglose']['secciones']
+            if any(f['h_si'] or f['m_si'] for f in seccion['filas'])
+        }
+
     dist_no_cero = [d for d in ctx['distribucion'] if d['count'] > 0]
     if dist_no_cero:
         graficas['distribucion'] = graf.chart_pie(
@@ -832,23 +969,24 @@ def _riesgo_por_grupo(res_iii, keyfn):
             'label':     label,
             'evaluados': g['n'],
             'promedio':  prom,
-            'categoria': _categoria_por_rangos(prom, GUIA_III_GLOBAL),
+            'categoria': _categoria_por_rangos(prom, _CORTES_FINAL),
         })
     out.sort(key=lambda x: -x['promedio'])
     return out
 
 
-def _agregar_por_grupo(por_trabajador, orden):
+def _agregar_por_grupo(por_trabajador, orden, cortes_por_nombre):
     """Reduce un dict {trabajador_id: {grupo: {pt, pm}}} a una lista ordenada de
     agregados por grupo (categoría o dominio oficial), clasificando a cada
-    trabajador con los cutoffs genéricos de porcentaje."""
+    trabajador con los cortes oficiales de suma (Tabla 6, Guía III) del
+    grupo correspondiente. `pct_promedio` es solo descriptivo."""
     grupos = defaultdict(lambda: {'dist': {k: 0 for k in DIST_KEYS}, 'pct_sum': 0, 'n': 0})
     for items in por_trabajador.values():
         for nombre, vals in items.items():
             if not vals['pm']:
                 continue
             pct = round(vals['pt'] / vals['pm'] * 100)
-            nivel = _categoria_por_rangos(pct, _CUTOFFS_PCT)
+            nivel = _categoria_por_rangos(vals['pt'], cortes_por_nombre[nombre])
             g = grupos[nombre]
             g['dist'][nivel] += 1
             g['pct_sum'] += pct
@@ -860,6 +998,7 @@ def _agregar_por_grupo(por_trabajador, orden):
         if not g or not g['n']:
             continue
         requieren = g['dist']['alto'] + g['dist']['muy_alto']
+        en_accion = g['dist']['medio'] + requieren
         salida.append({
             'nombre':                nombre,
             'evaluados':             g['n'],
@@ -868,121 +1007,135 @@ def _agregar_por_grupo(por_trabajador, orden):
             'categoria_predominante':max(g['dist'], key=g['dist'].get),
             'requieren_atencion':    requieren,
             'pct_intervencion':      round(requieren / g['n'] * 100),
+            'pct_accion':            round(en_accion / g['n'] * 100),
         })
     return salida
 
 
 def _build_jerarquia_categorias(res_iii):
-    """Agrega los 14 dominios calificados (D1-D14) en la jerarquía oficial
-    Categoría (5) → Dominio (Tabla 6, Guía III), sumando puntaje/puntaje_max
-    por trabajador y reclasificando con cutoffs de porcentaje. No fabrica
-    datos: solo reagrupa los puntajes por dominio ya calculados en
-    `m06_results.scoring`."""
+    """Agrega los 10 dominios oficiales ya calculados (Tabla 6, Guía III,
+    `ResultadoDominioOficial`) en la jerarquía Categoría (5) → Dominio (10),
+    sumando puntaje/puntaje_max por trabajador y reclasificando con los
+    cortes oficiales de suma. No fabrica datos: solo reagrupa los puntajes
+    ya calculados en `m06_results.scoring`."""
     cat_por_trabajador = defaultdict(lambda: defaultdict(lambda: {'pt': 0, 'pm': 0}))
     dom_por_trabajador = defaultdict(lambda: defaultdict(lambda: {'pt': 0, 'pm': 0}))
     for r in res_iii:
         tid = r.aplicacion.trabajador_id
-        for d in r.dominios.all():
+        for d in r.dominios_oficiales.all():
             if not d.puntaje_max:
                 continue
-            categoria = norm.DOMINIO_CATEGORIA.get(d.dominio.clave)
-            dominio_of = norm.DOMINIO_OFICIAL_DE.get(d.dominio.clave)
+            categoria = _CATEGORIA_DE_DOMINIO.get(d.nombre)
             if categoria:
                 cat_por_trabajador[tid][categoria]['pt'] += d.puntaje
                 cat_por_trabajador[tid][categoria]['pm'] += d.puntaje_max
-            if dominio_of:
-                dom_por_trabajador[tid][dominio_of]['pt'] += d.puntaje
-                dom_por_trabajador[tid][dominio_of]['pm'] += d.puntaje_max
+            dom_por_trabajador[tid][d.nombre]['pt'] += d.puntaje
+            dom_por_trabajador[tid][d.nombre]['pm'] += d.puntaje_max
 
-    orden_categorias = [c for c, _ in norm.CATEGORIA_ESTRUCTURA]
-    orden_dominios = [dom for _, doms in norm.CATEGORIA_ESTRUCTURA for dom, _ in doms]
-    categorias_agregadas = _agregar_por_grupo(cat_por_trabajador, orden_categorias)
-    dominios_oficiales_agregados = _agregar_por_grupo(dom_por_trabajador, orden_dominios)
+    orden_categorias = [c for c, _ in _CATEGORIA_DOMINIOS]
+    orden_dominios = [dom for _, doms in _CATEGORIA_DOMINIOS for dom in doms]
+    categorias_agregadas = _agregar_por_grupo(cat_por_trabajador, orden_categorias, _CORTES_CATEGORIA)
+    dominios_oficiales_agregados = _agregar_por_grupo(dom_por_trabajador, orden_dominios, _CORTES_DOMINIO)
     return categorias_agregadas, dominios_oficiales_agregados
 
 
 def _build_conclusiones(ctx):
-    """Texto de conclusiones (sección 10), generado a partir de los datos ya
-    calculados del ciclo — mismo formato narrativo que el estándar LEAR."""
-    riesgo_alto = sum(c['count'] for c in ctx['distribucion'] if c['key'] in ('alto', 'muy_alto'))
-    total_iii = ctx['resumen']['total_guia_iii']
-    pct_riesgo = round(riesgo_alto / total_iii * 100) if total_iii else 0
+    """Texto y tablas de conclusiones (sección 10), generado a partir de los
+    datos ya calculados del ciclo — mismo formato que el estándar LEAR
+    (`generar_informe.py::build_seccion10`): calificación final + análisis
+    por categoría y por dominio, rankeados de mayor a menor prioridad
+    (% Alto+Muy alto, desempate por % Medio+Alto+Muy alto)."""
+    dist = {d['key']: d['count'] for d in ctx['distribucion']}
+    n = sum(dist.values())
+    riesgo_alto   = dist.get('alto', 0) + dist.get('muy_alto', 0)
+    accion_global = dist.get('medio', 0) + riesgo_alto
+    pct_riesgo  = round(riesgo_alto / n * 100, 1) if n else 0
+    pct_accion  = round(accion_global / n * 100, 1) if n else 0
+    nivel_predominante = max(DIST_KEYS, key=lambda k: dist.get(k, 0)) if n else 'nulo'
 
-    categorias_destacadas = [
-        c for c in sorted(ctx['categorias_agregadas'], key=lambda x: -x['pct_intervencion'])
-        if c['pct_intervencion'] > 0
-    ][:4]
-    dominios_destacados = [
-        d for d in sorted(ctx['dominios_oficiales_agregados'], key=lambda x: -x['pct_intervencion'])
-        if d['pct_intervencion'] > 0
-    ][:4]
+    categorias_rankeadas = sorted(
+        ctx['categorias_agregadas'],
+        key=lambda x: (x['pct_intervencion'], x['pct_accion']), reverse=True)
+    dominios_rankeados = sorted(
+        ctx['dominios_oficiales_agregados'],
+        key=lambda x: (x['pct_intervencion'], x['pct_accion']), reverse=True)
 
     return {
-        'muestra':               total_iii,
+        'muestra':               n,
         'poblacion':             ctx['tenant'].num_trabajadores,
         'riesgo_alto':           riesgo_alto,
         'pct_riesgo':            pct_riesgo,
-        'categorias_destacadas': categorias_destacadas,
-        'dominios_destacados':   dominios_destacados,
+        'accion_global':         accion_global,
+        'pct_accion':            pct_accion,
+        'nivel_predominante':    nivel_predominante,
+        'categorias_rankeadas':  categorias_rankeadas,
+        'dominios_rankeados':    dominios_rankeados,
+        # Top 4 — se conservan para el borrador (bullets, sin cambios).
+        'categorias_destacadas': [c for c in categorias_rankeadas if c['pct_intervencion'] > 0][:4],
+        'dominios_destacados':   [d for d in dominios_rankeados if d['pct_intervencion'] > 0][:4],
     }
 
 
 def _build_anexos(res_iii, res_i):
-    """Tablas de anexos (13.1-13.4), siempre identificadas por folio (T001…)
-    independientemente del modo anónimo del cuerpo del reporte — así se
-    presentan en el estándar de referencia."""
-    trabajadores = {r.aplicacion.trabajador_id: r.aplicacion.trabajador for r in (list(res_iii) + list(res_i))}
-    claves = {
-        tid: f'T{idx:03d}'
-        for idx, tid in enumerate(
-            sorted(trabajadores, key=lambda t_id: trabajadores[t_id].nombre_completo), 1)
+    """Tablas de anexos (13.1-13.4), siempre identificadas por el número de
+    empleado del trabajador (Guía V) — independientemente del modo anónimo
+    del cuerpo del reporte, así se presentan en el estándar de referencia."""
+    claves = _clave_map(list(res_iii) + list(res_i))
+    valoracion_clinica = {r.aplicacion.trabajador_id: r.requiere_atencion for r in res_i}
+    ats_reportado = {
+        rd.resultado.aplicacion.trabajador_id: rd.puntaje > 0
+        for rd in ResultadoDominio.objects.filter(resultado__in=res_i, dominio__clave='D1')
+            .select_related('resultado__aplicacion')
     }
-    atencion_guia_i = {r.aplicacion.trabajador_id: r.requiere_atencion for r in res_i}
 
     ats_final = []
     for r in sorted(res_iii, key=lambda x: -x.puntaje_total):
         tid = r.aplicacion.trabajador_id
         ats_final.append({
             'clave':              claves.get(tid, '—'),
-            'ats':                ('Atención requerida' if atencion_guia_i.get(tid)
-                                    else 'Sin indicadores' if tid in atencion_guia_i else 'No aplicado'),
+            'ats':                ('Sí' if ats_reportado.get(tid)
+                                    else 'No' if tid in ats_reportado else 'No aplicado'),
+            'valoracion_clinica': ('Requerida' if valoracion_clinica.get(tid)
+                                    else 'Sin indicadores' if tid in valoracion_clinica else 'No aplicado'),
+            # Columna combinada — se conserva solo para el borrador, que no
+            # separa ATS reportado de valoración clínica.
+            'ats_combinado':      ('Atención requerida' if valoracion_clinica.get(tid)
+                                    else 'Sin indicadores' if tid in valoracion_clinica else 'No aplicado'),
             'calificacion_final': r.puntaje_total,
             'nivel_final':        r.categoria,
         })
 
-    orden_categorias = [c for c, _ in norm.CATEGORIA_ESTRUCTURA]
-    orden_dominios = [dom for _, doms in norm.CATEGORIA_ESTRUCTURA for dom, _ in doms]
+    orden_categorias = [c for c, _ in _CATEGORIA_DOMINIOS]
+    orden_dominios = [dom for _, doms in _CATEGORIA_DOMINIOS for dom in doms]
 
     categorias_filas, dominios_filas = [], []
     for r in sorted(res_iii, key=lambda x: claves.get(x.aplicacion.trabajador_id, '')):
         tid = r.aplicacion.trabajador_id
         cat_acc = defaultdict(lambda: {'pt': 0, 'pm': 0})
         dom_acc = defaultdict(lambda: {'pt': 0, 'pm': 0})
-        for d in r.dominios.all():
+        for d in r.dominios_oficiales.all():
             if not d.puntaje_max:
                 continue
-            categoria = norm.DOMINIO_CATEGORIA.get(d.dominio.clave)
-            dominio_of = norm.DOMINIO_OFICIAL_DE.get(d.dominio.clave)
+            categoria = _CATEGORIA_DE_DOMINIO.get(d.nombre)
             if categoria:
                 cat_acc[categoria]['pt'] += d.puntaje
                 cat_acc[categoria]['pm'] += d.puntaje_max
-            if dominio_of:
-                dom_acc[dominio_of]['pt'] += d.puntaje
-                dom_acc[dominio_of]['pm'] += d.puntaje_max
+            dom_acc[d.nombre]['pt'] += d.puntaje
+            dom_acc[d.nombre]['pm'] += d.puntaje_max
 
-        def _nivel(acc, nombre):
+        def _nivel(acc, nombre, cortes):
             v = acc.get(nombre)
             if not v or not v['pm']:
                 return None
-            return _categoria_por_rangos(round(v['pt'] / v['pm'] * 100), _CUTOFFS_PCT)
+            return _categoria_por_rangos(v['pt'], cortes)
 
         categorias_filas.append({
             'clave':   claves.get(tid, '—'),
-            'niveles': [_nivel(cat_acc, c) for c in orden_categorias],
+            'niveles': [_nivel(cat_acc, c, _CORTES_CATEGORIA[c]) for c in orden_categorias],
         })
         dominios_filas.append({
             'clave':   claves.get(tid, '—'),
-            'niveles': [_nivel(dom_acc, d) for d in orden_dominios],
+            'niveles': [_nivel(dom_acc, d, _CORTES_DOMINIO[d]) for d in orden_dominios],
         })
 
     return {
@@ -1003,7 +1156,8 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
     ctx = _build_context(tenant, ciclo, resultados_qs, anonimo=anonimo)
 
     resultados_lista = list(resultados_qs.select_related(
-        'aplicacion__trabajador', 'aplicacion__cuestionario').prefetch_related('dominios__dominio'))
+        'aplicacion__trabajador', 'aplicacion__cuestionario'
+    ).prefetch_related('dominios__dominio', 'dominios_oficiales'))
     res_iii = [r for r in resultados_lista if r.aplicacion.cuestionario.clave == 'III']
     res_i = [r for r in resultados_lista if r.aplicacion.cuestionario.clave == 'I']
     riesgo_por_grupo = {
@@ -1030,7 +1184,7 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
     # el dominio oficial (Tabla 6) al que pertenecen — es el nivel de
     # desagregación más fino con el que cuenta el sistema.
     dimensiones = [
-        {**dom, 'dominio_oficial': norm.DOMINIO_OFICIAL_DE.get(dom['clave'], dom['nombre'])}
+        {**dom, 'dominio_oficial': norm.DOMINIO_OFICIAL_DE_BLOQUE.get(dom['clave'], dom['nombre'])}
         for dom in ctx['dominios_agregados']
     ]
 
@@ -1046,11 +1200,15 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
     muestra_tablas = [
         {'titulo': 'Distribución por sexo',            'col': 'Sexo',             'datos': muestra['sexo']},
         {'titulo': 'Distribución por grupo de edad',   'col': 'Grupo de edad',    'datos': muestra['edad']},
+        {'titulo': 'Distribución por estado civil',    'col': 'Estado civil',     'datos': muestra['estado_civil']},
         {'titulo': 'Distribución por nivel de estudios','col': 'Nivel de estudios','datos': muestra['estudios']},
         {'titulo': 'Distribución por tipo de puesto',  'col': 'Tipo de puesto',   'datos': muestra['puesto']},
+        {'titulo': 'Distribución por tipo de contratación', 'col': 'Tipo de contratación', 'datos': muestra['contratacion']},
+        {'titulo': 'Distribución por tipo de personal','col': 'Tipo de personal', 'datos': muestra['personal']},
         {'titulo': 'Distribución por tipo de jornada', 'col': 'Tipo de jornada',  'datos': muestra['jornada']},
         {'titulo': 'Rotación de turnos',               'col': 'Realiza rotación', 'datos': muestra['rotacion']},
-        {'titulo': 'Antigüedad en la empresa',         'col': 'Antigüedad',       'datos': muestra['antiguedad']},
+        {'titulo': 'Tiempo en el puesto actual',       'col': 'Tiempo en el puesto actual', 'datos': muestra['tiempo_puesto']},
+        {'titulo': 'Tiempo de experiencia laboral total', 'col': 'Tiempo de experiencia laboral total', 'datos': muestra['experiencia_total']},
     ]
     riesgo_tablas = [
         {'titulo': 'Por sexo',           'col': 'Sexo',          'datos': riesgo_por_grupo['sexo']},
@@ -1082,9 +1240,9 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
         'recomendaciones':       _recomendaciones_desde_dominios(dominios_prioritarios),
         # ---- Contenido normativo fijo + datos del centro de trabajo (Fase 2) ----
         'datos_centro_trabajo': {
-            'nombre':    tenant.nombre,
+            'nombre':    norm.RAZON_SOCIAL,
             'direccion': tenant.direccion,
-            'giro':      tenant.giro,
+            'giro':      norm.ACTIVIDAD_PRINCIPAL,
         },
         'objetivo_general':      norm.OBJETIVO_GENERAL,
         'objetivos_especificos': norm.OBJETIVOS_ESPECIFICOS,
@@ -1104,6 +1262,9 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
     if informe_extendido:
         ctx['acciones_generales'] = norm.ACCIONES_GENERALES
         ctx['recomendaciones_extendidas'] = _recomendaciones_extendidas(dominios_oficiales_agregados)
+        ctx['justificacion_muestra']['parrafos'] = norm.JUSTIFICACION_MUESTRA_PARRAFOS
+        ctx['justificacion_muestra']['ecuacion1'] = _datos_muestra_ecuacion1(tenant, ciclo)
+        ctx['ats_desglose'] = _ats_desglose(tenant, ciclo)
         ctx['graficas'] = _build_graficas_informe(ctx)
 
     return ctx

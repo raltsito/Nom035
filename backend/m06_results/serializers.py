@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ResultadoAplicacion, ResultadoDominio
+from .models import ResultadoAplicacion, ResultadoDominio, ResultadoDominioOficial
 
 
 class ResultadoDominioSerializer(serializers.ModelSerializer):
@@ -9,6 +9,22 @@ class ResultadoDominioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = ResultadoDominio
+        fields = ['id', 'dominio_clave', 'dominio_nombre',
+                  'puntaje', 'puntaje_max', 'porcentaje', 'categoria']
+
+    def get_porcentaje(self, obj):
+        if obj.puntaje_max == 0:
+            return 0
+        return round(obj.puntaje / obj.puntaje_max * 100)
+
+
+class ResultadoDominioOficialSerializer(serializers.ModelSerializer):
+    dominio_clave  = serializers.CharField(source='clave',  read_only=True)
+    dominio_nombre = serializers.CharField(source='nombre', read_only=True)
+    porcentaje     = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = ResultadoDominioOficial
         fields = ['id', 'dominio_clave', 'dominio_nombre',
                   'puntaje', 'puntaje_max', 'porcentaje', 'categoria']
 
@@ -29,6 +45,7 @@ class ResultadoAplicacionSerializer(serializers.ModelSerializer):
         source='aplicacion.ciclo_id', read_only=True)
     porcentaje          = serializers.SerializerMethodField()
     dominios            = ResultadoDominioSerializer(many=True, read_only=True)
+    dominios_oficiales  = ResultadoDominioOficialSerializer(many=True, read_only=True)
 
     class Meta:
         model  = ResultadoAplicacion
@@ -37,6 +54,7 @@ class ResultadoAplicacionSerializer(serializers.ModelSerializer):
             'cuestionario_clave', 'ciclo',
             'puntaje_total', 'puntaje_max', 'porcentaje',
             'categoria', 'requiere_atencion', 'calculado_en', 'dominios',
+            'dominios_oficiales',
         ]
 
     def get_porcentaje(self, obj):

@@ -15,6 +15,8 @@ informe*
 diagnostico*
 DIAGNOSTICO*
 LEAR_*
+# Excepción: assets de marca del informe (no son datos de cliente)
+!backend/documents/static/**
 
 # CONFIDENCIAL — Dumps y extractos de la BD de producción
 *.dump

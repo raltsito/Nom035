@@ -6,7 +6,21 @@ los Apartados 3-6 de la Guía de Referencia y del documento estándar de formato
 No depende del tenant ni del ciclo — es el mismo texto para cualquier cliente.
 Se consume desde `documents/views.py` y se renderiza en
 `documents/templates/documents/reporte_psicologico.html`.
+
+La jerarquía oficial Categoría (5) → Dominio (10) de la Tabla 6, Guía de
+Referencia III, vive en `m06_results.scoring` (`_CATEGORIA_DOMINIOS`) — es la
+misma fuente que usa el motor de calificación, para que el informe y el
+dashboard nunca diverjan. Este módulo solo importa esa estructura.
 """
+
+from m06_results.scoring import _CATEGORIA_DOMINIOS as CATEGORIA_DOMINIOS
+
+# Razón social y actividad principal: la misma entidad legal opera las 16
+# plantas evaluadas, por lo que no es un dato por tenant (el domicilio sí lo
+# es — ver `Tenant.direccion`). Fuente: generar_informe.py / documento
+# estándar de formato (INFORME DIAGNOSTICO NOM035 LEAR TLÁHUAC.pdf).
+RAZON_SOCIAL = 'CONSORCIO INDUSTRIAL MEXICANO DE AUTOPARTES S. de R.L. de C.V.'
+ACTIVIDAD_PRINCIPAL = 'Fabricación de otras partes para vehículos automotrices'
 
 OBJETIVO_GENERAL = (
     'El objetivo de este informe es identificar, analizar y prevenir los factores de '
@@ -85,6 +99,39 @@ JUSTIFICACION_MUESTRA_INTRO = (
     'así incluir una percepción de mayor amplitud de la situación actual de la '
     'empresa.'
 )
+
+# Párrafos completos de la §5 (justificación de muestra) cuando se genera el
+# informe extendido — describen correctamente el muestreo estratificado (no
+# aleatorio simple, a diferencia de `JUSTIFICACION_MUESTRA_INTRO` arriba, que
+# se queda como texto corto para el borrador).
+JUSTIFICACION_MUESTRA_PARRAFOS = [
+    (
+        'De acuerdo con lo establecido en la NOM-035-STPS-2018, para centros de trabajo '
+        'con más de 50 trabajadores la evaluación debe aplicarse a una muestra '
+        'representativa del total de la plantilla. El tamaño mínimo de muestra se calculó '
+        'mediante la Ecuación 1 de la norma, utilizando un nivel de confianza del 95% '
+        '(Z = 1.96), probabilidad de ocurrencia p = q = 0.5 y margen de error del 5%, '
+        'garantizando así la validez estadística de los resultados.'
+    ),
+    (
+        'La selección de la muestra no fue aleatoria simple, sino estratificada, con el '
+        'objetivo de garantizar la representatividad de todos los grupos que conforman el '
+        'centro de trabajo. Para ello se tomaron en cuenta las siguientes variables de '
+        'estratificación, capturadas previamente mediante la Guía de Referencia V: '
+        'departamento o área de adscripción, turno de trabajo, sexo, rango de edad y '
+        'tipo de puesto. Este enfoque aseguró que los diferentes perfiles de la plantilla '
+        '— operativos, técnicos y administrativos, de distintos turnos y con distintas '
+        'trayectorias laborales — estuvieran representados en proporción a su peso relativo '
+        'dentro de la organización, evitando sesgos que pudieran derivarse de una '
+        'participación concentrada en un solo grupo.'
+    ),
+    (
+        'La aplicación digital de los cuestionarios, organizada en sesiones grupales '
+        'por área, facilitó la convocatoria y participación ordenada de los colaboradores '
+        'seleccionados. Solo se incluyeron en el análisis los cuestionarios completados '
+        'en su totalidad; los registros incompletos fueron excluidos del procesamiento.'
+    ),
+]
 
 METODOLOGIA = {
     'objetivo_evaluacion': (
@@ -167,51 +214,52 @@ METODOLOGIA = {
 }
 
 # ---------------------------------------------------------------------------
-# Jerarquía oficial Categoría → Dominio (Tabla 6, Guía de Referencia III,
-# NOM-035-STPS-2018, versión extendida para centros de >50 trabajadores).
-# Cada dominio oficial agrupa uno o más de los 14 dominios (D1-D14) que el
-# sistema ya califica (ver `m06_results/scoring.py`); estos últimos se
-# presentan como "Dimensiones" en la sección 9.4, al ser el nivel de
-# desagregación más fino con el que cuenta el sistema.
-# D13 y D14 son dominios condicionales (atención a clientes / actitudes de
-# supervisados) que solo se califican para los trabajadores a quienes aplican.
+# Legenda informativa: qué bloques crudos del cuestionario (D1-D14, ver
+# "Dimensiones" en la sección 9.4) alimentan cada dominio oficial. Es solo
+# descriptiva para la tabla de agrupación (13.4) — el cálculo real usa
+# `m06_results.scoring._dominio_oficial()`, que reparte D5, D8 y D11 por
+# número de pregunta (no por bloque completo).
 # ---------------------------------------------------------------------------
-CATEGORIA_ESTRUCTURA = [
-    ('Ambiente de trabajo', [
-        ('Condiciones en el ambiente de trabajo', ['D1']),
-    ]),
-    ('Factores propios de la actividad', [
-        ('Carga de trabajo', ['D2', 'D3', 'D4']),
-        ('Falta de control sobre el trabajo', ['D6', 'D7', 'D8']),
-        ('Atención a clientes', ['D13']),
-    ]),
-    ('Organización del tiempo de trabajo', [
-        ('Jornada de trabajo e interferencia trabajo-familia', ['D5']),
-    ]),
-    ('Liderazgo y relaciones en el trabajo', [
-        ('Liderazgo', ['D9']),
-        ('Relaciones en el trabajo', ['D10']),
-        ('Violencia', ['D12']),
-        ('Actitudes de supervisados', ['D14']),
-    ]),
-    ('Entorno organizacional', [
-        ('Reconocimiento del desempeño e inestabilidad', ['D11']),
-    ]),
-]
-
-DOMINIO_CATEGORIA = {}
-DOMINIO_OFICIAL_DE = {}
-for _categoria, _dominios in CATEGORIA_ESTRUCTURA:
-    for _dominio_oficial, _claves in _dominios:
-        for _clave in _claves:
-            DOMINIO_CATEGORIA[_clave] = _categoria
-            DOMINIO_OFICIAL_DE[_clave] = _dominio_oficial
+_DIMENSIONES_POR_DOMINIO = {
+    'Condiciones en el ambiente de trabajo':               ['D1'],
+    'Carga de trabajo':                                    ['D2', 'D3', 'D4', 'D13*'],
+    'Falta de control sobre el trabajo':                   ['D6', 'D7', 'D8 (preg. 5-6)'],
+    'Jornada de trabajo':                                  ['D5 (preg. 1-2)'],
+    'Interferencia en la relación trabajo-familia':        ['D5 (preg. 3-6)'],
+    'Liderazgo':                                           ['D9', 'D8 (preg. 1-4)'],
+    'Relaciones en el trabajo':                            ['D10', 'D14*'],
+    'Violencia':                                            ['D12'],
+    'Reconocimiento del desempeño':                        ['D11 (preg. 1-6)'],
+    'Insuficiente sentido de pertenencia e inestabilidad': ['D11 (preg. 7-10)'],
+}
 
 TABLA_AGRUPACION_DOMINIOS = [
-    {'categoria': cat, 'dominio': dom, 'claves': claves}
-    for cat, dominios in CATEGORIA_ESTRUCTURA
-    for dom, claves in dominios
+    {'categoria': cat, 'dominio': dom, 'claves': _DIMENSIONES_POR_DOMINIO[dom]}
+    for cat, dominios in CATEGORIA_DOMINIOS
+    for dom in dominios
 ]
+
+# Inverso de `_DIMENSIONES_POR_DOMINIO`: bloque crudo (D1-D14) → dominio(s)
+# oficial(es) al que pertenece. Solo para etiquetar la sección "Dimensiones"
+# (9.4) — D5, D8 y D11 alimentan dos dominios oficiales cada uno (se reparten
+# por número de pregunta, ver `m06_results.scoring._dominio_oficial`), así
+# que su etiqueta muestra ambos separados por "/".
+DOMINIO_OFICIAL_DE_BLOQUE = {
+    'D1':  'Condiciones en el ambiente de trabajo',
+    'D2':  'Carga de trabajo',
+    'D3':  'Carga de trabajo',
+    'D4':  'Carga de trabajo',
+    'D5':  'Jornada de trabajo / Interferencia en la relación trabajo-familia',
+    'D6':  'Falta de control sobre el trabajo',
+    'D7':  'Falta de control sobre el trabajo',
+    'D8':  'Liderazgo / Falta de control sobre el trabajo',
+    'D9':  'Liderazgo',
+    'D10': 'Relaciones en el trabajo',
+    'D11': 'Reconocimiento del desempeño / Insuficiente sentido de pertenencia e inestabilidad',
+    'D12': 'Violencia',
+    'D13': 'Carga de trabajo',
+    'D14': 'Relaciones en el trabajo',
+}
 
 # ---------------------------------------------------------------------------
 # Recomendaciones específicas por dominio (Informe Diagnóstico extendido,
@@ -327,7 +375,7 @@ RECOMENDACIONES_DOMINIO = {
              'positivamente mediante estudios periódicos de tiempo y carga de trabajo.'),
         ],
     },
-    'Jornada de trabajo e interferencia trabajo-familia': {
+    'Jornada de trabajo': {
         'intro': (
             'Una adecuada gestión de la jornada laboral es esencial para garantizar '
             'la productividad y el bienestar de los trabajadores.'
@@ -345,19 +393,41 @@ RECOMENDACIONES_DOMINIO = {
              'Establecer un sistema que alterne entre turnos diurnos y nocturnos de '
              'manera equitativa, garantizando que los empleados tengan tiempo '
              'suficiente para descansar.'),
-            ('Distribución equitativa de la carga laboral',
-             'Asegurar que las tareas sean distribuidas de manera justa entre todos '
-             'los empleados, evitando la sobrecarga de trabajo en ciertos equipos '
-             'o personas.'),
             ('Optimización de las pausas laborales',
              'Promover el uso eficiente de los descansos durante la jornada, '
              'asegurando que los trabajadores tengan tiempo adecuado para recuperarse '
              'y contribuyendo a su bienestar general.'),
-            ('Fortalecer los otros dominios',
-             'Respetar los tiempos de descanso y días no laborables; establecer '
-             'espacios y políticas para la atención de asuntos personales en horario '
-             'laboral; actualizar las políticas respecto a permisos para asuntos '
-             'personales y/o emergencias.'),
+            ('Políticas claras de jornada y días de descanso',
+             'Documentar y comunicar con claridad los horarios, turnos y días de '
+             'descanso obligatorios, evitando ambigüedades que deriven en jornadas '
+             'prolongadas no planeadas.'),
+        ],
+    },
+    'Interferencia en la relación trabajo-familia': {
+        'intro': (
+            'Cuando el tiempo y la energía que demanda el trabajo invaden '
+            'sistemáticamente el espacio personal y familiar, se afecta tanto el '
+            'bienestar del colaborador como su desempeño laboral sostenido.'
+        ),
+        'bullets': [
+            ('Políticas de desconexión digital',
+             'Establecer lineamientos que limiten la comunicación laboral (llamadas, '
+             'mensajes, correos) fuera del horario de trabajo, salvo emergencias '
+             'justificadas.'),
+            ('Permisos flexibles para asuntos familiares',
+             'Facilitar permisos o ajustes de horario ante situaciones familiares '
+             'imprevistas, con un proceso de solicitud claro y sin represalias.'),
+            ('Anticipación de cambios de horario',
+             'Comunicar con la mayor anticipación posible los cambios de turno o '
+             'jornada, para que los trabajadores puedan organizar sus '
+             'responsabilidades personales.'),
+            ('Espacios de conciliación trabajo-familia',
+             'Difundir y, donde sea viable, ampliar prestaciones que apoyen la '
+             'conciliación (guarderías, horarios escalonados, trabajo remoto parcial).'),
+            ('Monitoreo de horas extra por área',
+             'Dar seguimiento periódico a las áreas con mayor incidencia de horas '
+             'extra o trabajo en días de descanso, e intervenir antes de que se '
+             'normalicen como práctica.'),
         ],
     },
     'Liderazgo': {
@@ -451,11 +521,11 @@ RECOMENDACIONES_DOMINIO = {
              'todos los colaboradores.'),
         ],
     },
-    'Reconocimiento del desempeño e inestabilidad': {
+    'Reconocimiento del desempeño': {
         'intro': (
-            'El reconocimiento oportuno del desempeño y la percepción de estabilidad '
-            'laboral son factores clave para el compromiso, la motivación y la '
-            'retención del talento en la organización.'
+            'El reconocimiento oportuno y justo del desempeño es un factor clave '
+            'para el compromiso, la motivación y la retención del talento en la '
+            'organización.'
         ),
         'bullets': [
             ('Sistema formal de reconocimiento del desempeño',
@@ -466,75 +536,47 @@ RECOMENDACIONES_DOMINIO = {
              'Mantener una comunicación interna oportuna y honesta sobre los '
              'resultados, cambios organizacionales y perspectivas de la empresa, '
              'reduciendo la incertidumbre y los rumores.'),
-            ('Plan de desarrollo y carrera',
-             'Ofrecer a los colaboradores oportunidades de crecimiento profesional '
-             'dentro de la organización, con rutas de carrera definidas y '
-             'programas de desarrollo de competencias.'),
+            ('Pago puntual y transparencia salarial',
+             'Asegurar la puntualidad en los pagos y comunicar con claridad los '
+             'criterios de compensación, para reducir la percepción de trato '
+             'injusto.'),
             ('Reconocimiento público de logros',
              'Establecer mecanismos de reconocimiento público (reuniones, '
              'tableros, comunicados) que visibilicen los logros individuales '
              'y colectivos.'),
             ('Encuestas de clima y seguimiento',
              'Aplicar encuestas periódicas de clima laboral para medir la '
-             'percepción de reconocimiento y estabilidad, y actuar sobre los '
-             'resultados con acciones concretas y comunicadas.'),
+             'percepción de reconocimiento, y actuar sobre los resultados con '
+             'acciones concretas y comunicadas.'),
         ],
     },
-    'Atención a clientes': {
+    'Insuficiente sentido de pertenencia e inestabilidad': {
         'intro': (
-            'El personal que atiende clientes internos o externos está expuesto a '
-            'demandas emocionales adicionales. La gestión adecuada de este dominio '
-            'previene el desgaste profesional y mejora la calidad del servicio.'
+            'La percepción de inestabilidad laboral y la falta de sentido de '
+            'pertenencia debilitan el compromiso del colaborador con la '
+            'organización y se asocian a mayor rotación y desmotivación.'
         ),
         'bullets': [
-            ('Capacitación en manejo de situaciones difíciles',
-             'Brindar formación especializada en técnicas de comunicación asertiva, '
-             'desescalada de conflictos y manejo del estrés en la interacción '
-             'con clientes.'),
-            ('Rotación de personal en puestos de alta exposición',
-             'Implementar esquemas de rotación entre colaboradores que atienden '
-             'clientes con mayor frecuencia o complejidad, previniendo el desgaste '
-             'emocional acumulado.'),
-            ('Apoyo psicológico para personal de atención',
-             'Garantizar acceso a servicios de apoyo emocional y psicológico para '
-             'colaboradores que enfrenten situaciones de alta tensión con clientes.'),
-            ('Protocolos claros de atención y escalación',
-             'Documentar y difundir procedimientos claros sobre cómo manejar '
-             'quejas, reclamaciones y situaciones críticas con clientes, '
-             'incluyendo rutas de escalación.'),
-            ('Límites y protección frente a conductas agresivas',
-             'Establecer políticas que protejan a los colaboradores de conductas '
-             'agresivas por parte de clientes, con procedimientos de reporte '
-             'y acompañamiento.'),
-        ],
-    },
-    'Actitudes de supervisados': {
-        'intro': (
-            'Las actitudes de los colaboradores hacia sus supervisores influyen en '
-            'la eficacia del liderazgo y en el clima del equipo. Abordar este '
-            'dominio fortalece la confianza y la comunicación en ambos sentidos.'
-        ),
-        'bullets': [
-            ('Espacios de retroalimentación ascendente',
-             'Crear mecanismos formales (buzones, reuniones de equipo, encuestas) '
-             'donde los colaboradores puedan expresar su percepción sobre el '
-             'liderazgo y el funcionamiento del equipo de manera constructiva.'),
-            ('Talleres de comunicación entre supervisores y equipos',
-             'Facilitar sesiones conjuntas entre líderes y sus equipos para '
-             'trabajar la comunicación, alinear expectativas y abordar conflictos '
-             'de manera colaborativa.'),
-            ('Clarificación de roles y expectativas',
-             'Asegurar que todos los colaboradores tengan claridad sobre sus '
-             'funciones, responsabilidades y lo que se espera de ellos, '
-             'reduciendo fuentes de tensión con sus supervisores.'),
-            ('Mediación en conflictos supervisor-colaborador',
-             'Contar con un proceso de mediación formal para atender conflictos '
-             'específicos entre supervisores y colaboradores, con apoyo de '
-             'Recursos Humanos.'),
-            ('Cultura de respeto mutuo en la jerarquía',
-             'Reforzar los valores de respeto, profesionalismo y colaboración '
-             'en la relación entre todos los niveles de la organización, '
-             'independientemente del rol jerárquico.'),
+            ('Plan de desarrollo y carrera',
+             'Ofrecer a los colaboradores oportunidades de crecimiento profesional '
+             'dentro de la organización, con rutas de carrera definidas y '
+             'programas de desarrollo de competencias.'),
+            ('Comunicación de la estabilidad y perspectivas del puesto',
+             'Informar con claridad sobre la naturaleza del contrato, la '
+             'permanencia esperada y los planes de la organización que puedan '
+             'afectar la continuidad del empleo.'),
+            ('Programas de integración y sentido de pertenencia',
+             'Implementar actividades de bienvenida, integración y celebración de '
+             'la cultura organizacional que refuercen la identificación del '
+             'colaborador con la empresa.'),
+            ('Canales de escucha sobre estabilidad laboral',
+             'Habilitar espacios donde los colaboradores puedan expresar dudas o '
+             'inquietudes sobre la continuidad de su empleo, con respuestas '
+             'honestas y oportunas por parte de la organización.'),
+            ('Orgullo de pertenencia',
+             'Comunicar logros, certificaciones y buenas prácticas de la empresa '
+             'que refuercen el orgullo de los colaboradores de formar parte de '
+             'ella.'),
         ],
     },
 }

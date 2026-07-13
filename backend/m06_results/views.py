@@ -11,7 +11,7 @@ from accounts.permissions import IsTenantAdmin
 from m00_onboarding.models import CicloNOM, Trabajador
 from m00_onboarding.views import _muestra
 from m05_questionnaires.models import Aplicacion
-from .models import ResultadoAplicacion, ResultadoDominio
+from .models import ResultadoAplicacion, ResultadoDominio, ResultadoDominioOficial
 from .serializers import ResultadoAplicacionSerializer, ResultadoListSerializer
 from .scoring import calcular_resultado
 
@@ -40,7 +40,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
             'aplicacion__trabajador',
             'aplicacion__cuestionario',
             'aplicacion__ciclo',
-        ).prefetch_related('dominios__dominio')
+        ).prefetch_related('dominios__dominio', 'dominios_oficiales')
 
         ciclo_id = self.request.query_params.get('ciclo_id')
         tenant   = _tenant_para_ciclo(self.request, ciclo_id)
@@ -132,6 +132,20 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                     categoria   = d['categoria'],
                 )
                 for d in datos['dominios']
+            ])
+
+            resultado.dominios_oficiales.all().delete()
+            ResultadoDominioOficial.objects.bulk_create([
+                ResultadoDominioOficial(
+                    resultado   = resultado,
+                    clave       = d['clave'],
+                    nombre      = d['nombre'],
+                    orden       = d['orden'],
+                    puntaje     = d['puntaje'],
+                    puntaje_max = d['puntaje_max'],
+                    categoria   = d['categoria'],
+                )
+                for d in datos.get('dominios_oficiales', [])
             ])
 
             if created:
@@ -236,9 +250,9 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'], url_path='dominios-agregados')
     def dominios_agregados(self, request):
         """
-        Puntaje promedio, categoría modal y distribución de niveles por dominio
-        de Guía III, incluyendo desglose por área.
-        Solo considera dominios con puntaje_max > 0 (excluye D13/D14 no aplicables).
+        Puntaje promedio, categoría modal y distribución de niveles por
+        dominio oficial (Tabla 6, Guía III), incluyendo desglose por área.
+        Solo considera dominios con puntaje_max > 0.
         """
         ciclo_id = request.query_params.get('ciclo_id')
         if not ciclo_id:
@@ -248,28 +262,27 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
 
         tenant = _tenant_para_ciclo(request, ciclo_id)
 
-        dominios_qs = ResultadoDominio.objects.filter(
+        dominios_qs = ResultadoDominioOficial.objects.filter(
             resultado__aplicacion__tenant=tenant,
             resultado__aplicacion__ciclo_id=ciclo_id,
             resultado__aplicacion__cuestionario__clave='III',
             puntaje_max__gt=0,
         ).select_related(
-            'dominio',
             'resultado__aplicacion__trabajador',
         )
 
         # Agrupar en memoria por clave de dominio
         dominio_map = {}
         for rd in dominios_qs:
-            clave  = rd.dominio.clave
-            nombre = rd.dominio.nombre
+            clave  = rd.clave
+            nombre = rd.nombre
             area   = rd.resultado.aplicacion.trabajador.area or 'Sin área'
 
             if clave not in dominio_map:
                 dominio_map[clave] = {
                     'dominio_clave':  clave,
                     'dominio_nombre': nombre,
-                    'orden':          rd.dominio.orden,
+                    'orden':          rd.orden,
                     'pt':             0,
                     'pm':             0,
                     'cats':           {k: 0 for k in DIST_KEYS},

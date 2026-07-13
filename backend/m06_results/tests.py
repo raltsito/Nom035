@@ -6,8 +6,7 @@ from .scoring import (
     _calcular_guia_i,
     _calcular_guia_iii,
     _categoria_por_rangos,
-    GUIA_III_GLOBAL,
-    GUIA_III_DOMINIOS,
+    _CORTES_FINAL,
 )
 
 
@@ -15,11 +14,12 @@ from .scoring import (
 # Helpers para construir mocks de Aplicacion
 # ---------------------------------------------------------------------------
 
-def _pregunta(id, tipo='frecuencia', inversa=False):
+def _pregunta(id, tipo='frecuencia', inversa=False, orden=1):
     p = MagicMock()
     p.id             = id
     p.tipo_respuesta = tipo
     p.inversa        = inversa
+    p.orden          = orden
     return p
 
 
@@ -76,24 +76,24 @@ def _build_guia_iii_aplicacion(dominios_data):
 class TestCategoriaPorRangos(TestCase):
 
     def test_nulo(self):
-        self.assertEqual(_categoria_por_rangos(0, GUIA_III_GLOBAL), 'nulo')
-        self.assertEqual(_categoria_por_rangos(19, GUIA_III_GLOBAL), 'nulo')
+        self.assertEqual(_categoria_por_rangos(0, _CORTES_FINAL), 'nulo')
+        self.assertEqual(_categoria_por_rangos(49, _CORTES_FINAL), 'nulo')
 
     def test_bajo(self):
-        self.assertEqual(_categoria_por_rangos(20, GUIA_III_GLOBAL), 'bajo')
-        self.assertEqual(_categoria_por_rangos(44, GUIA_III_GLOBAL), 'bajo')
+        self.assertEqual(_categoria_por_rangos(50, _CORTES_FINAL), 'bajo')
+        self.assertEqual(_categoria_por_rangos(74, _CORTES_FINAL), 'bajo')
 
     def test_medio(self):
-        self.assertEqual(_categoria_por_rangos(45, GUIA_III_GLOBAL), 'medio')
-        self.assertEqual(_categoria_por_rangos(79, GUIA_III_GLOBAL), 'medio')
+        self.assertEqual(_categoria_por_rangos(75, _CORTES_FINAL), 'medio')
+        self.assertEqual(_categoria_por_rangos(98, _CORTES_FINAL), 'medio')
 
     def test_alto(self):
-        self.assertEqual(_categoria_por_rangos(80, GUIA_III_GLOBAL), 'alto')
-        self.assertEqual(_categoria_por_rangos(140, GUIA_III_GLOBAL), 'alto')
+        self.assertEqual(_categoria_por_rangos(99, _CORTES_FINAL), 'alto')
+        self.assertEqual(_categoria_por_rangos(139, _CORTES_FINAL), 'alto')
 
     def test_muy_alto(self):
-        self.assertEqual(_categoria_por_rangos(141, GUIA_III_GLOBAL), 'muy_alto')
-        self.assertEqual(_categoria_por_rangos(999, GUIA_III_GLOBAL), 'muy_alto')
+        self.assertEqual(_categoria_por_rangos(140, _CORTES_FINAL), 'muy_alto')
+        self.assertEqual(_categoria_por_rangos(999, _CORTES_FINAL), 'muy_alto')
 
 
 # ---------------------------------------------------------------------------
@@ -102,20 +102,23 @@ class TestCategoriaPorRangos(TestCase):
 
 class TestGuiaI(TestCase):
 
-    def _app_con_respuestas(self, d1_positivos, sintomas_positivos):
+    def _app_con_respuestas(self, d1_positivos, d2_si=0, d3_si=0, d4_si=0):
         """
-        Construye aplicación Guía I y respuestas.
-        d1_positivos: cuántas preguntas de D1 marcan "Sí".
-        sintomas_positivos: cuántos "Sí" en D2+D3+D4 combinados.
+        Construye aplicación Guía I con las 4 secciones reales (conteos de
+        preguntas iguales a los de producción): D1 = Sección I (ATS, 6
+        preguntas), D2 = Sección II (2), D3 = Sección III (7), D4 = Sección
+        IV (5). *_si = cuántas preguntas de esa sección se responden "Sí".
         """
-        # D1: 6 preguntas si_no
         d1_preguntas = [_pregunta(i, 'si_no') for i in range(1, 7)]
-        # D2-D4: 14 preguntas si_no en total (simplificado)
-        d2_preguntas = [_pregunta(i, 'si_no') for i in range(7, 14)]
+        d2_preguntas = [_pregunta(i, 'si_no') for i in range(7, 9)]
+        d3_preguntas = [_pregunta(i, 'si_no') for i in range(9, 16)]
+        d4_preguntas = [_pregunta(i, 'si_no') for i in range(16, 21)]
 
         dominios = [
-            _dominio('D1', 'ATS', d1_preguntas),
-            _dominio('D2', 'Síntomas', d2_preguntas),
+            _dominio('D1', 'Seccion I', d1_preguntas),
+            _dominio('D2', 'Seccion II', d2_preguntas),
+            _dominio('D3', 'Seccion III', d3_preguntas),
+            _dominio('D4', 'Seccion IV', d4_preguntas),
         ]
 
         app = MagicMock()
@@ -126,47 +129,64 @@ class TestGuiaI(TestCase):
         for i, p in enumerate(d1_preguntas):
             respuestas[p.id] = _respuesta(1 if i < d1_positivos else 0)
         for i, p in enumerate(d2_preguntas):
-            respuestas[p.id] = _respuesta(1 if i < sintomas_positivos else 0)
+            respuestas[p.id] = _respuesta(1 if i < d2_si else 0)
+        for i, p in enumerate(d3_preguntas):
+            respuestas[p.id] = _respuesta(1 if i < d3_si else 0)
+        for i, p in enumerate(d4_preguntas):
+            respuestas[p.id] = _respuesta(1 if i < d4_si else 0)
 
-        app.respuestas.all.return_value = [
-            MagicMock(pregunta_id=pid, valor=r.valor)
-            for pid, r in respuestas.items()
-        ]
         return app, respuestas
 
-    def test_caso_positivo(self):
-        """D1 ≥ 1 Y síntomas ≥ 2 → requiere_atencion=True."""
-        app, respuestas = self._app_con_respuestas(d1_positivos=1, sintomas_positivos=2)
+    def test_positivo_por_seccion_ii(self):
+        """D1≥1 y Sección II≥1 (III y IV en 0) → requiere_atencion=True."""
+        app, respuestas = self._app_con_respuestas(d1_positivos=1, d2_si=1)
         result = _calcular_guia_i(app, respuestas)
         self.assertTrue(result['requiere_atencion'])
         self.assertEqual(result['categoria'], 'requiere_atencion')
 
-    def test_solo_un_sintoma(self):
-        """D1 ≥ 1 pero solo 1 síntoma → requiere_atencion=False."""
-        app, respuestas = self._app_con_respuestas(d1_positivos=1, sintomas_positivos=1)
+    def test_seccion_iii_requiere_umbral_de_tres(self):
+        """Sección III dispara sola solo con >=3 (no con 2)."""
+        app, respuestas = self._app_con_respuestas(d1_positivos=1, d3_si=2)
+        result = _calcular_guia_i(app, respuestas)
+        self.assertFalse(result['requiere_atencion'])
+
+        app, respuestas = self._app_con_respuestas(d1_positivos=1, d3_si=3)
+        result = _calcular_guia_i(app, respuestas)
+        self.assertTrue(result['requiere_atencion'])
+
+    def test_seccion_iv_requiere_umbral_de_dos(self):
+        """Sección IV dispara sola solo con >=2 (no con 1)."""
+        app, respuestas = self._app_con_respuestas(d1_positivos=1, d4_si=1)
+        result = _calcular_guia_i(app, respuestas)
+        self.assertFalse(result['requiere_atencion'])
+
+        app, respuestas = self._app_con_respuestas(d1_positivos=1, d4_si=2)
+        result = _calcular_guia_i(app, respuestas)
+        self.assertTrue(result['requiere_atencion'])
+
+    def test_suma_combinada_no_sustituye_umbral_por_seccion(self):
+        """Caso real encontrado en producción: la suma D2+D3+D4 llega a 2
+        (aquí solo por D3=2) pero ninguna sección alcanza su propio umbral
+        -> NO requiere atención. El criterio viejo (suma combinada >=2)
+        marcaba esto como falso positivo."""
+        app, respuestas = self._app_con_respuestas(d1_positivos=1, d3_si=2)
         result = _calcular_guia_i(app, respuestas)
         self.assertFalse(result['requiere_atencion'])
         self.assertEqual(result['categoria'], 'sin_indicadores')
 
     def test_d1_negativo(self):
         """Sin acontecimiento en D1 → requiere_atencion=False aunque haya síntomas."""
-        app, respuestas = self._app_con_respuestas(d1_positivos=0, sintomas_positivos=5)
+        app, respuestas = self._app_con_respuestas(d1_positivos=0, d2_si=1, d3_si=5, d4_si=3)
         result = _calcular_guia_i(app, respuestas)
         self.assertFalse(result['requiere_atencion'])
         self.assertEqual(result['categoria'], 'sin_indicadores')
 
     def test_sin_respuestas(self):
         """Trabajador que no respondió nada → sin_indicadores."""
-        app, respuestas = self._app_con_respuestas(d1_positivos=0, sintomas_positivos=0)
+        app, respuestas = self._app_con_respuestas(d1_positivos=0)
         result = _calcular_guia_i(app, respuestas)
         self.assertFalse(result['requiere_atencion'])
         self.assertEqual(result['categoria'], 'sin_indicadores')
-
-    def test_umbral_exacto_dos_sintomas(self):
-        """Exactamente 2 síntomas con D1 positivo → requiere_atencion=True."""
-        app, respuestas = self._app_con_respuestas(d1_positivos=2, sintomas_positivos=2)
-        result = _calcular_guia_i(app, respuestas)
-        self.assertTrue(result['requiere_atencion'])
 
 
 # ---------------------------------------------------------------------------
@@ -178,11 +198,14 @@ class TestGuiaIII(TestCase):
     def _app_puntaje(self, puntaje_deseado):
         """
         Crea una aplicación Guía III con un solo dominio D1 y respuestas
-        ajustadas para alcanzar el puntaje_deseado.
-        Usa preguntas directas (no inversas) con valor = 4 cada una.
+        ajustadas para alcanzar el puntaje_deseado. Usa valor = 4 por
+        pregunta. La inversión por ítem se desactiva (parcheada) en estos
+        tests porque lo que se ejercita aquí es la clasificación por
+        `_CORTES_FINAL`, no la tabla de inversión (que tiene sus propios
+        tests en TestInversionItems).
         """
         n_preguntas = max(1, (puntaje_deseado + 3) // 4)
-        preguntas   = [_pregunta(i, 'frecuencia', False) for i in range(1, n_preguntas + 1)]
+        preguntas   = [_pregunta(i, 'frecuencia', False, orden=i) for i in range(1, n_preguntas + 1)]
 
         dominio = _dominio('D1', 'Ambiente', preguntas)
 
@@ -200,27 +223,32 @@ class TestGuiaIII(TestCase):
 
         return app, respuestas
 
+    @patch('m06_results.scoring._GUIA_III_INVERSOS', set())
     def test_nivel_nulo(self):
         app, respuestas = self._app_puntaje(10)
         result = _calcular_guia_iii(app, respuestas)
         self.assertEqual(result['categoria'], 'nulo')
         self.assertIsNone(result['requiere_atencion'])
 
+    @patch('m06_results.scoring._GUIA_III_INVERSOS', set())
     def test_nivel_bajo(self):
-        app, respuestas = self._app_puntaje(30)
+        app, respuestas = self._app_puntaje(60)
         result = _calcular_guia_iii(app, respuestas)
         self.assertEqual(result['categoria'], 'bajo')
 
+    @patch('m06_results.scoring._GUIA_III_INVERSOS', set())
     def test_nivel_medio(self):
-        app, respuestas = self._app_puntaje(60)
+        app, respuestas = self._app_puntaje(85)
         result = _calcular_guia_iii(app, respuestas)
         self.assertEqual(result['categoria'], 'medio')
 
+    @patch('m06_results.scoring._GUIA_III_INVERSOS', set())
     def test_nivel_alto(self):
-        app, respuestas = self._app_puntaje(100)
+        app, respuestas = self._app_puntaje(110)
         result = _calcular_guia_iii(app, respuestas)
         self.assertEqual(result['categoria'], 'alto')
 
+    @patch('m06_results.scoring._GUIA_III_INVERSOS', set())
     def test_nivel_muy_alto(self):
         app, respuestas = self._app_puntaje(150)
         result = _calcular_guia_iii(app, respuestas)
@@ -228,9 +256,9 @@ class TestGuiaIII(TestCase):
 
     def test_d13_excluido_si_no_aplica(self):
         """D13 con filtro respondido 'No' no suma al puntaje total."""
-        filtro  = _pregunta(100, 'si_no')
-        p65     = _pregunta(101, 'frecuencia')
-        p66     = _pregunta(102, 'frecuencia')
+        filtro  = _pregunta(100, 'si_no', orden=1)
+        p65     = _pregunta(101, 'frecuencia', orden=1)
+        p66     = _pregunta(102, 'frecuencia', orden=2)
         d13     = _dominio('D13', 'Clientes', [filtro, p65, p66])
 
         app = MagicMock()
@@ -250,9 +278,9 @@ class TestGuiaIII(TestCase):
 
     def test_d13_incluido_si_aplica(self):
         """D13 con filtro respondido 'Sí' sí suma al puntaje total."""
-        filtro = _pregunta(100, 'si_no')
-        p65    = _pregunta(101, 'frecuencia')
-        p66    = _pregunta(102, 'frecuencia')
+        filtro = _pregunta(100, 'si_no', orden=1)
+        p65    = _pregunta(101, 'frecuencia', orden=1)
+        p66    = _pregunta(102, 'frecuencia', orden=2)
         d13    = _dominio('D13', 'Clientes', [filtro, p65, p66])
 
         app = MagicMock()
@@ -267,6 +295,88 @@ class TestGuiaIII(TestCase):
         result = _calcular_guia_iii(app, respuestas)
         self.assertEqual(result['puntaje_total'], 5)
         self.assertEqual(result['puntaje_max'], 8)
+
+
+# ---------------------------------------------------------------------------
+# Tests — inversión por ítem oficial (Tabla 5) y dominios_oficiales (Tabla 6)
+# ---------------------------------------------------------------------------
+
+class TestInversionYDominiosOficiales(TestCase):
+
+    def _resultado(self, dominios_data):
+        """dominios_data: lista de (clave, nombre, [(id, orden), ...]) — todas
+        preguntas tipo 'frecuencia'."""
+        dominios = []
+        respuestas = {}
+        for clave, nombre, preguntas_def in dominios_data:
+            preguntas = [_pregunta(pid, 'frecuencia', orden=orden) for pid, orden in preguntas_def]
+            for pid, _ in preguntas_def:
+                respuestas[pid] = _respuesta(1)
+            dominios.append(_dominio(clave, nombre, preguntas))
+
+        app = MagicMock()
+        app.cuestionario.clave = 'III'
+        app.cuestionario.dominios.prefetch_related.return_value.all.return_value = dominios
+        return _calcular_guia_iii(app, respuestas)
+
+    def test_d1_items_1_y_4_se_invierten(self):
+        """D1-P1 (ítem 1) y D1-P4 (ítem 4) deben invertirse; P2, P3, P5 no."""
+        result = self._resultado([
+            ('D1', 'Ambiente', [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]),
+        ])
+        d1 = next(d for d in result['dominios'] if d['dominio_clave'] == 'D1')
+        # valor=1 en todas: item1 y item4 invertidos → 4-1=3; el resto directo → 1
+        self.assertEqual(d1['puntaje'], 3 + 1 + 1 + 3 + 1)
+
+    def test_d7_item_29_no_se_invierte_item_30_si(self):
+        """D7-P1 (ítem 29) NO debe invertirse; D7-P2 (ítem 30) sí."""
+        result = self._resultado([
+            ('D7', 'Cambios', [(1, 1), (2, 2)]),
+        ])
+        d7 = next(d for d in result['dominios'] if d['dominio_clave'] == 'D7')
+        # valor=1: item29 directo → 1; item30 invertido → 4-1=3
+        self.assertEqual(d7['puntaje'], 1 + 3)
+
+    def test_d5_se_divide_en_dos_dominios_oficiales(self):
+        """D5 P1-P2 → 'Jornada de trabajo'; P3-P4 → 'Interferencia trabajo-familia'."""
+        result = self._resultado([
+            ('D5', 'Jornada', [(1, 1), (2, 2), (3, 3), (4, 4)]),
+        ])
+        oficiales = {d['nombre']: d for d in result['dominios_oficiales']}
+        jornada = oficiales['Jornada de trabajo']
+        interferencia = oficiales['Interferencia en la relación trabajo-familia']
+        self.assertEqual(jornada['puntaje'], 2)       # P1, P2 con valor=1 cada una
+        self.assertEqual(jornada['puntaje_max'], 8)
+        self.assertEqual(interferencia['puntaje'], 2)  # P3, P4 con valor=1 cada una
+        self.assertEqual(interferencia['puntaje_max'], 8)
+
+    @patch('m06_results.scoring._GUIA_III_INVERSOS', set())
+    def test_d13_y_d14_se_funden_en_carga_y_relaciones(self):
+        """D13 suma a 'Carga de trabajo'; D14 a 'Relaciones en el trabajo'.
+        Inversión desactivada aquí: lo que se ejercita es la fusión de
+        dominios (Tabla 6), no la tabla de inversión (ver TestInversion*)."""
+        result = self._resultado([
+            ('D2', 'Ritmo', [(10, 1), (11, 2), (12, 3)]),
+            ('D13', 'Clientes', [(20, 1), (21, 2)]),
+            ('D10', 'Companeros', [(30, 1)]),
+            ('D14', 'Supervisados', [(40, 1)]),
+        ])
+        oficiales = {d['nombre']: d for d in result['dominios_oficiales']}
+        # Carga de trabajo = D2 (3 items, valor=1) + D13 (2 items, valor=1) = 5
+        self.assertEqual(oficiales['Carga de trabajo']['puntaje'], 5)
+        # Relaciones en el trabajo = D10 (1 item) + D14 (1 item) = 2
+        self.assertEqual(oficiales['Relaciones en el trabajo']['puntaje'], 2)
+
+    def test_dominios_oficiales_cubre_los_10_con_categoria_consistente(self):
+        result = self._resultado([('D1', 'Ambiente', [(1, 1)])])
+        nombres = {d['nombre'] for d in result['dominios_oficiales']}
+        from .scoring import _DOMINIOS_OFICIALES, _CORTES_DOMINIO
+        self.assertEqual(nombres, set(_DOMINIOS_OFICIALES))
+        for d in result['dominios_oficiales']:
+            self.assertEqual(
+                d['categoria'],
+                _categoria_por_rangos(d['puntaje'], _CORTES_DOMINIO[d['nombre']]),
+            )
 
 
 # ---------------------------------------------------------------------------

@@ -34,9 +34,11 @@ MARCO_NORMATIVO = {
     ],
     'criterio_guia_i':
         'Se considera caso positivo cuando el trabajador reporta al menos un (1) '
-        'acontecimiento traumático severo (Sección I) y al menos dos (2) síntomas '
-        'asociados de las Secciones II, III y IV (recuerdos persistentes, '
-        'esfuerzo por evitar y afectación), conforme a la Guía de Referencia I.',
+        'acontecimiento traumático severo (Sección I) y cumple alguno de los '
+        'siguientes umbrales por sección: al menos un (1) síntoma en la Sección II '
+        '(recuerdos persistentes), al menos tres (3) en la Sección III (esfuerzo '
+        'por evitar) o al menos dos (2) en la Sección IV (afectación) — conforme '
+        'al apartado GR.I, inciso b), de la Guía de Referencia I.',
     'criterio_guia_iii':
         'La calificación de la Guía III se realiza por dominio y de forma global, '
         'comparando el puntaje obtenido contra los rangos normativos del cuadro '

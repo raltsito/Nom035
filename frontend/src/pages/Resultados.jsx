@@ -246,14 +246,20 @@ export default function Resultados() {
       {resumen && (
         <div className={styles.statsSection}>
           <div className={styles.statsRow}>
-            <div className={`${styles.statCard} nom-card`}>
+            <div
+              className={`${styles.statCard} nom-card`}
+              title="Trabajadores activos de la empresa en este ciclo."
+            >
               <div className={styles.statIcon}><Users size={18} strokeWidth={1.75} /></div>
               <div>
                 <div className={styles.statNum}>{resumen.headcount_total}</div>
                 <div className={styles.statLabel}>HeadCount total</div>
               </div>
             </div>
-            <div className={`${styles.statCard} nom-card`}>
+            <div
+              className={`${styles.statCard} nom-card`}
+              title="Tamaño de muestra requerido (Ecuación 1, NOM-035-STPS-2018) a partir del HeadCount."
+            >
               <div className={styles.statIcon} style={{ background: 'var(--nom-accent-subtle)', color: 'var(--nom-accent)' }}>
                 <Target size={18} strokeWidth={1.75} />
               </div>
@@ -262,13 +268,16 @@ export default function Resultados() {
                 <div className={styles.statLabel}>Muestra</div>
               </div>
             </div>
-            <div className={`${styles.statCard} nom-card`}>
+            <div
+              className={`${styles.statCard} nom-card`}
+              title="Trabajadores (no aplicaciones) que ya completaron TODAS las guías que les corresponden en este ciclo."
+            >
               <div className={styles.statIcon} style={{ background: 'var(--nom-success-subtle)', color: 'var(--nom-success)' }}>
                 <CheckCircle2 size={18} strokeWidth={1.75} />
               </div>
               <div>
                 <div className={styles.statNum}>{resumen.empleados_completos}</div>
-                <div className={styles.statLabel}>Completadas</div>
+                <div className={styles.statLabel}>Trabajadores completos</div>
               </div>
             </div>
           </div>
@@ -434,7 +443,7 @@ export default function Resultados() {
             </div>
 
             <div className={styles.dominiosList}>
-              {(detalle.dominios || []).map(d => {
+              {(detalle.dominios_oficiales?.length ? detalle.dominios_oficiales : detalle.dominios || []).map(d => {
                 const cfg = CAT[d.categoria] || CAT.bajo;
                 return (
                   <div key={d.id} className={styles.dominioItem}>
