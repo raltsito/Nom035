@@ -25,6 +25,11 @@ const SEG_LEN    = (TOTAL_LEN - SEG_N * SEG_GAP_PX) / SEG_N;
 const CATS    = ['nulo', 'bajo', 'medio', 'alto', 'muy_alto'];
 const CAT_IDX = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
 
+// Cortes de `score` (0-4) que usa scoreToCategoria() en useDashboardData.js —
+// deben coincidir exactamente, si no el punto puede caer en un segmento de
+// color distinto al de la categoría/etiqueta mostrada.
+const SCORE_BOUNDS = [0, 0.5, 1.5, 2.5, 3.5, 4];
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function toRad(deg) { return (deg * Math.PI) / 180; }
 
@@ -53,7 +58,7 @@ function Segment({ cat, index, opacity, strokeWidth }) {
 
 // ── Component ─────────────────────────────────────────────────────────────
 export default function GaugeRiesgo({ data }) {
-  const pct      = data?.pct ?? 0;
+  const score    = data?.score ?? 0;
   const categoria = data?.categoria ?? 'nulo';
   const catIdx   = CAT_IDX[categoria] ?? 0;
   const color    = RISK_COLORS[categoria] ?? RISK_COLORS.nulo;
@@ -64,8 +69,15 @@ export default function GaugeRiesgo({ data }) {
     </ChartCard>
   );
 
-  // Dot position on arc
-  const dotDeg = START_DEG + (pct / 100) * TOTAL_DEG;
+  // Posición del punto: se ubica DENTRO del segmento de su propia categoría
+  // (catIdx), proporcional a dónde cae `score` en el rango de esa categoría.
+  // Antes se usaba un `pct` lineal (0-100) que no coincidía con los cortes
+  // reales de scoreToCategoria(), y el punto podía caer en un segmento de
+  // color distinto al de la etiqueta mostrada.
+  const lo   = SCORE_BOUNDS[catIdx];
+  const hi   = SCORE_BOUNDS[catIdx + 1];
+  const frac = hi > lo ? Math.min(1, Math.max(0, (score - lo) / (hi - lo))) : 0.5;
+  const dotDeg = START_DEG + ((catIdx + frac) / SEG_N) * TOTAL_DEG;
   const dot    = arcPoint(dotDeg);
 
   // Etiqueta central — solo la calificación, sin porcentaje
@@ -128,7 +140,7 @@ export default function GaugeRiesgo({ data }) {
           })}
 
           {/* ── Position dot ──────────────────────────────────────────── */}
-          {pct > 0 && (
+          {score > 0 && (
             <motion.g
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
