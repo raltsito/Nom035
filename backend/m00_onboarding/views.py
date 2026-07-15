@@ -26,15 +26,54 @@ def _pers_labels(tenant):
 
 
 def _muestra(N):
+    """Ecuación 1, NOM-035-STPS-2018 (GR.III, numeral III.1): tamaño mínimo
+    de muestra para centros que evalúan a una muestra representativa.
+    n = 0.9604·N / (0.0025·(N−1) + 0.9604), redondeado hacia arriba."""
     if N < 1:
         return 0
     return math.ceil((0.9604 * N) / (0.0025 * (N - 1) + 0.9604))
 
 
 def _estrato(n, N, N_e):
+    """Cuota individual de un estrato (ceil). ADVERTENCIA: aplicar ceil a
+    todos los estratos hace que la suma exceda n — para repartir n completo
+    entre varios estratos usar `_estratos_restos_mayores`, que conserva el
+    total exacto."""
     if not N or not N_e:
         return 0
     return math.ceil((N_e / N) * n)
+
+
+def _estratos_restos_mayores(n, N, tamanos):
+    """Asignación proporcional que suma EXACTAMENTE n (método de restos
+    mayores / Hamilton):
+      1. cuota exacta = (N_e / N) · n por estrato;
+      2. se asigna la parte entera de cada cuota;
+      3. los lugares restantes se reparten por fracción mayor;
+      4. ningún estrato recibe más lugares que su población.
+    `tamanos`: lista de tamaños poblacionales por estrato (mismo orden del
+    retorno). La proporcionalidad por sexo que exige la GR.III (III.1) debe
+    verificarse con este reparto, no con ceil por estrato."""
+    if not N or n <= 0 or not tamanos:
+        return [0 for _ in tamanos]
+    n = min(n, sum(tamanos))
+    cuotas    = [(N_e / N) * n for N_e in tamanos]
+    asignados = [min(int(c), t) for c, t in zip(cuotas, tamanos)]
+    restantes = n - sum(asignados)
+    # Ordena por fracción descendente; desempata por cuota exacta mayor.
+    orden = sorted(
+        range(len(tamanos)),
+        key=lambda i: (cuotas[i] - int(cuotas[i]), cuotas[i]),
+        reverse=True,
+    )
+    i = 0
+    while restantes > 0 and i < 2 * len(tamanos):
+        idx = orden[i % len(orden)]
+        if asignados[idx] < tamanos[idx]:
+            asignados[idx] += 1
+            restantes -= 1
+        i += 1
+    return asignados
 
 
 def _agrupar(workers, campo, labels=None):
@@ -77,13 +116,16 @@ def _agrupar_rangos(workers, campo, rangos):
 
 
 def _con_muestra(filas, n, N):
+    """Reparte la muestra n entre las filas (estratos) con restos mayores,
+    de forma que la suma de la columna `muestra` sea exactamente n."""
+    asignados = _estratos_restos_mayores(n, N, [f['total'] for f in filas])
     return [
         {
             **f,
-            'muestra': _estrato(n, N, f['total']),
+            'muestra': m,
             'pct': round(f['total'] / N * 100, 1) if N else 0,
         }
-        for f in filas
+        for f, m in zip(filas, asignados)
     ]
 
 

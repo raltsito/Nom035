@@ -1,8 +1,16 @@
 from rest_framework import serializers
-from .models import ResultadoAplicacion, ResultadoDominio, ResultadoDominioOficial
+from .models import (
+    ResultadoAplicacion,
+    ResultadoCategoria,
+    ResultadoDimension,
+    ResultadoDominio,
+    ResultadoDominioOficial,
+)
 
 
 class ResultadoDominioSerializer(serializers.ModelSerializer):
+    """Bloques internos de captura D1-D14: `categoria` es un semáforo
+    referencial (no un nivel oficial de la NOM-035)."""
     dominio_clave  = serializers.CharField(source='dominio.clave',  read_only=True)
     dominio_nombre = serializers.CharField(source='dominio.nombre', read_only=True)
     porcentaje     = serializers.SerializerMethodField()
@@ -34,6 +42,21 @@ class ResultadoDominioOficialSerializer(serializers.ModelSerializer):
         return round(obj.puntaje / obj.puntaje_max * 100)
 
 
+class ResultadoCategoriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = ResultadoCategoria
+        fields = ['id', 'nombre', 'orden', 'puntaje', 'puntaje_max', 'categoria']
+
+
+class ResultadoDimensionSerializer(serializers.ModelSerializer):
+    """Dimensiones (Tabla 6): SOLO descriptivas — la NOM-035 no establece
+    puntos de corte por dimensión, por lo que no llevan nivel."""
+    class Meta:
+        model  = ResultadoDimension
+        fields = ['id', 'nombre', 'dominio_oficial', 'orden',
+                  'puntaje', 'puntaje_max', 'pct']
+
+
 class ResultadoAplicacionSerializer(serializers.ModelSerializer):
     trabajador_nombre   = serializers.CharField(
         source='aplicacion.trabajador.nombre_completo', read_only=True)
@@ -46,6 +69,8 @@ class ResultadoAplicacionSerializer(serializers.ModelSerializer):
     porcentaje          = serializers.SerializerMethodField()
     dominios            = ResultadoDominioSerializer(many=True, read_only=True)
     dominios_oficiales  = ResultadoDominioOficialSerializer(many=True, read_only=True)
+    categorias          = ResultadoCategoriaSerializer(many=True, read_only=True)
+    dimensiones         = ResultadoDimensionSerializer(many=True, read_only=True)
 
     class Meta:
         model  = ResultadoAplicacion
@@ -53,8 +78,9 @@ class ResultadoAplicacionSerializer(serializers.ModelSerializer):
             'id', 'aplicacion', 'trabajador_nombre', 'trabajador_area',
             'cuestionario_clave', 'ciclo',
             'puntaje_total', 'puntaje_max', 'porcentaje',
-            'categoria', 'requiere_atencion', 'calculado_en', 'dominios',
-            'dominios_oficiales',
+            'categoria', 'requiere_atencion', 'calculado_en',
+            'estatus_validacion', 'version_motor', 'hash_respuestas',
+            'dominios', 'dominios_oficiales', 'categorias', 'dimensiones',
         ]
 
     def get_porcentaje(self, obj):
@@ -74,4 +100,5 @@ class ResultadoListSerializer(ResultadoAplicacionSerializer):
             'trabajador_tipo_puesto', 'cuestionario_clave', 'ciclo',
             'puntaje_total', 'puntaje_max', 'porcentaje',
             'categoria', 'requiere_atencion', 'calculado_en',
+            'estatus_validacion',
         ]

@@ -530,10 +530,13 @@
     <div class="big">{{ nivel_global_label }}</div>
     <div>
       <div style="font-family:Arial,sans-serif;font-size:8.5pt;letter-spacing:.05em;text-transform:uppercase">
-        Puntaje global promedio: <strong>{{ promedio_global }}</strong>
+        Nivel predominante (moda de los niveles individuales) ·
+        {{ pct_alto_muy_alto }}% en Alto o Muy alto ·
+        Puntaje promedio (descriptivo): <strong>{{ promedio_global }}</strong>
       </div>
     </div>
   </div>
+  {% if nota_promedio %}<p class="mute" style="font-style:italic">{{ nota_promedio }}</p>{% endif %}
   <p>{{ nivel_global_texto }}</p>
 
   <table class="t">
@@ -611,41 +614,72 @@
 </div>
 
 <div class="sec">
-  <div class="sub-title" id="sec-9-4">9.4. Dimensiones</div>
+  <div class="sub-title" id="sec-9-4">9.4. Dimensiones (indicador descriptivo)</div>
   <p class="mute" style="font-style:italic">
-    Desagregación de cada dominio oficial en sus dimensiones (D1-D14), calculadas
-    promediando el puntaje de los ítems que las componen.
+    Las 25 dimensiones de la Tabla 6 de la Guía de Referencia III.
+    {{ nota_dimensiones|default:'Indicador descriptivo. La NOM-035-STPS-2018 no establece puntos de corte por dimensión.' }}
   </p>
   <table class="t">
-    <thead><tr><th style="width:14%">Clave</th><th style="width:36%">Dimensión</th><th>Dominio</th><th>Promedio</th><th>Nivel</th></tr></thead>
+    <thead><tr><th style="width:6%">#</th><th style="width:36%">Dimensión</th><th>Dominio</th><th>N</th><th>% promedio</th><th>% mediana</th></tr></thead>
     <tbody>
       {% for dim in dimensiones %}
+      <tr>
+        <td class="dom-key">{{ dim.orden }}</td>
+        <td>{{ dim.nombre }}</td>
+        <td class="mute">{{ dim.dominio_oficial }}</td>
+        <td>{{ dim.n }}</td>
+        <td>{{ dim.pct_promedio }}%</td>
+        <td>{{ dim.pct_mediana }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if bloques_captura %}
+  <div class="sub-title" style="font-size:10pt">Bloques internos de captura (análisis complementario no normativo)</div>
+  <p class="mute" style="font-style:italic">
+    Los bloques D1-D14 corresponden a la organización interna del cuestionario y no son
+    unidades de calificación de la NOM-035.
+  </p>
+  <table class="t">
+    <thead><tr><th style="width:14%">Clave</th><th style="width:36%">Bloque</th><th>Dominio oficial</th><th>Promedio</th></tr></thead>
+    <tbody>
+      {% for dim in bloques_captura %}
       <tr>
         <td class="dom-key">{{ dim.clave }}</td>
         <td>{{ dim.nombre }}</td>
         <td class="mute">{{ dim.dominio_oficial }}</td>
         <td>{{ dim.puntaje_promedio }}/{{ dim.puntaje_max }}</td>
-        <td><span class="pill {{ dim.categoria_predominante }}">{{ dim.categoria_predominante|nivel_label }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
 </div>
 
 {% if riesgo_tablas %}
 <div class="sec">
-  <div class="sub-title">Nivel de riesgo por variables sociodemográficas</div>
+  <div class="sub-title">Distribución de niveles por variables sociodemográficas</div>
+  <p class="mute" style="font-style:italic">
+    El nivel mostrado es el predominante (moda) entre los cuestionarios individuales del
+    grupo; el promedio es un estadístico descriptivo. Los grupos pequeños se reservan
+    por confidencialidad.
+  </p>
   {% for grupo in riesgo_tablas %}
   <div class="sub-title" style="font-size:10pt">{{ grupo.titulo }}</div>
   <table class="t">
-    <thead><tr><th>{{ grupo.col }}</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <thead><tr><th>{{ grupo.col }}</th><th>Evaluados</th><th>Puntaje prom.</th><th>% Alto + Muy alto</th><th>Nivel predominante</th></tr></thead>
     <tbody>
       {% for row in grupo.datos %}
       <tr>
         <td>{{ row.label }}</td>
         <td>{{ row.evaluados }}</td>
+        {% if row.reservado %}
+        <td colspan="3" class="mute" style="font-style:italic">{{ row.categoria_label }}</td>
+        {% else %}
         <td style="font-weight:700">{{ row.promedio }}</td>
-        <td><span class="pill {{ row.categoria }}">{{ row.categoria|nivel_label }}</span></td>
+        <td>{{ row.pct_alto }}%</td>
+        <td><span class="pill {{ row.categoria }}">{{ row.categoria_label }}</span></td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -656,16 +690,26 @@
 
 {% if areas_analisis %}
 <div class="sec">
-  <div class="sub-title">Nivel de riesgo por área o departamento</div>
+  <div class="sub-title">Distribución de niveles por área o departamento</div>
+  <p class="mute" style="font-style:italic">
+    El nivel mostrado es el predominante (moda) entre los cuestionarios individuales del
+    área — los puntos de corte oficiales no se aplican a promedios. Las áreas con pocos
+    evaluados se reservan por confidencialidad.
+  </p>
   <table class="t">
-    <thead><tr><th>Área / Departamento</th><th>Evaluados</th><th>Puntaje prom.</th><th>Nivel de riesgo</th></tr></thead>
+    <thead><tr><th>Área / Departamento</th><th>Evaluados</th><th>Puntaje prom.</th><th>% Alto + Muy alto</th><th>Nivel predominante</th></tr></thead>
     <tbody>
       {% for a in areas_analisis %}
       <tr>
         <td style="font-weight:600">{{ a.nombre }}</td>
         <td>{{ a.evaluados }}</td>
+        {% if a.reservado %}
+        <td colspan="3" class="mute" style="font-style:italic">{{ a.categoria_label }}</td>
+        {% else %}
         <td style="font-weight:700">{{ a.promedio }}</td>
-        <td><span class="pill {{ a.categoria }}">{{ a.categoria|nivel_label }}</span></td>
+        <td>{{ a.pct_alto }}%</td>
+        <td><span class="pill {{ a.categoria }}">{{ a.categoria_label }}</span></td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -757,8 +801,13 @@
 </div>
 
 <!-- ===================== 13. ANEXOS ===================== -->
+{% if anexos %}
 <div class="sec" id="sec-13">
-  <div class="sec-title">13. ANEXOS</div>
+  <div class="sec-title">13. ANEXOS (CONFIDENCIAL)</div>
+  <p class="mute" style="font-style:italic">
+    Este anexo contiene resultados individuales identificados por folio y es de manejo
+    confidencial: no debe distribuirse con la versión general del informe.
+  </p>
 
   <div class="sub-title" id="sec-13-1">13.1. ATS y Calificación final</div>
   <table class="t compact">
@@ -823,6 +872,7 @@
     </tbody>
   </table>
 </div>
+{% endif %}
 
 </body>
 </html>

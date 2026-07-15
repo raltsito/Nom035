@@ -8,12 +8,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.permissions import IsTenantAdmin
+from core.confidencialidad import ETIQUETA_RESERVADO, grupo_reservado, umbral_confidencialidad
 from m00_onboarding.models import CicloNOM, Trabajador
 from m00_onboarding.views import _muestra
 from m05_questionnaires.models import Aplicacion
-from .models import ResultadoAplicacion, ResultadoDominio, ResultadoDominioOficial
+from .models import (
+    ResultadoAplicacion,
+    ResultadoCategoria,
+    ResultadoDimension,
+    ResultadoDominio,
+    ResultadoDominioOficial,
+)
 from .serializers import ResultadoAplicacionSerializer, ResultadoListSerializer
-from .scoring import calcular_resultado
+from .scoring import VERSION_MOTOR, calcular_resultado
 
 
 def _wrap(data, meta=None, errors=None, status_code=status.HTTP_200_OK):
@@ -104,7 +111,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 errors={'detalle': ['No hay aplicaciones completadas en este ciclo.']},
                 status_code=status.HTTP_400_BAD_REQUEST)
 
-        calculadas = actualizadas = omitidas = 0
+        calculadas = actualizadas = omitidas = requieren_revision = 0
         for aplicacion in aplicaciones:
             datos = calcular_resultado(aplicacion)
             if datos is None:
@@ -112,17 +119,37 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 omitidas += 1
                 continue
 
+            es_valido = datos.get('es_valido', True)
+            detalle = {'validacion': datos.get('validacion')}
+            if datos.get('guia_i'):
+                detalle['guia_i'] = datos['guia_i']
+            if datos.get('filtros'):
+                detalle['filtros'] = datos['filtros']
+
             resultado, created = ResultadoAplicacion.objects.update_or_create(
                 aplicacion=aplicacion,
                 defaults={
-                    'puntaje_total':     datos['puntaje_total'],
-                    'puntaje_max':       datos['puntaje_max'],
-                    'categoria':         datos['categoria'],
-                    'requiere_atencion': datos.get('requiere_atencion'),
+                    'puntaje_total':      datos['puntaje_total'] or 0,
+                    'puntaje_max':        datos['puntaje_max'] or 0,
+                    # Un cuestionario inválido NO se clasifica.
+                    'categoria':          datos['categoria'] if es_valido else 'sin_calificar',
+                    'requiere_atencion':  datos.get('requiere_atencion') if es_valido else None,
+                    'estatus_validacion': 'valido' if es_valido else 'requiere_revision',
+                    'version_motor':      datos.get('version_motor', VERSION_MOTOR),
+                    'hash_respuestas':    datos.get('hash_respuestas', ''),
+                    'detalle':            detalle,
                 },
             )
 
             resultado.dominios.all().delete()
+            resultado.dominios_oficiales.all().delete()
+            resultado.categorias.all().delete()
+            resultado.dimensiones.all().delete()
+
+            if not es_valido:
+                requieren_revision += 1
+                continue
+
             ResultadoDominio.objects.bulk_create([
                 ResultadoDominio(
                     resultado   = resultado,
@@ -134,7 +161,6 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 for d in datos['dominios']
             ])
 
-            resultado.dominios_oficiales.all().delete()
             ResultadoDominioOficial.objects.bulk_create([
                 ResultadoDominioOficial(
                     resultado   = resultado,
@@ -148,18 +174,45 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 for d in datos.get('dominios_oficiales', [])
             ])
 
+            ResultadoCategoria.objects.bulk_create([
+                ResultadoCategoria(
+                    resultado   = resultado,
+                    nombre      = c['nombre'],
+                    orden       = c['orden'],
+                    puntaje     = c['puntaje'],
+                    puntaje_max = c['puntaje_max'],
+                    categoria   = c['categoria'],
+                )
+                for c in datos.get('categorias', [])
+            ])
+
+            ResultadoDimension.objects.bulk_create([
+                ResultadoDimension(
+                    resultado       = resultado,
+                    nombre          = d['nombre'],
+                    dominio_oficial = d['dominio_oficial'],
+                    orden           = d['orden'],
+                    puntaje         = d['puntaje'],
+                    puntaje_max     = d['puntaje_max'],
+                    pct             = d['pct'],
+                )
+                for d in datos.get('dimensiones', [])
+            ])
+
             if created:
                 calculadas += 1
             else:
                 actualizadas += 1
 
         return _wrap(None, meta={
-            'ciclo_id':     ciclo.id,
-            'ciclo_anio':   ciclo.anio,
-            'calculadas':   calculadas,
-            'actualizadas': actualizadas,
-            'omitidas':     omitidas,
-            'total':        calculadas + actualizadas,
+            'ciclo_id':           ciclo.id,
+            'ciclo_anio':         ciclo.anio,
+            'calculadas':         calculadas,
+            'actualizadas':       actualizadas,
+            'omitidas':           omitidas,
+            'requieren_revision': requieren_revision,
+            'version_motor':      VERSION_MOTOR,
+            'total':              calculadas + actualizadas,
         })
 
     # ------------------------------------------------------------------
@@ -184,11 +237,15 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
             aplicacion__cuestionario__clave='I',
         )
 
-        # Distribución global de Guía III
+        # Distribución global de Guía III (solo cuestionarios válidos: los
+        # 'sin_calificar' no entran a ninguna distribución normativa)
         dist_iii = {k: 0 for k in DIST_KEYS}
+        requieren_revision = 0
         for r in qs_iii:
             if r.categoria in dist_iii:
                 dist_iii[r.categoria] += 1
+            elif r.estatus_validacion == 'requiere_revision':
+                requieren_revision += 1
 
         # Conteos de aplicaciones
         base = Aplicacion.objects.filter(tenant=tenant, ciclo_id=ciclo_id)
@@ -233,10 +290,11 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 'sin_indicadores':    sin_indicadores,
             },
             'guia_iii': {
-                'total':         total_iii,
-                'completadas':   completadas_iii,
-                'con_resultado': qs_iii.count(),
-                'distribucion':  dist_iii,
+                'total':              total_iii,
+                'completadas':        completadas_iii,
+                'con_resultado':      qs_iii.count(),
+                'requieren_revision': requieren_revision,
+                'distribucion':       dist_iii,
             },
             'guia_v': {
                 'total':       total_v,
@@ -266,6 +324,7 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
             resultado__aplicacion__tenant=tenant,
             resultado__aplicacion__ciclo_id=ciclo_id,
             resultado__aplicacion__cuestionario__clave='III',
+            resultado__estatus_validacion='valido',
             puntaje_max__gt=0,
         ).select_related(
             'resultado__aplicacion__trabajador',
@@ -301,33 +360,62 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
             if rd.categoria in area_entry['cats']:
                 area_entry['cats'][rd.categoria] += 1
 
-        # Serializar resultado
+        # Serializar resultado. La conclusión por dominio se basa en la
+        # DISTRIBUCIÓN de niveles individuales; el promedio es solo
+        # descriptivo (nunca se clasifica con los cortes de la Tabla 6).
         resultado = []
         for entry in sorted(dominio_map.values(), key=lambda x: x['orden']):
+            n_dom = sum(entry['cats'].values())
             pct_promedio = round(entry['pt'] / entry['pm'] * 100) if entry['pm'] else 0
             categoria_modal = max(entry['cats'], key=entry['cats'].get)
+            alto_mas = entry['cats']['alto'] + entry['cats']['muy_alto']
+            medio_mas = entry['cats']['medio'] + alto_mas
 
             por_area = {}
             for area_nombre, ae in entry['areas'].items():
-                area_pct = round(ae['pt'] / ae['pm'] * 100) if ae['pm'] else 0
-                area_cat = max(ae['cats'], key=ae['cats'].get)
+                n_area = sum(ae['cats'].values())
+                if grupo_reservado(n_area):
+                    por_area[area_nombre] = {
+                        'reservado': True,
+                        'detalle':   ETIQUETA_RESERVADO,
+                        'n':         n_area,
+                    }
+                    continue
+                area_alto = ae['cats']['alto'] + ae['cats']['muy_alto']
                 por_area[area_nombre] = {
-                    'pct':      area_pct,
-                    'categoria': area_cat,
-                    'n':        sum(ae['cats'].values()),
+                    'reservado':    False,
+                    'pct':          round(ae['pt'] / ae['pm'] * 100) if ae['pm'] else 0,
+                    'categoria':    max(ae['cats'], key=ae['cats'].get),  # moda, no promedio
+                    'distribucion': ae['cats'],
+                    'pct_alto':     round(area_alto / n_area * 100) if n_area else 0,
+                    'n':            n_area,
                 }
 
             resultado.append({
                 'dominio_clave':    entry['dominio_clave'],
                 'dominio_nombre':   entry['dominio_nombre'],
-                'puntaje_promedio': round(entry['pt'] / max(sum(entry['cats'].values()), 1), 1),
+                'n':                n_dom,
+                'puntaje_promedio': round(entry['pt'] / max(n_dom, 1), 1),
                 'pct_promedio':     pct_promedio,
                 'categoria_modal':  categoria_modal,
                 'distribucion':     entry['cats'],
+                'pct_alto':         round(alto_mas / n_dom * 100) if n_dom else 0,
+                'pct_medio_o_mas':  round(medio_mas / n_dom * 100) if n_dom else 0,
                 'por_area':         por_area,
             })
 
-        return _wrap(resultado, {'total_dominios': len(resultado)})
+        return _wrap(resultado, {
+            'total_dominios':          len(resultado),
+            'version_motor':           VERSION_MOTOR,
+            'umbral_confidencialidad': umbral_confidencialidad(),
+            'es_resultado_oficial':    True,
+            'nota_metodologica': (
+                'Los niveles por dominio se clasifican por cuestionario individual '
+                '(Tabla 6, Guía de Referencia III). El puntaje promedio es un '
+                'estadístico descriptivo y no constituye un nivel de riesgo oficial. '
+                'Los grupos con n menor al umbral se reservan por confidencialidad.'
+            ),
+        })
 
     # ------------------------------------------------------------------
     # GET /resultados/ping/  — diagnóstico

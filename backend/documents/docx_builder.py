@@ -7,13 +7,22 @@ y estructura (las 13 secciones del estándar LEAR), sin duplicar lógica de
 negocio en dos lugares.
 """
 import io
+from pathlib import Path
 
 from django.contrib.staticfiles import finders
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT, WD_TAB_LEADER
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm, Pt, RGBColor
+from docx.shared import Cm, Pt, RGBColor, Twips
+
+from . import contenido_informe as inf
+
+# Plantilla del Informe Diagnóstico (formato aprobado por dirección jul-2026):
+# conserva estilos de Word (Grid Table 1 Light Accent 2, toc 1/3, etc.),
+# encabezado con membrete, pie con número de página y updateFields para que
+# Word reconstruya el índice al abrir. El cuerpo se genera aquí.
+_PLANTILLA_INFORME = Path(__file__).resolve().parent / 'plantilla_informe.docx'
 
 NIVEL_LABEL_DOCX = {
     'nulo': 'Nulo', 'bajo': 'Bajo', 'medio': 'Medio',
@@ -244,6 +253,18 @@ def _add_justificacion_muestra(doc, ctx):
 
     doc.add_paragraph()
 
+    if ctx.get('flujo_muestra'):
+        doc.add_paragraph(
+            'Flujo de la muestra (Guía III) — de la población total a los '
+            'cuestionarios analizados:'
+        ).runs[0].italic = True
+        _simple_table(
+            doc,
+            ['Etapa', 'N'],
+            [[f['etapa'], f['n']] for f in ctx['flujo_muestra']],
+        )
+        doc.add_paragraph()
+
 
 def _add_metodologia(doc, ctx):
     met = ctx['metodologia']
@@ -293,9 +314,18 @@ def _add_grafica(doc, png_bytesio, width_cm=9):
 def _add_informe_demografico(doc, ctx):
     _heading(doc, '7. Informe demográfico', level=1)
     doc.add_paragraph(
-        f"La muestra evaluada está conformada por {ctx['muestra']['total']} trabajadores que "
-        f"participaron en al menos uno de los instrumentos aplicados."
+        f"El perfil demográfico corresponde a la población analítica del informe: "
+        f"{ctx['muestra']['total']} trabajadores con cuestionario de la Guía III válido. "
+        f"Cada variable reporta su N válido; los porcentajes se calculan sobre ese denominador."
     )
+    rd = ctx.get('report_data')
+    if rd and rd['faltantes_criticos']['variables']:
+        doc.add_paragraph(
+            'Alerta: las variables siguientes superan el umbral de datos faltantes '
+            f"({rd['faltantes_criticos']['umbral_pct']}%) y se presentan sin gráfica: "
+            + '; '.join(f"{v['variable']} ({v['pct_faltante']}% sin dato)"
+                        for v in rd['faltantes_criticos']['variables'])
+        ).runs[0].italic = True
     graficas_muestra = ctx.get('graficas', {}).get('muestra', {})
 
     _heading(doc, '7.1. Informe de datos generales', level=3)
@@ -362,27 +392,112 @@ def _add_ats(doc, ctx):
             )
         return
 
-    r = desglose['resumen']
-    doc.add_paragraph(
-        f"De los {r['muestra']} trabajadores que respondieron la Guía I, {r['con_ats']} "
-        f"({r['pct_ats']}%) reportaron al menos un acontecimiento traumático severo, y "
-        f"{r['clinica']} ({r['pct_clinica']}%) cumplen el criterio de valoración clínica."
-    )
+    rd = ctx.get('report_data')
+    if rd:
+        # Resumen oficial desde ReportDataNOM035 (fuente única).
+        ats = rd['tablas']['ats']
+        doc.add_paragraph(ats['nota']).runs[0].italic = True
+        _simple_table(
+            doc,
+            ['Indicador', 'N', '%'],
+            [[f['indicador'], f['n'], f"{f['pct']}%" if f['pct'] is not None else '—']
+             for f in ats['filas']],
+        )
+        doc.add_paragraph(
+            f"Denominador: {ats['denominador']} (N = {ats['n_valido']}). "
+            'El desglose por reactivo se presenta en el Anexo técnico.'
+        ).runs[0].italic = True
+    else:
+        r = desglose['resumen']
+        doc.add_paragraph(
+            f"De los {r['muestra']} trabajadores que respondieron la Guía I, {r['con_ats']} "
+            f"({r['pct_ats']}%) reportaron al menos un acontecimiento traumático severo, y "
+            f"{r['clinica']} ({r['pct_clinica']}%) cumplen el criterio de valoración clínica."
+        )
+        _simple_table(
+            doc,
+            ['Colaboradores evaluados', 'Reportaron ATS', '% ATS', 'Requieren valoración clínica', '% valoración clínica'],
+            [[r['muestra'], r['con_ats'], f"{r['pct_ats']}%", r['clinica'], f"{r['pct_clinica']}%"]],
+        )
+
+
+def _fmt_pct(v):
+    return f'{v}%' if v is not None else '—'
+
+
+def _tabla_niveles_rd(doc, tabla_rd, col1):
+    """Tabla estándar de niveles (categorías/dominios) desde ReportDataNOM035:
+    N por nivel con %, acumulados "Medio o superior" (referencia para el
+    Programa de intervención) y "Alto o Muy alto" (prioridad elevada), y la
+    prioridad del ranking. Filas en orden de prioridad."""
+    filas = sorted(tabla_rd['filas'], key=lambda f: f['prioridad'])
     _simple_table(
         doc,
-        ['Colaboradores evaluados', 'Reportaron ATS', '% ATS', 'Requieren valoración clínica', '% valoración clínica'],
-        [[r['muestra'], r['con_ats'], f"{r['pct_ats']}%", r['clinica'], f"{r['pct_clinica']}%"]],
+        [col1, 'N', 'Nulo %', 'Bajo %', 'Medio %', 'Alto %', 'Muy alto %',
+         'Medio o superior %', 'Alto o Muy alto %', 'Prioridad'],
+        [[f['nombre'], f['n']]
+         + [_fmt_pct(f['pct_nivel'][k]) for k in ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')]
+         + [_fmt_pct(f['pct_medio_o_mas']), _fmt_pct(f['pct_alto_o_muy_alto']), f"{f['prioridad']}°"]
+         for f in filas],
     )
+    doc.add_paragraph(
+        f"Denominador: {tabla_rd['denominador']}. {tabla_rd['nota']}"
+    ).runs[0].italic = True
 
-    graficas_ats = ctx.get('graficas', {}).get('ats', {})
-    for i, seccion in enumerate(desglose['secciones'], 1):
-        _heading(doc, f"8.{i}. {seccion['nombre']}", level=3)
-        if not seccion['filas']:
-            doc.add_paragraph('Sin preguntas registradas para esta sección.')
-            continue
-        _add_ats_tabla(doc, seccion['filas'])
-        if any(f['h_si'] or f['m_si'] for f in seccion['filas']):
-            _add_grafica(doc, graficas_ats.get(seccion['clave']), width_cm=13)
+
+def _add_panel_ejecutivo(doc, ctx):
+    """Panel ejecutivo: tarjetas generadas por el motor de composición
+    (ReportDataNOM035.tarjetas). Solo aparecen tarjetas con datos válidos;
+    no existe tarjeta de 'nivel global organizacional'."""
+    rd = ctx.get('report_data')
+    if not rd or not rd.get('tarjetas'):
+        return
+    _heading(doc, 'Panel ejecutivo', level=1)
+    doc.add_paragraph(
+        'Indicadores clave del ciclo, derivados de un objeto único de datos '
+        '(ReportDataNOM035) validado antes de la emisión. Los niveles de riesgo '
+        'se clasifican por cuestionario individual; no se presenta ningún nivel '
+        'global derivado del promedio.'
+    ).runs[0].italic = True
+
+    table = doc.add_table(rows=0, cols=3)
+    table.style = 'Table Grid'
+    tarjetas = rd['tarjetas']
+    for i in range(0, len(tarjetas), 3):
+        row = table.add_row().cells
+        for j, t in enumerate(tarjetas[i:i + 3]):
+            _cell_bg(row[j], 'F0F0F0')
+            p = row[j].paragraphs[0]
+            r1 = p.add_run(t['titulo'] + '\n')
+            r1.bold = True
+            r1.font.size = Pt(9)
+            r2 = p.add_run(str(t['valor']) + '\n')
+            r2.bold = True
+            r2.font.size = Pt(16)
+            r2.font.color.rgb = RGBColor(0xC8, 0x10, 0x2E)
+            if t.get('detalle'):
+                r3 = p.add_run(t['detalle'])
+                r3.font.size = Pt(8)
+            if t.get('nota'):
+                r4 = p.add_run('\n' + t['nota'])
+                r4.font.size = Pt(7)
+                r4.italic = True
+
+    val = rd['validaciones']
+    estado = 'sin errores críticos' if val['puede_emitirse'] else 'CON ERRORES CRÍTICOS'
+    doc.add_paragraph(
+        f"Validación de consistencia previa a la emisión: {len(val['checks'])} "
+        f"comprobaciones, {estado}."
+        + (f" Advertencias: {'; '.join(val['advertencias'])}" if val['advertencias'] else '')
+    ).runs[0].italic = True
+
+    if rd['faltantes_criticos']['variables']:
+        doc.add_paragraph(
+            'Alerta de faltantes críticos (no se grafican estas variables): '
+            + '; '.join(f"{v['variable']} ({v['pct_faltante']}% sin dato)"
+                        for v in rd['faltantes_criticos']['variables'])
+        ).runs[0].italic = True
+    doc.add_page_break()
 
 
 def _add_informe_diagnostico(doc, ctx):
@@ -390,9 +505,14 @@ def _add_informe_diagnostico(doc, ctx):
 
     _heading(doc, '9.1. Calificación final', level=3)
     doc.add_paragraph(
-        f"Nivel de riesgo global de la organización: {ctx['nivel_global_label']} "
-        f"(puntaje promedio: {ctx['promedio_global']})."
+        f"Nivel de riesgo predominante en la organización: {ctx['nivel_global_label']} "
+        f"(moda de los niveles individuales; N = {sum(d['count'] for d in ctx['distribucion'])}). "
+        f"El {ctx.get('pct_medio_o_mas', 0)}% de las personas evaluadas se ubica en nivel "
+        f"Medio o superior y el {ctx.get('pct_alto_muy_alto', 0)}% en Alto o Muy alto. "
+        f"Puntaje promedio: {ctx['promedio_global']}; mediana: {ctx.get('mediana_global', '—')}."
     )
+    if ctx.get('nota_promedio'):
+        doc.add_paragraph(ctx['nota_promedio']).runs[0].italic = True
     doc.add_paragraph(ctx['nivel_global_texto'])
     _simple_table(
         doc,
@@ -403,7 +523,8 @@ def _add_informe_diagnostico(doc, ctx):
 
     if ctx.get('acciones'):
         doc.add_paragraph(
-            'Cuadro 2, NOM-035-STPS-2018 — Acciones requeridas según el nivel de riesgo:'
+            'Tabla 7, Guía de Referencia III, NOM-035-STPS-2018 — Criterios para la toma '
+            'de acciones (transcripción del texto oficial):'
         ).runs[0].italic = True
         _simple_table(
             doc,
@@ -423,13 +544,17 @@ def _add_informe_diagnostico(doc, ctx):
             ['Categoría'] + [NIVEL_LABEL_DOCX[n] for n in _niveles],
             [[r['nombre']] + [r['rangos'][n] for n in _niveles] for r in ctx['rangos_categoria']],
         )
-    _simple_table(
-        doc,
-        ['Categoría', 'Nulo', 'Bajo', 'Medio', 'Alto', 'Muy alto', 'Intervención', '%'],
-        [[c['nombre'], c['dist']['nulo'], c['dist']['bajo'], c['dist']['medio'],
-          c['dist']['alto'], c['dist']['muy_alto'], c['requieren_atencion'], f"{c['pct_intervencion']}%"]
-         for c in ctx['categorias_agregadas']],
-    )
+    if ctx.get('report_data'):
+        _tabla_niveles_rd(doc, ctx['report_data']['tablas']['categorias'], 'Categoría')
+    else:
+        _simple_table(
+            doc,
+            ['Categoría', 'Nulo', 'Bajo', 'Medio', 'Alto', 'Muy alto',
+             'Alto o Muy alto (prioridad elevada)', '%'],
+            [[c['nombre'], c['dist']['nulo'], c['dist']['bajo'], c['dist']['medio'],
+              c['dist']['alto'], c['dist']['muy_alto'], c['requieren_atencion'], f"{c['pct_intervencion']}%"]
+             for c in ctx['categorias_agregadas']],
+        )
     for c in ctx['categorias_agregadas']:
         _add_grafica(doc, graficas_categorias.get(c['nombre']), width_cm=8)
 
@@ -442,13 +567,17 @@ def _add_informe_diagnostico(doc, ctx):
             ['Dominio'] + [NIVEL_LABEL_DOCX[n] for n in _niveles],
             [[r['nombre']] + [r['rangos'][n] for n in _niveles] for r in ctx['rangos_dominio']],
         )
-    _simple_table(
-        doc,
-        ['Dominio', 'Nulo', 'Bajo', 'Medio', 'Alto', 'Muy alto', 'Intervención', '%'],
-        [[d['nombre'], d['dist']['nulo'], d['dist']['bajo'], d['dist']['medio'],
-          d['dist']['alto'], d['dist']['muy_alto'], d['requieren_atencion'], f"{d['pct_intervencion']}%"]
-         for d in ctx['dominios_oficiales_agregados']],
-    )
+    if ctx.get('report_data'):
+        _tabla_niveles_rd(doc, ctx['report_data']['tablas']['dominios'], 'Dominio')
+    else:
+        _simple_table(
+            doc,
+            ['Dominio', 'Nulo', 'Bajo', 'Medio', 'Alto', 'Muy alto',
+             'Alto o Muy alto (prioridad elevada)', '%'],
+            [[d['nombre'], d['dist']['nulo'], d['dist']['bajo'], d['dist']['medio'],
+              d['dist']['alto'], d['dist']['muy_alto'], d['requieren_atencion'], f"{d['pct_intervencion']}%"]
+             for d in ctx['dominios_oficiales_agregados']],
+        )
     for d in ctx['dominios_oficiales_agregados']:
         _add_grafica(doc, graficas_dominios.get(d['nombre']), width_cm=8)
     for dom in ctx['dominios_prioritarios']:
@@ -461,15 +590,59 @@ def _add_informe_diagnostico(doc, ctx):
             p = doc.add_paragraph()
             p.add_run(dom['interpretacion']).italic = True
 
-    _heading(doc, '9.4. Dimensiones', level=3)
+    _heading(doc, '9.4. Dimensiones (indicador descriptivo)', level=3)
+    if ctx.get('nota_dimensiones'):
+        doc.add_paragraph(ctx['nota_dimensiones']).runs[0].italic = True
+    if ctx['dimensiones'] and 'pct_promedio' in ctx['dimensiones'][0]:
+        # Las 25 dimensiones oficiales de la Tabla 6 — sin niveles de riesgo
+        # (la NOM no define cortes por dimensión).
+        _simple_table(
+            doc,
+            ['#', 'Dimensión', 'Dominio', 'N', '% promedio', '% mediana'],
+            [[dim['orden'], dim['nombre'], dim['dominio_oficial'], dim['n'],
+              f"{dim['pct_promedio']}%", f"{dim['pct_mediana']}%"]
+             for dim in ctx['dimensiones']],
+        )
+    rd = ctx.get('report_data')
+    if not rd:
+        return
+
+    # ---- 9.5. Áreas prioritarias (distribución de niveles individuales) ----
+    areas = rd['tablas']['areas']
+    _heading(doc, '9.5. Áreas prioritarias', level=3)
+    doc.add_paragraph(f"{areas['nota']} Denominador: {areas['denominador']}.").runs[0].italic = True
+    if areas['filas']:
+        _simple_table(
+            doc,
+            ['Área', 'N válido', 'Nulo %', 'Bajo %', 'Medio %', 'Alto %', 'Muy alto %',
+             'Medio o superior %', 'Alto o Muy alto %', 'Prioridad'],
+            [[a['nombre'], a['n']]
+             + [_fmt_pct(a['pct_nivel'][k]) for k in ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')]
+             + [_fmt_pct(a['pct_medio_o_mas']), _fmt_pct(a['pct_alto_o_muy_alto']), f"{a['prioridad']}°"]
+             for a in areas['filas']],
+        )
+    else:
+        doc.add_paragraph('No hay áreas con N suficiente para el análisis desagregado.')
+    if areas['reservadas']:
+        doc.add_paragraph(
+            'Áreas reservadas por confidencialidad (N menor al umbral de '
+            f"{areas['umbral_confidencialidad']}): "
+            + ', '.join(f"{a['nombre']} (N={a['n']})" for a in areas['reservadas'])
+        ).runs[0].italic = True
+
+    # ---- 9.6. Violencia laboral (resumen del dominio oficial) ----
+    viol = rd['tablas']['violencia']
+    _heading(doc, '9.6. Violencia laboral (resumen)', level=3)
+    doc.add_paragraph(viol['nota']).runs[0].italic = True
     _simple_table(
         doc,
-        ['Clave', 'Dimensión', 'Dominio', 'Promedio', 'Nivel'],
-        [[dim['clave'], dim['nombre'], dim['dominio_oficial'],
-          f"{dim['puntaje_promedio']}/{dim['puntaje_max']}",
-          NIVEL_LABEL_DOCX.get(dim['categoria_predominante'], dim['categoria_predominante'])]
-         for dim in ctx['dimensiones']],
+        ['Nivel', 'N', '%'],
+        [[f['label'], f['n'], _fmt_pct(f['pct'])] for f in viol['filas']],
     )
+    doc.add_paragraph(
+        f"Denominador: {viol['denominador']} (N = {viol['n_valido']}). "
+        f"Personal en Alto o Muy alto: {_fmt_pct(viol['pct_alto_o_muy_alto'])}."
+    ).runs[0].italic = True
 
 
 def _add_conclusiones_tabla_rankeada(doc, encabezado_col1, filas):
@@ -631,6 +804,10 @@ def _add_datos_responsable(doc, ctx):
 
 
 def _add_anexos(doc, ctx):
+    # Anexo confidencial (resultados individuales por folio): solo se emite
+    # si el contexto lo incluyó expresamente (incluir_anexo_confidencial).
+    if not ctx.get('anexos'):
+        return
     anexos = ctx['anexos']
     _heading(doc, '13. Anexos', level=1)
 
@@ -703,14 +880,67 @@ def build_reporte_psicologico_docx(ctx: dict) -> io.BytesIO:
     return buf
 
 
-def _add_portada_informe(doc, ctx):
-    """Portada del Informe Diagnóstico completo (logo + título + tenant),
-    sin la leyenda de borrador — es una descarga directa, no un documento
-    pendiente de revisión."""
+# ===========================================================================
+# INFORME DIAGNÓSTICO (formato aprobado por dirección jul-2026)
+#
+# Las funciones *_inf reproducen el documento de referencia
+# "Informe_Diagnostico_NOM035_San_Luis_2026 (2)-1.docx": misma redacción,
+# tablas, negritas y estructura, con los datos de cada planta tomados del
+# ctx. Las funciones del borrador (arriba) NO se tocan.
+# ===========================================================================
+
+_ALIGN_INF = {
+    'CENTER':  WD_ALIGN_PARAGRAPH.CENTER,
+    'JUSTIFY': WD_ALIGN_PARAGRAPH.JUSTIFY,
+}
+
+
+def _p_segs(doc, segs, style=None, align=None):
+    """Párrafo a partir de segmentos (texto, negrita). La negrita solo se
+    escribe cuando aplica (los runs normales heredan del estilo)."""
+    p = doc.add_paragraph(style=style) if style else doc.add_paragraph()
+    if align:
+        p.alignment = align
+    for texto, bold in segs:
+        run = p.add_run(texto)
+        if bold:
+            run.bold = True
+    return p
+
+
+def _emit_bloque(doc, bloque):
+    """Emite un bloque estático extraído del documento de referencia
+    (contenido_informe.BLOQUE_*): párrafos con estilo, alineación y
+    segmentos de negrita idénticos."""
+    for item in bloque:
+        style = item['style'] if item['style'] != 'Normal' else None
+        _p_segs(doc, item['segs'], style=style,
+                align=_ALIGN_INF.get(item['align']))
+
+
+def _tabla_grid(doc, headers, rows, espacio=True):
+    """Tabla de datos con el estilo Word 'Grid Table 1 Light Accent 2'
+    (encabezado formateado por el propio estilo, sin negrita manual)."""
+    table = doc.add_table(rows=1, cols=len(headers))
+    table.style = 'Grid Table 1 Light Accent 2'
+    for i, h in enumerate(headers):
+        table.rows[0].cells[i].text = str(h)
+    for row_vals in rows:
+        cells = table.add_row().cells
+        for i, v in enumerate(row_vals):
+            cells[i].text = str(v)
+    if espacio:
+        doc.add_paragraph()
+    return table
+
+
+def _add_portada_inf(doc, ctx):
+    """Portada del formato aprobado: logo, título 36pt, NOM en rojo,
+    'PLANTA:' + nombre, fecha de generación. Sin sello."""
     logo_path = finders.find('documents/img/lear_logo.png')
+    p_logo = doc.add_paragraph()
+    p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     if logo_path:
-        p_logo = doc.add_paragraph()
-        p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_logo.add_run().add_picture(logo_path, width=Cm(6))
 
     p_title = doc.add_paragraph()
@@ -718,91 +948,502 @@ def _add_portada_informe(doc, ctx):
     p_title.paragraph_format.space_before = Pt(24)
     run = p_title.add_run('INFORME DIAGNÓSTICO')
     run.bold = True
-    run.font.size = Pt(28)
+    run.font.size = Pt(36)
 
-    p_sub = doc.add_paragraph()
-    p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p_sub.add_run('FACTORES DE RIESGO PSICOSOCIAL EN EL TRABAJO')
-    run.bold = True
-    run.font.size = Pt(13)
+    p_vacio = doc.add_paragraph()
+    p_vacio.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     p_nom = doc.add_paragraph()
     p_nom.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p_nom.add_run('NOM-035-STPS-2018')
     run.bold = True
-    run.font.size = Pt(14)
+    run.font.size = Pt(16)
     run.font.color.rgb = RGBColor(0xC8, 0x10, 0x2E)
+
+    p_planta = doc.add_paragraph()
+    p_planta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_planta.paragraph_format.space_before = Pt(16)
+    run = p_planta.add_run('PLANTA:')
+    run.bold = True
+    run.font.size = Pt(14)
 
     p_tenant = doc.add_paragraph()
     p_tenant.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_tenant.paragraph_format.space_before = Pt(16)
     run = p_tenant.add_run(str(ctx['tenant'].nombre))
     run.bold = True
-    run.font.size = Pt(12)
+    run.font.size = Pt(14)
 
     p_fecha = doc.add_paragraph()
     p_fecha.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_fecha.add_run(f"Generado el {ctx['fecha_generado']}")
+    run = p_fecha.add_run(f"Generado el {ctx['fecha_generado']}")
+    run.font.size = Pt(12)
 
-    _add_sello(doc)
+    p_fin = doc.add_paragraph()
+    p_fin.paragraph_format.space_before = Pt(12)
     doc.add_page_break()
 
 
-def _add_indice(doc):
-    """Índice con campo TOC de Word (se actualiza automáticamente al abrir,
-    ver `_add_toc_update_fields`)."""
+def _add_indice_inf(doc):
+    """Índice: campo TOC (Word lo puebla al abrir gracias a updateFields de
+    la plantilla) con el estilo/tabulador del documento de referencia."""
     _heading(doc, '1. Índice', level=1)
-    para = doc.add_paragraph()
-    for ftype, text in [('begin', None), (None, ' TOC \\o "1-3" \\h \\z \\u '),
-                        ('separate', None), ('end', None)]:
-        run = para.add_run()
-        if ftype:
-            fc = OxmlElement('w:fldChar')
-            fc.set(qn('w:fldCharType'), ftype)
-            run._r.append(fc)
-        else:
-            instr = OxmlElement('w:instrText')
-            instr.set(qn('xml:space'), 'preserve')
-            instr.text = text
-            run._r.append(instr)
+    para = doc.add_paragraph(style='toc 1')
+    para.paragraph_format.tab_stops.add_tab_stop(
+        Twips(8630), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS)
+    _add_field(para, ' TOC \\o "1-3" \\h \\z \\u ')
+    doc.add_paragraph()
+    doc.add_paragraph()
     doc.add_page_break()
 
 
-def _add_toc_update_fields(doc):
-    """Marca el documento para que Word actualice los campos (el índice) al
-    abrirlo, sin que el usuario tenga que presionar F9 manualmente."""
-    settings = doc.settings.element
-    upd = OxmlElement('w:updateFields')
-    upd.set(qn('w:val'), 'true')
-    settings.append(upd)
+def _add_justificacion_muestra_inf(doc, ctx):
+    jm = ctx['justificacion_muestra']
+    _heading(doc, '5. Justificación de la muestra', level=1)
+
+    _p_segs(doc, inf.JUSTIFICACION_P1_SEGS)
+    for parrafo in jm['parrafos'][1:]:
+        doc.add_paragraph(parrafo)
+
+    eq1 = jm.get('ecuacion1')
+    if eq1:
+        def _pct(parte, total):
+            return f'{parte / total * 100:.1f}%' if total else '0.0%'
+
+        table = doc.add_table(rows=3, cols=6)
+        table.style = 'Table Grid'
+
+        encabezados = ['Colaboradores', 'Hombres', 'Mujeres', 'Muestra', 'Hombres', 'Mujeres']
+        for j, h in enumerate(encabezados):
+            cell = table.rows[0].cells[j]
+            _cell_bg(cell, 'C8102E')
+            _cell_run(cell, h, bold=True, size=10, color=RGBColor(0xFF, 0xFF, 0xFF))
+
+        subencabezados = ['Total', '(N / %)', '(N / %)', f"N mín. {eq1['n_min']}", '(N / %)', '(N / %)']
+        for j, s in enumerate(subencabezados):
+            cell = table.rows[1].cells[j]
+            _cell_bg(cell, '1A1A2E')
+            _cell_run(cell, s, bold=True, size=9, color=RGBColor(0xFF, 0xFF, 0xFF))
+
+        datos = [
+            str(eq1['total']),
+            f"{eq1['hombres']} / {_pct(eq1['hombres'], eq1['total'])}",
+            f"{eq1['mujeres']} / {_pct(eq1['mujeres'], eq1['total'])}",
+            str(eq1['muestra']),
+            f"{eq1['muestra_hombres']} / {_pct(eq1['muestra_hombres'], eq1['muestra'])}",
+            f"{eq1['muestra_mujeres']} / {_pct(eq1['muestra_mujeres'], eq1['muestra'])}",
+        ]
+        for j, d in enumerate(datos):
+            _cell_run(table.rows[2].cells[j], d, size=10)
+
+        doc.add_paragraph()
+
+    if ctx.get('flujo_muestra'):
+        doc.add_paragraph(
+            'Flujo de la muestra (Guía III) — de la población total a los '
+            'cuestionarios analizados:'
+        ).runs[0].italic = True
+        _tabla_grid(
+            doc,
+            ['Etapa', 'N'],
+            [[f['etapa'], f['n']] for f in ctx['flujo_muestra']],
+        )
+        doc.add_paragraph()
+
+
+def _add_metodologia_inf(doc, ctx):
+    met = ctx['metodologia']
+    _heading(doc, '6. Metodología', level=1)
+    _heading(doc, '6.1. Objetivo de la evaluación', level=3)
+    doc.add_paragraph(met['objetivo_evaluacion'])
+
+    _heading(doc, '6.2. Instrumentos utilizados', level=3)
+    _tabla_grid(doc, ['Instrumento', 'Descripción'], met['instrumentos'])
+
+    _heading(doc, '6.3. Procedimiento de aplicación', level=3)
+    # 6.3 completo + 6.4 Procesamiento a digital + 6.5 Evaluación y análisis:
+    # redacción aprobada por dirección, extraída textualmente del documento
+    # de referencia.
+    _emit_bloque(doc, inf.BLOQUE_METODOLOGIA_PROC)
+
+    if ctx['tasas_respuesta']:
+        _heading(doc, 'Tasa de respuesta por instrumento', level=3)
+        _tabla_grid(
+            doc,
+            ['Instrumento', 'Aplicados', 'Respondidos', 'Tasa'],
+            [[t['guia'], t['total'], t['completadas'], f"{t['pct']}%"] for t in ctx['tasas_respuesta']],
+        )
+
+
+def _add_informe_demografico_inf(doc, ctx):
+    _heading(doc, '7. Informe demográfico', level=1)
+    doc.add_paragraph(
+        f"El perfil demográfico corresponde a la población analítica del informe: "
+        f"{ctx['muestra']['total']} trabajadores con cuestionario de la Guía III válido. "
+        f"Cada variable reporta su N válido; los porcentajes se calculan sobre ese denominador."
+    )
+    rd = ctx.get('report_data')
+    if rd and rd['faltantes_criticos']['variables']:
+        doc.add_paragraph(
+            'Alerta: las variables siguientes superan el umbral de datos faltantes '
+            f"({rd['faltantes_criticos']['umbral_pct']}%) y se presentan sin gráfica: "
+            + '; '.join(f"{v['variable']} ({v['pct_faltante']}% sin dato)"
+                        for v in rd['faltantes_criticos']['variables'])
+        ).runs[0].italic = True
+    graficas_muestra = ctx.get('graficas', {}).get('muestra', {})
+
+    _heading(doc, '7.1. Informe de datos generales', level=3)
+    cols_generales = {'Sexo', 'Grupo de edad', 'Estado civil', 'Nivel de estudios'}
+    for tabla in ctx['muestra_tablas']:
+        if tabla['col'] in cols_generales:
+            _heading(doc, tabla['titulo'], level=4)
+            _tabla_grid(
+                doc, [tabla['col'], 'Trabajadores', '%'],
+                [[d['label'], d['count'], f"{d['pct']}%"] for d in tabla['datos']],
+            )
+            _add_grafica(doc, graficas_muestra.get(tabla['col']))
+
+    _heading(doc, '7.1.1. Informe de datos laborales', level=3)
+    for tabla in ctx['muestra_tablas']:
+        if tabla['col'] not in cols_generales:
+            _heading(doc, tabla['titulo'], level=4)
+            _tabla_grid(
+                doc, [tabla['col'], 'Trabajadores', '%'],
+                [[d['label'], d['count'], f"{d['pct']}%"] for d in tabla['datos']],
+            )
+            _add_grafica(doc, graficas_muestra.get(tabla['col']))
+
+
+def _add_ats_inf(doc, ctx):
+    _heading(doc, '8. Informe de acontecimientos traumáticos severos (ATS)', level=1)
+    # Introducción normativa (numerales 4.1 y 5.5) + criterio de la Guía I,
+    # redacción aprobada por dirección.
+    _emit_bloque(doc, inf.BLOQUE_ATS_INTRO)
+
+    rd = ctx.get('report_data')
+    if not rd:
+        return
+    ats = rd['tablas']['ats']
+    _tabla_grid(
+        doc,
+        ['Indicador', 'N', '%'],
+        [[f['indicador'], f['n'], f"{f['pct']}%" if f['pct'] is not None else '—']
+         for f in ats['filas']],
+    )
+    doc.add_paragraph(
+        f"Denominador: {ats['denominador']} (N = {ats['n_valido']}). "
+        'El desglose por reactivo se presenta en el Anexo técnico.'
+    ).runs[0].italic = True
+
+
+def _tabla_niveles_rd_inf(doc, tabla_rd, col1, sufijo_nota=''):
+    """Tabla estándar de niveles con estilo Grid; la nota de denominador ya
+    no incluye la frase 'No existe un nivel global oficial…' (retirada por
+    dirección)."""
+    filas = sorted(tabla_rd['filas'], key=lambda f: f['prioridad'])
+    _tabla_grid(
+        doc,
+        [col1, 'N', 'Nulo %', 'Bajo %', 'Medio %', 'Alto %', 'Muy alto %',
+         'Medio o superior %', 'Alto o Muy alto %', 'Prioridad'],
+        [[f['nombre'], f['n']]
+         + [_fmt_pct(f['pct_nivel'][k]) for k in ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')]
+         + [_fmt_pct(f['pct_medio_o_mas']), _fmt_pct(f['pct_alto_o_muy_alto']), f"{f['prioridad']}°"]
+         for f in filas],
+    )
+    doc.add_paragraph(
+        f"Denominador: {tabla_rd['denominador']}. {inf.NOTA_NIVELES}{sufijo_nota}"
+    ).runs[0].italic = True
+
+
+def _add_informe_diagnostico_inf(doc, ctx):
+    _heading(doc, '9. Informe diagnóstico sobre los factores de riesgo psicosocial y del entorno organizacional', level=1)
+
+    _heading(doc, '9.1. Calificación final', level=3)
+    doc.add_paragraph(
+        f"Nivel de riesgo predominante en la organización: {ctx['nivel_global_label']} "
+        f"(moda de los niveles individuales; N = {sum(d['count'] for d in ctx['distribucion'])}). "
+        f"El {ctx.get('pct_medio_o_mas', 0)}% de las personas evaluadas se ubica en nivel "
+        f"Medio o superior y el {ctx.get('pct_alto_muy_alto', 0)}% en Alto o Muy alto. "
+        f"Puntaje promedio: {ctx['promedio_global']}; mediana: {ctx.get('mediana_global', '—')}."
+    )
+    if ctx.get('nota_promedio'):
+        doc.add_paragraph(ctx['nota_promedio']).runs[0].italic = True
+    doc.add_paragraph(ctx['nivel_global_texto'])
+    _tabla_grid(
+        doc,
+        ['Nivel de riesgo', 'Trabajadores', '%'],
+        [[d['label'], d['count'], f"{d['pct']}%"] for d in ctx['distribucion']],
+    )
+    _add_grafica(doc, ctx.get('graficas', {}).get('distribucion'), width_cm=11)
+
+    if ctx.get('acciones'):
+        doc.add_paragraph(
+            'Tabla 7, Guía de Referencia III, NOM-035-STPS-2018 — Criterios para la toma '
+            'de acciones (transcripción del texto oficial):'
+        ).runs[0].italic = True
+        _tabla_grid(
+            doc,
+            ['Nivel de riesgo', 'Acción requerida'],
+            [[a['label'], a['accion']] for a in ctx['acciones']],
+        )
+
+    graficas_categorias = ctx.get('graficas', {}).get('categorias', {})
+    graficas_dominios = ctx.get('graficas', {}).get('dominios', {})
+    _niveles = ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')
+
+    _heading(doc, '9.2. Calificaciones por categoría', level=3)
+    if ctx.get('rangos_categoria'):
+        doc.add_paragraph(inf.INTRO_RANGOS_CATEGORIA).runs[0].italic = True
+        _tabla_grid(
+            doc,
+            ['Categoría'] + [NIVEL_LABEL_DOCX[n] for n in _niveles],
+            [[r['nombre']] + [r['rangos'][n] for n in _niveles] for r in ctx['rangos_categoria']],
+        )
+    _tabla_niveles_rd_inf(doc, ctx['report_data']['tablas']['categorias'], 'Categoría',
+                          sufijo_nota=' ')
+    for c in ctx['categorias_agregadas']:
+        _add_grafica(doc, graficas_categorias.get(c['nombre']), width_cm=8)
+
+    _heading(doc, '9.3. Calificaciones por dominio', level=3)
+    if ctx.get('rangos_dominio'):
+        doc.add_paragraph(inf.INTRO_RANGOS_DOMINIO).runs[0].italic = True
+        _tabla_grid(
+            doc,
+            ['Dominio'] + [NIVEL_LABEL_DOCX[n] for n in _niveles],
+            [[r['nombre']] + [r['rangos'][n] for n in _niveles] for r in ctx['rangos_dominio']],
+        )
+    _tabla_niveles_rd_inf(doc, ctx['report_data']['tablas']['dominios'], 'Dominio')
+    for d in ctx['dominios_oficiales_agregados']:
+        _add_grafica(doc, graficas_dominios.get(d['nombre']), width_cm=8)
+    doc.add_paragraph()
+
+    rd = ctx['report_data']
+
+    # ---- 9.5. Áreas prioritarias (la 9.4 de dimensiones pasó al Anexo
+    # técnico A.T.3 en el formato aprobado; la numeración 9.5/9.6 se
+    # conserva tal cual el documento de referencia) ----
+    areas = rd['tablas']['areas']
+    _heading(doc, '9.5. Áreas prioritarias', level=3)
+    doc.add_paragraph(f"{areas['nota']} Denominador: {areas['denominador']}.").runs[0].italic = True
+    if areas['filas']:
+        _tabla_grid(
+            doc,
+            ['Área', 'N válido', 'Nulo %', 'Bajo %', 'Medio %', 'Alto %', 'Muy alto %',
+             'Medio o superior %', 'Alto o Muy alto %', 'Prioridad'],
+            [[a['nombre'], a['n']]
+             + [_fmt_pct(a['pct_nivel'][k]) for k in ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')]
+             + [_fmt_pct(a['pct_medio_o_mas']), _fmt_pct(a['pct_alto_o_muy_alto']), f"{a['prioridad']}°"]
+             for a in areas['filas']],
+        )
+    else:
+        doc.add_paragraph('No hay áreas con N suficiente para el análisis desagregado.')
+    if areas['reservadas']:
+        doc.add_paragraph(
+            'Áreas reservadas por confidencialidad (N menor al umbral de '
+            f"{areas['umbral_confidencialidad']}): "
+            + ', '.join(f"{a['nombre']} (N={a['n']})" for a in areas['reservadas'])
+        ).runs[0].italic = True
+
+    # ---- 9.6. Violencia laboral (resumen del dominio oficial) ----
+    viol = rd['tablas']['violencia']
+    _heading(doc, '9.6. Violencia laboral (resumen)', level=3)
+    doc.add_paragraph(viol['nota']).runs[0].italic = True
+    _tabla_grid(
+        doc,
+        ['Nivel', 'N', '%'],
+        [[f['label'], f['n'], _fmt_pct(f['pct'])] for f in viol['filas']],
+    )
+    doc.add_paragraph(
+        f"Denominador: {viol['denominador']} (N = {viol['n_valido']}). "
+        f"Personal en Alto o Muy alto: {_fmt_pct(viol['pct_alto_o_muy_alto'])}."
+    ).runs[0].italic = True
+
+
+def _add_conclusiones_inf(doc, ctx):
+    c = ctx['conclusiones']
+    dist = {d['key']: d['count'] for d in ctx['distribucion']}
+    n = sum(dist.values()) or 1
+    moda_n = dist.get(c['nivel_predominante'], 0)
+    nivel_label = NIVEL_LABEL_DOCX.get(c['nivel_predominante'], c['nivel_predominante'])
+
+    _heading(doc, '10. Conclusiones', level=1)
+    doc.add_paragraph(
+        inf.CONCLUSIONES_INTRO_1.format(n=c['muestra']),
+        style='pdq2pg_selectionanchorcontainer',
+    )
+    doc.add_paragraph(inf.CONCLUSIONES_INTRO_2, style='Normal (Web)')
+    doc.add_paragraph(style='Heading 3')
+
+    _heading(doc, '10.1. Calificación final', level=3)
+    doc.add_paragraph()
+    _p_segs(doc, [(t.format(n=c['muestra'], acc=c['accion_global'],
+                            pct_acc=c['pct_accion']), b)
+                  for t, b in inf.CONCLUSION_10_1_P1])
+    _p_segs(doc, [(t.format(alto=c['riesgo_alto'], pct_alto=c['pct_riesgo']), b)
+                  for t, b in inf.CONCLUSION_10_1_P2])
+    _p_segs(doc, [(t.format(nivel=nivel_label, moda=moda_n,
+                            pct_moda=round(moda_n / n * 100, 1)), b)
+                  for t, b in inf.CONCLUSION_10_1_P3])
+    doc.add_paragraph()
+    _tabla_grid(
+        doc,
+        ['Muestra', 'Requieren Programa de intervención (M+A+MA)',
+         'Prioridad interna (Alto+Muy alto)', 'Nivel predominante'],
+        [[c['muestra'], f"{c['accion_global']} ({c['pct_accion']}%)",
+          f"{c['riesgo_alto']} ({c['pct_riesgo']}%)", nivel_label]],
+    )
+
+    _heading(doc, '10.2. Análisis por categoría', level=3)
+    doc.add_paragraph(inf.CONCLUSION_10_2_INTRO)
+    _add_conclusiones_tabla_rankeada(doc, 'Categoría', c['categorias_rankeadas'])
+
+    _heading(doc, '10.3. Análisis por dominio', level=3)
+    doc.add_paragraph(
+        'Los dominios se presentan ordenados de mayor a menor porcentaje de población en '
+        'niveles Alto y Muy alto, permitiendo identificar los aspectos específicos del entorno '
+        'laboral que concentran mayor riesgo psicosocial.'
+    )
+    _add_conclusiones_tabla_rankeada(doc, 'Dominio', c['dominios_rankeados'])
+
+    cat_top = c['categorias_rankeadas'][0]['nombre'] if c['categorias_rankeadas'] else '—'
+    dom_top = c['dominios_rankeados'][0]['nombre'] if c['dominios_rankeados'] else '—'
+    _p_segs(doc, [(t.format(pct_acc=c['pct_accion'], cat=cat_top, dom=dom_top), b)
+                  for t, b in inf.SINTESIS_SEGS])
+
+
+def _add_recomendaciones_inf(doc, ctx):
+    _heading(doc, '11. Recomendaciones', level=1)
+
+    _heading(doc, '11.1. Recomendaciones generales', level=3)
+    _tabla_grid(
+        doc, ['Acción', 'Descripción'],
+        [[titulo, texto] for titulo, texto in ctx['acciones_generales']],
+    )
+
+    recs_extendidas = ctx.get('recomendaciones_extendidas') or []
+    _heading(doc, '11.2. Recomendaciones específicas', level=3)
+    if not recs_extendidas:
+        doc.add_paragraph(
+            'Ningún dominio alcanzó nivel de riesgo Alto o Muy alto a nivel agregado. '
+            'Se recomienda mantener las condiciones organizacionales actuales y reaplicar '
+            'la evaluación en el siguiente ciclo normativo.'
+        )
+        return
+    for idx, rec in enumerate(recs_extendidas, 1):
+        _heading(doc, f"{idx}. {rec['dominio']} ({rec['pct_intervencion']}%)", level=4)
+        doc.add_paragraph(rec['intro'])
+        for titulo, texto in rec['bullets']:
+            p = doc.add_paragraph(style='List Bullet')
+            p.add_run(f'{titulo}: ').bold = True
+            p.add_run(texto)
+
+
+def _add_matriz_intervencion_inf(doc, ctx):
+    """En el formato aprobado la matriz quedó como título + nota (la tabla
+    operativa la llena el centro de trabajo)."""
+    rd = ctx.get('report_data')
+    if not rd or not rd['tablas']['matriz_intervencion']['filas']:
+        return
+    matriz = rd['tablas']['matriz_intervencion']
+    _heading(doc, 'Matriz de intervención', level=3)
+    doc.add_paragraph(f"{matriz['nota']} {matriz['denominador']}.").runs[0].italic = True
+
+
+def _add_datos_responsable_inf(doc, ctx):
+    """Sección 12 del formato aprobado: responsables de la implementación y
+    seguimiento (coordinación técnica, consultoría operativa y responsable
+    interno del centro de trabajo)."""
+    _heading(doc, '12. Datos del responsable de la evaluación', level=1)
+    _emit_bloque(doc, inf.BLOQUE_RESPONSABLES)
+
+
+def _add_anexo_tecnico_inf(doc, ctx):
+    bloques = ctx.get('bloques_captura')
+    desglose = ctx.get('ats_desglose')
+    if not bloques and not desglose:
+        return
+    _heading(doc, 'Anexo técnico', level=1)
+
+    if bloques:
+        _heading(doc, 'A.T.1. Bloques internos de captura (análisis complementario no normativo)', level=3)
+        doc.add_paragraph(
+            'Los bloques D1-D14 corresponden a la organización interna del cuestionario y '
+            'no son unidades de calificación de la NOM-035; su semáforo es únicamente '
+            'referencial.'
+        ).runs[0].italic = True
+        _simple_table(
+            doc,
+            ['Clave', 'Bloque', 'Dominio oficial', 'Promedio'],
+            [[dim['clave'], dim['nombre'], dim['dominio_oficial'],
+              f"{dim['puntaje_promedio']}/{dim['puntaje_max']}"]
+             for dim in bloques],
+        )
+
+    if desglose:
+        _heading(doc, 'A.T.2. Guía I — desglose por reactivo', level=3)
+        doc.add_paragraph(
+            'Tablas exhaustivas por pregunta (frecuencias por sexo). Se presentan en '
+            'anexo técnico por su nivel de detalle; el resumen oficial está en la '
+            'sección 8 del informe.'
+        ).runs[0].italic = True
+        graficas_ats = ctx.get('graficas', {}).get('ats', {})
+        for seccion in desglose['secciones']:
+            _heading(doc, seccion['nombre'], level=4)
+            if not seccion['filas']:
+                doc.add_paragraph('Sin preguntas registradas para esta sección.')
+                continue
+            filas = [
+                {**f, 'texto': inf.ATS_ACENTOS.get(f['texto'], f['texto'])}
+                for f in seccion['filas']
+            ]
+            _add_ats_tabla(doc, filas)
+            if any(f['h_si'] or f['m_si'] for f in seccion['filas']):
+                _add_grafica(doc, graficas_ats.get(seccion['clave']), width_cm=13)
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # A.T.3 — Dimensiones (antes §9.4; dirección la movió al anexo técnico)
+    _heading(doc, 'A.T.3 Dimensiones (indicador descriptivo)', level=3)
+    if ctx.get('nota_dimensiones'):
+        doc.add_paragraph(ctx['nota_dimensiones']).runs[0].italic = True
+    if ctx['dimensiones'] and 'pct_promedio' in ctx['dimensiones'][0]:
+        _tabla_grid(
+            doc,
+            ['#', 'Dimensión', 'Dominio', 'N', '% promedio', '% mediana'],
+            [[dim['orden'], dim['nombre'], dim['dominio_oficial'], dim['n'],
+              f"{dim['pct_promedio']}%", f"{dim['pct_mediana']}%"]
+             for dim in ctx['dimensiones']],
+            espacio=False,
+        )
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
 def build_informe_diagnostico_docx(ctx: dict) -> io.BytesIO:
-    """Construye el Informe Diagnóstico completo (portada + índice + 13
-    secciones + gráficas), descarga directa sin flujo de aprobación.
-    Requiere `ctx` generado con `informe_extendido=True` para incluir
-    gráficas y recomendaciones extensas; si no, las secciones simplemente
-    omiten las imágenes (`_add_grafica` es un no-op sin datos)."""
-    doc = Document()
-    _set_base_styles(doc)
-    _add_membrete(doc)
+    """Construye el Informe Diagnóstico completo con el formato aprobado por
+    dirección (jul-2026): portada 'PLANTA:', índice TOC, panel ejecutivo,
+    secciones 2-12 y Anexo técnico. Requiere `ctx` generado con
+    `informe_extendido=True` (gráficas y recomendaciones extensas)."""
+    doc = Document(str(_PLANTILLA_INFORME))
 
-    _add_portada_informe(doc, ctx)
-    _add_indice(doc)
+    _add_portada_inf(doc, ctx)
+    _add_indice_inf(doc)
+    _add_panel_ejecutivo(doc, ctx)
     _add_datos_centro_trabajo(doc, ctx)
     _add_objetivo(doc, ctx)
     _add_definiciones(doc, ctx)
-    _add_justificacion_muestra(doc, ctx)
-    _add_metodologia(doc, ctx)
-    _add_informe_demografico(doc, ctx)
-    _add_ats(doc, ctx)
-    _add_informe_diagnostico(doc, ctx)
-    _add_conclusiones(doc, ctx)
-    _add_recomendaciones(doc, ctx)
-    _add_datos_responsable(doc, ctx)
+    _add_justificacion_muestra_inf(doc, ctx)
+    _add_metodologia_inf(doc, ctx)
+    _add_informe_demografico_inf(doc, ctx)
+    _add_ats_inf(doc, ctx)
+    _add_informe_diagnostico_inf(doc, ctx)
+    _add_conclusiones_inf(doc, ctx)
+    _add_recomendaciones_inf(doc, ctx)
+    _add_matriz_intervencion_inf(doc, ctx)
+    _add_datos_responsable_inf(doc, ctx)
+    _add_anexo_tecnico_inf(doc, ctx)
     _add_anexos(doc, ctx)
-
-    _add_toc_update_fields(doc)
 
     buf = io.BytesIO()
     doc.save(buf)

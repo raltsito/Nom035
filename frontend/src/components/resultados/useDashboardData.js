@@ -6,14 +6,17 @@ import { resultadosService } from '../../services/resultados';
 // ---------------------------------------------------------------------------
 
 const RISK_WEIGHT = { nulo: 0, bajo: 1, medio: 2, alto: 3, muy_alto: 4 };
+const NIVELES = ['nulo', 'bajo', 'medio', 'alto', 'muy_alto'];
 
-// 5 macro-dimensiones NOM-035 con sus dominios correspondientes
+// 5 categorías oficiales (Tabla 6, Guía III) → claves de los 10 dominios
+// oficiales que entrega /resultados/dominios-agregados/ (D1..D10 en el orden
+// de la Tabla 6 — NO son los bloques de captura del cuestionario).
 const RADAR_DIMS = [
-  { subject: 'Condiciones\nAmbientales',    claves: ['D1'] },
-  { subject: 'Factores de\nla Actividad',   claves: ['D2', 'D3', 'D4'] },
-  { subject: 'Organización\ndel Tiempo',    claves: ['D5'] },
-  { subject: 'Liderazgo y\nRelaciones',     claves: ['D9', 'D10'] },
-  { subject: 'Entorno\nOrganizacional',     claves: ['D6', 'D7', 'D8', 'D11', 'D12'] },
+  { subject: 'Ambiente de\nTrabajo',        claves: ['D1'] },
+  { subject: 'Factores de\nla Actividad',   claves: ['D2', 'D3'] },
+  { subject: 'Organización\ndel Tiempo',    claves: ['D4', 'D5'] },
+  { subject: 'Liderazgo y\nRelaciones',     claves: ['D6', 'D7', 'D8'] },
+  { subject: 'Entorno\nOrganizacional',     claves: ['D9', 'D10'] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -29,12 +32,16 @@ function weightedRiskScore(dist) {
   return sum / total;
 }
 
-function scoreToCategoria(score) {
-  if (score <= 0.5) return 'nulo';
-  if (score <= 1.5) return 'bajo';
-  if (score <= 2.5) return 'medio';
-  if (score <= 3.5) return 'alto';
-  return 'muy_alto';
+// Nivel predominante (moda) de una distribución de niveles individuales.
+// La NOM-035 no permite clasificar promedios con los cortes oficiales, así
+// que el "nivel global" que se muestra es siempre la moda de la distribución.
+function modaDistribucion(dist) {
+  let cat = 'nulo';
+  let max = -1;
+  for (const k of NIVELES) {
+    if ((dist[k] ?? 0) > max) { max = dist[k] ?? 0; cat = k; }
+  }
+  return cat;
 }
 
 // ---------------------------------------------------------------------------
@@ -45,8 +52,10 @@ function procesarDatos(resultados, resumen, dominiosAgregados, atencionClinica) 
   const distIII = resumen.guia_iii?.distribucion ?? resumen.distribucion ?? {};
 
   // ---- Chart 1: Gauge de riesgo global (solo Guía III) -------------------
+  // categoria = nivel PREDOMINANTE (moda de los niveles individuales);
+  // score/pct son solo descriptivos para la aguja del gauge.
   const riskScore = weightedRiskScore(distIII);
-  const riskCat   = scoreToCategoria(riskScore);
+  const riskCat   = modaDistribucion(distIII);
   const riskPct   = riskScore <= 1
     ? 0
     : Math.min(100, Math.round(((riskScore - 1) / 3) * 100));
@@ -63,19 +72,24 @@ function procesarDatos(resultados, resumen, dominiosAgregados, atencionClinica) 
     const pct  = pcts.length
       ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length)
       : 0;
-    const catScore = doms.length
-      ? doms.reduce((s, d) => s + (RISK_WEIGHT[d.categoria_modal] ?? 0), 0) / doms.length
-      : 0;
-    return { subject: dim.subject, valor: pct, categoria: scoreToCategoria(catScore), fullMark: 100 };
+    // Nivel mostrado: el peor nivel modal entre los dominios de la categoría
+    // (indicador visual descriptivo; los niveles oficiales por categoría se
+    // calculan por cuestionario individual en el backend).
+    const peor = doms.reduce(
+      (worst, d) => (RISK_WEIGHT[d.categoria_modal] ?? 0) > (RISK_WEIGHT[worst] ?? 0)
+        ? d.categoria_modal : worst,
+      'nulo',
+    );
+    return { subject: dim.subject, valor: pct, categoria: peor, fullMark: 100 };
   });
 
-  // ---- Chart 3: Bar de 14 dominios (datos reales) ------------------------
+  // ---- Chart 3: Bar de los 10 dominios oficiales (Tabla 6) ---------------
   const dominios = [...dominiosAgregados].sort((a, b) =>
     a.dominio_clave.localeCompare(b.dominio_clave, undefined, { numeric: true }),
   );
 
-  // ---- Chart 4: Violencia laboral — D12 real -----------------------------
-  const d12    = dominioMap['D12'];
+  // ---- Chart 4: Violencia laboral — dominio oficial D8 (Tabla 6) ---------
+  const d12    = dominioMap['D8'];
   const violPct = d12?.pct_promedio ?? 0;
   const violCat = d12?.categoria_modal ?? 'nulo';
   const violencia = {

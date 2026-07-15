@@ -14,11 +14,13 @@ from rest_framework.response import Response
 
 from accounts.permissions import IsSuperAdmin, IsTenantAdmin
 from core import xlsx_styles as xs
+from core.confidencialidad import ETIQUETA_RESERVADO, grupo_reservado, umbral_confidencialidad
 from m00_onboarding.models import CicloNOM, Trabajador
 from m00_onboarding.views import _muestra
 from m05_questionnaires.models import Aplicacion, Pregunta, RespuestaPregunta
 from m06_results.models import ResultadoAplicacion, ResultadoDominio
 from m06_results.scoring import (
+    NOTA_DIMENSIONES,
     _CORTES_FINAL,
     _CORTES_CATEGORIA,
     _CORTES_DOMINIO,
@@ -29,6 +31,7 @@ from m06_results.scoring import (
 from . import contenido_normativo as norm
 from . import graficas as graf
 from . import interpretaciones as interp
+from .report_data import build_report_data
 from .docx_builder import build_informe_diagnostico_docx, build_reporte_psicologico_docx
 from .models import ReportePsicologico
 
@@ -78,32 +81,52 @@ CAT_LABELS = {
     'muy_alto': 'Muy alto',
 }
 
-# Cuadro 2 NOM-035-STPS-2018 — Acciones requeridas según el nivel de riesgo
-ACCIONES_CUADRO2 = [
+# Tabla 7, Guía de Referencia III, NOM-035-STPS-2018 — "Criterios para la
+# toma de acciones". Transcripción fiel del texto oficial (DOF 23-oct-2018),
+# verificada contra el PDF de la STPS el 2026-07-14. Las recomendaciones
+# profesionales adicionales van SEPARADAS (sección de recomendaciones
+# complementarias), nunca mezcladas con estos textos normativos.
+ACCIONES_TABLA7 = [
     ('nulo',
-     'El riesgo resulta despreciable, por lo que no se requiere de medidas adicionales.'),
+     'El riesgo resulta despreciable por lo que no se requiere medidas adicionales.'),
     ('bajo',
-     'Es necesario revisar la política de prevención de riesgos psicosociales y '
-     'programas para la prevención de los factores de riesgo psicosocial, la promoción '
-     'de un entorno organizacional favorable y la prevención de la violencia laboral.'),
+     'Es necesario una mayor difusión de la política de prevención de riesgos '
+     'psicosociales y programas para: la prevención de los factores de riesgo '
+     'psicosocial, la promoción de un entorno organizacional favorable y la prevención '
+     'de la violencia laboral.'),
     ('medio',
-     'Se requiere revisar y, en su caso, reforzar las acciones del programa de prevención '
-     'de factores de riesgo psicosocial; realizar exámenes médicos y evaluaciones '
-     'psicológicas a los trabajadores expuestos cuando existan signos o síntomas; y '
-     'establecer un plan de acción con plazos y responsables definidos.'),
+     'Se requiere revisar la política de prevención de riesgos psicosociales y programas '
+     'para la prevención de los factores de riesgo psicosocial, la promoción de un '
+     'entorno organizacional favorable y la prevención de la violencia laboral, así como '
+     'reforzar su aplicación y difusión, mediante un Programa de intervención.'),
     ('alto',
-     'Se requiere realizar el análisis de cada categoría y dominio para establecer las '
-     'acciones de intervención correspondientes; revisar la política y reforzar el programa '
-     'de prevención; efectuar exámenes médicos y evaluaciones psicológicas a los '
-     'trabajadores expuestos; dar seguimiento mensual y canalizar a atención clínica a '
-     'quienes lo requieran.'),
+     'Se requiere realizar un análisis de cada categoría y dominio, de manera que se '
+     'puedan determinar las acciones de intervención apropiadas a través de un Programa '
+     'de intervención, que podrá incluir una evaluación específica y deberá incluir una '
+     'campaña de sensibilización, revisar la política de prevención de riesgos '
+     'psicosociales y programas para la prevención de los factores de riesgo psicosocial, '
+     'la promoción de un entorno organizacional favorable y la prevención de la violencia '
+     'laboral, así como reforzar su aplicación y difusión.'),
     ('muy_alto',
-     'Se requiere realizar el análisis de cada categoría y dominio para establecer de '
-     'inmediato las acciones de intervención y control; reforzar la aplicación de la '
-     'política y del programa de prevención; realizar exámenes médicos y evaluaciones '
-     'psicológicas a los trabajadores expuestos; y canalizar a atención clínica '
-     'especializada de forma urgente, con seguimiento permanente.'),
+     'Se requiere realizar el análisis de cada categoría y dominio para establecer las '
+     'acciones de intervención apropiadas, mediante un Programa de intervención que '
+     'deberá incluir evaluaciones específicas, y contemplar campañas de sensibilización, '
+     'revisar la política de prevención de riesgos psicosociales y programas para la '
+     'prevención de los factores de riesgo psicosocial, la promoción de un entorno '
+     'organizacional favorable y la prevención de la violencia laboral, así como reforzar '
+     'su aplicación y difusión.'),
 ]
+
+# Alias retro-compatible (nombre anterior, incorrecto: la NOM no tiene
+# "Cuadro 2"; los criterios de acción son la Tabla 7 de la Guía III).
+ACCIONES_CUADRO2 = ACCIONES_TABLA7
+
+NOTA_PROMEDIO = (
+    'El puntaje promedio es un estadístico descriptivo y no constituye un nivel de '
+    'riesgo oficial del centro de trabajo conforme a la NOM-035-STPS-2018. Los puntos '
+    'de corte oficiales se aplican a cada cuestionario individual; la conclusión '
+    'organizacional se basa en la distribución de personas por nivel.'
+)
 
 # Interpretación narrativa del nivel de riesgo global de la organización
 NIVEL_GLOBAL_TEXTO = {
@@ -129,10 +152,15 @@ NIVEL_GLOBAL_TEXTO = {
         'psicológica, y un programa de intervención con indicadores de seguimiento.',
 }
 
+# Descripciones conforme a las propias guías y a los numerales 7.1-7.4 de la
+# NOM-035. Nota metodológica: para centros de 16 a 50 trabajadores la NOM
+# ejemplifica la identificación de FRPS con la Guía II; este sistema aplica la
+# Guía III (que además evalúa entorno organizacional), lo cual cubre y excede
+# ese requisito — decisión documentada en docs/auditoria_metodologica_nom035.md.
 GUIA_DESC = {
-    'I':   'hasta 15 trabajadores',
-    'III': '16 a 50 trabajadores',
-    'V':   'más de 50 trabajadores',
+    'I':   'identificación de trabajadores sujetos a acontecimientos traumáticos severos (todos los centros de trabajo)',
+    'III': 'identificación de factores de riesgo psicosocial y evaluación del entorno organizacional (obligatoria en centros con más de 50 trabajadores)',
+    'V':   'datos sociodemográficos y laborales del trabajador (no genera nivel de riesgo)',
 }
 
 RECOMENDACIONES_BASE = {
@@ -229,8 +257,16 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
         ).prefetch_related('dominios__dominio', 'dominios_oficiales')
     )
 
-    res_iii = [r for r in resultados if r.aplicacion.cuestionario.clave == 'III']
-    res_i   = [r for r in resultados if r.aplicacion.cuestionario.clave == 'I']
+    # Población analítica: SOLO cuestionarios válidos (los 'sin_calificar' /
+    # requiere_revision no entran a ninguna distribución normativa).
+    res_iii = [r for r in resultados
+               if r.aplicacion.cuestionario.clave == 'III'
+               and getattr(r, 'estatus_validacion', 'valido') == 'valido']
+    res_i   = [r for r in resultados
+               if r.aplicacion.cuestionario.clave == 'I'
+               and getattr(r, 'estatus_validacion', 'valido') == 'valido']
+    excluidos_revision = sum(
+        1 for r in resultados if getattr(r, 'estatus_validacion', 'valido') != 'valido')
 
     clave_map = _clave_map(resultados) if anonimo else {}
 
@@ -263,9 +299,22 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
         for k in DIST_KEYS
     ]
 
-    # Nivel de riesgo global de la organización = promedio de puntajes globales
+    # Conclusión organizacional: los cortes de la Tabla 6 aplican a cada
+    # cuestionario INDIVIDUAL — está prohibido clasificar el promedio del
+    # centro. El "nivel global" que se comunica es el nivel PREDOMINANTE
+    # (moda de los niveles individuales), acompañado siempre de la
+    # distribución completa y de los % de población en riesgo.
     promedio_global = round(sum(r.puntaje_total for r in res_iii) / total_iii) if total_iii else 0
-    nivel_global = _categoria_por_rangos(promedio_global, _CORTES_FINAL) if total_iii else 'nulo'
+    nivel_global = max(DIST_KEYS, key=lambda k: dist_count[k]) if total_iii else 'nulo'
+    pct_alto_muy_alto = round((dist_count['alto'] + dist_count['muy_alto']) / total_dist * 100)
+    pct_medio_o_mas = round(
+        (dist_count['medio'] + dist_count['alto'] + dist_count['muy_alto']) / total_dist * 100)
+    mediana_global = 0
+    if res_iii:
+        puntajes = sorted(r.puntaje_total for r in res_iii)
+        mitad = len(puntajes) // 2
+        mediana_global = (puntajes[mitad] if len(puntajes) % 2
+                          else round((puntajes[mitad - 1] + puntajes[mitad]) / 2))
 
     # ------------------------------------------------------------------
     # Guía III — resultados individuales por trabajador
@@ -336,7 +385,7 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
                     'pt':          0,
                     'pm':          0,
                     'dist':        {k: 0 for k in DIST_KEYS},
-                    'areas':       defaultdict(lambda: {'pt': 0, 'pm': 0}),
+                    'areas':       defaultdict(lambda: {'pt': 0, 'pm': 0, 'n': 0}),
                 }
             info = domain_map[clave]
             info['pt'] += d.puntaje
@@ -345,6 +394,7 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
                 info['dist'][d.categoria] += 1
             info['areas'][area]['pt'] += d.puntaje
             info['areas'][area]['pm'] += d.puntaje_max
+            info['areas'][area]['n'] += 1
 
     dominios_agregados = []
     areas_set = set()
@@ -356,12 +406,20 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
         por_area = {}
         for area_nombre, ae in info['areas'].items():
             areas_set.add(area_nombre)
+            if grupo_reservado(ae['n']):
+                por_area[area_nombre] = {
+                    'reservado': True, 'detalle': ETIQUETA_RESERVADO,
+                    'n': ae['n'], 'pct': None, 'categoria': None,
+                }
+                continue
+            # % del máximo posible del bloque: indicador DESCRIPTIVO. Los
+            # bloques D1-D14 son unidades de captura, no tienen cortes
+            # oficiales — no se les asigna nivel normativo.
             por_area[area_nombre] = {
+                'reservado': False,
+                'n':         ae['n'],
                 'pct':       round(ae['pt'] / ae['pm'] * 100) if ae['pm'] else 0,
-                'categoria': _categoria_por_rangos(
-                    round(ae['pt'] / ae['pm'] * 100) if ae['pm'] else 0,
-                    [(20, 'nulo'), (45, 'bajo'), (60, 'medio'), (75, 'alto')],
-                ),
+                'categoria': None,
             }
         dominios_agregados.append({
             'clave':                 info['clave'],
@@ -388,17 +446,37 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
         if r.categoria in area_totales[area]['dist']:
             area_totales[area]['dist'][r.categoria] += 1
 
+    # Por área se reporta la DISTRIBUCIÓN de niveles individuales (nunca la
+    # clasificación del promedio) y se reservan los grupos pequeños.
     areas_analisis = []
     for nombre, info in sorted(area_totales.items()):
-        prom = round(info['suma'] / info['n']) if info['n'] else 0
+        n_area = info['n']
+        if grupo_reservado(n_area):
+            areas_analisis.append({
+                'nombre':    nombre,
+                'evaluados': n_area,
+                'reservado': True,
+                'promedio':  None,
+                'categoria': None,
+                'categoria_label': ETIQUETA_RESERVADO,
+                'pct_alto':  None,
+                'dist':      None,
+            })
+            continue
+        alto_mas = info['dist']['alto'] + info['dist']['muy_alto']
+        cat_modal = max(DIST_KEYS, key=lambda k: info['dist'][k])
         areas_analisis.append({
             'nombre':    nombre,
-            'evaluados': info['n'],
-            'promedio':  prom,
-            'categoria': _categoria_por_rangos(prom, _CORTES_FINAL),
+            'evaluados': n_area,
+            'reservado': False,
+            # Promedio: SOLO descriptivo (no se clasifica con cortes oficiales).
+            'promedio':  round(info['suma'] / n_area) if n_area else 0,
+            'categoria': cat_modal,  # nivel predominante (moda), no promedio clasificado
+            'categoria_label': CAT_LABELS[cat_modal],
+            'pct_alto':  round(alto_mas / n_area * 100) if n_area else 0,
             'dist':      info['dist'],
         })
-    areas_analisis.sort(key=lambda a: a['promedio'], reverse=True)
+    areas_analisis.sort(key=lambda a: (a['pct_alto'] is not None, a['pct_alto'] or 0), reverse=True)
 
     # ------------------------------------------------------------------
     # Acciones requeridas (Cuadro 2) — marcar niveles presentes
@@ -411,7 +489,7 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
             'accion':   texto,
             'presente': k in niveles_presentes,
         }
-        for k, texto in ACCIONES_CUADRO2
+        for k, texto in ACCIONES_TABLA7
     ]
 
     # Tabla de rangos oficiales de corte (Tabla 6, Guía III) — contenido
@@ -434,10 +512,20 @@ def _build_context(tenant, ciclo, resultados_qs, anonimo=False) -> dict:
             'total_guia_i':       len(res_i),
         },
         'pct_completado':    pct_completado,
+        # nivel_global = nivel PREDOMINANTE (moda de niveles individuales).
+        # El promedio es solo descriptivo (ver NOTA_PROMEDIO) — nunca se
+        # clasifica con los cortes de la Tabla 6.
         'nivel_global':      nivel_global,
         'nivel_global_label':CAT_LABELS[nivel_global],
         'nivel_global_texto':NIVEL_GLOBAL_TEXTO[nivel_global],
+        'nivel_global_metodo': 'Nivel predominante: moda de los niveles individuales (Guía III válidos).',
         'promedio_global':   promedio_global,
+        'mediana_global':    mediana_global,
+        'nota_promedio':     NOTA_PROMEDIO,
+        'pct_alto_muy_alto': pct_alto_muy_alto,
+        'pct_medio_o_mas':   pct_medio_o_mas,
+        'excluidos_revision': excluidos_revision,
+        'umbral_confidencialidad': umbral_confidencialidad(),
         'distribucion':      distribucion,
         'resultados':        workers_iii,
         'guia_i':            guia_i,
@@ -488,7 +576,25 @@ def descargar_informe_diagnostico(request):
             status=400,
         )
 
-    ctx = _build_psico_context(tenant, ciclo, resultados_qs, anonimo=False, informe_extendido=True)
+    # El anexo con resultados individuales (folios) solo se integra si se
+    # solicita expresamente (?anexo_confidencial=1); el informe general va
+    # sin él, conforme al principio de confidencialidad de la NOM-035.
+    incluir_anexo = str(request.query_params.get('anexo_confidencial', '')).lower() in ('1', 'true', 'yes')
+    ctx = _build_psico_context(
+        tenant, ciclo, resultados_qs, anonimo=False, informe_extendido=True,
+        incluir_anexo_confidencial=incluir_anexo,
+    )
+
+    # Bloqueo de emisión: el informe no se genera si el motor de composición
+    # detectó errores críticos de consistencia (ReportDataNOM035.validaciones).
+    validaciones = ctx['report_data']['validaciones']
+    if not validaciones['puede_emitirse']:
+        return HttpResponse(
+            'No es posible emitir el informe. Errores críticos de validación: '
+            + ' | '.join(validaciones['errores_criticos']),
+            status=409,
+        )
+
     buf = build_informe_diagnostico_docx(ctx)
 
     filename = f'Informe_Diagnostico_NOM035_{tenant.nombre.replace(" ", "_")}_{ciclo.anio}.docx'
@@ -666,13 +772,24 @@ PRINT_HINT = """
 # ===========================================================================
 
 def _distribucion_simple(valores):
-    """Cuenta ocurrencias y devuelve [{label, count, pct}] ordenado desc."""
+    """Cuenta ocurrencias y devuelve [{label, count, pct}] ordenado desc.
+    El porcentaje se calcula sobre el N VÁLIDO (excluyendo 'Sin dato'); la
+    fila 'Sin dato' reporta su % sobre el total para transparencia de
+    faltantes. Cada fila incluye el denominador usado."""
     counts = defaultdict(int)
     for v in valores:
         counts[v or 'Sin dato'] += 1
     total = sum(counts.values()) or 1
+    n_faltante = counts.get('Sin dato', 0)
+    n_valido = (total - n_faltante) or 1
     return [
-        {'label': k, 'count': v, 'pct': round(v / total * 100)}
+        {
+            'label': k,
+            'count': v,
+            'pct': round(v / (total if k == 'Sin dato' else n_valido) * 100),
+            'n_valido': total - n_faltante,
+            'n_faltante': n_faltante,
+        }
         for k, v in sorted(counts.items(), key=lambda x: (-x[1], x[0]))
     ]
 
@@ -706,11 +823,21 @@ def _grupo_antiguedad(anios):
 
 
 def _build_muestra(tenant, ciclo):
-    """Distribución sociodemográfica (Guía V) de los trabajadores participantes."""
-    trab_ids = (
-        Aplicacion.objects.filter(tenant=tenant, ciclo=ciclo)
-        .values_list('trabajador_id', flat=True).distinct()
+    """Distribución sociodemográfica de la POBLACIÓN ANALÍTICA: trabajadores
+    con Guía III válida en el ciclo (misma población que el informe FRPS).
+    Si el ciclo aún no tiene resultados calculados, cae al universo de
+    participantes para no dejar la sección vacía."""
+    trab_ids = list(
+        ResultadoAplicacion.objects.filter(
+            aplicacion__tenant=tenant, aplicacion__ciclo=ciclo,
+            aplicacion__cuestionario__clave='III', estatus_validacion='valido',
+        ).values_list('aplicacion__trabajador_id', flat=True).distinct()
     )
+    if not trab_ids:
+        trab_ids = (
+            Aplicacion.objects.filter(tenant=tenant, ciclo=ciclo)
+            .values_list('trabajador_id', flat=True).distinct()
+        )
     trabajadores = list(Trabajador.objects.filter(id__in=trab_ids))
 
     return {
@@ -739,6 +866,9 @@ def _build_muestra(tenant, ciclo):
         'experiencia_total': _distribucion_simple(
             [_grupo_antiguedad(t.experiencia_anios) for t in trabajadores]),
     }
+
+
+# (El flujo de muestra vive en documents.report_data — fuente única.)
 
 
 def _datos_muestra_ecuacion1(tenant, ciclo):
@@ -908,11 +1038,38 @@ def _recomendaciones_extendidas(dominios_oficiales_agregados):
     return recs
 
 
+# Variables demográficas (nombre en ReportDataNOM035) ↔ columna de las
+# tablas de muestra del contexto, para aplicar la regla "variable con
+# faltantes críticos → alerta, no gráfica".
+_VARIABLE_DE_COLUMNA = {
+    'Sexo':                                  'Sexo',
+    'Grupo de edad':                         'Edad',
+    'Estado civil':                          'Estado civil',
+    'Nivel de estudios':                     'Nivel de estudios',
+    'Tipo de puesto':                        'Tipo de puesto',
+    'Tipo de contratación':                  'Tipo de contratación',
+    'Tipo de personal':                      'Tipo de personal',
+    'Tipo de jornada':                       'Tipo de jornada',
+    'Realiza rotación':                      'Rotación de turnos',
+    'Tiempo en el puesto actual':            'Tiempo en el puesto',
+    'Tiempo de experiencia laboral total':   'Experiencia laboral',
+}
+
+
+def _dist_es_trivial(counts):
+    """True si la distribución tiene una sola categoría con datos (o ninguna):
+    una gráfica así no aporta información y se elimina del informe."""
+    return sum(1 for c in counts if c) <= 1
+
+
 def _build_graficas_informe(ctx):
-    """PNGs (matplotlib) del Informe Diagnóstico extendido. Solo se calculan
-    cuando `informe_extendido=True` — nunca para el flujo borrador/aprobar
-    existente, para no alterar su comportamiento ya validado."""
+    """PNGs (matplotlib) del Informe Diagnóstico extendido, derivados del
+    mismo contexto que las tablas (fuente única ReportDataNOM035). Reglas de
+    exclusión: no se grafican distribuciones de una sola categoría ni
+    variables demográficas con faltantes críticos (esas llevan alerta)."""
     graficas = {}
+    variables_sin_grafica = set(
+        ctx.get('report_data', {}).get('exclusiones', {}).get('variables_sin_grafica', []))
 
     if ctx.get('ats_desglose'):
         graficas['ats'] = {
@@ -922,7 +1079,7 @@ def _build_graficas_informe(ctx):
         }
 
     dist_no_cero = [d for d in ctx['distribucion'] if d['count'] > 0]
-    if dist_no_cero:
+    if len(dist_no_cero) > 1:
         graficas['distribucion'] = graf.chart_pie(
             [d['label'] for d in dist_no_cero],
             [d['count'] for d in dist_no_cero],
@@ -931,19 +1088,24 @@ def _build_graficas_informe(ctx):
     graficas['categorias'] = {
         c['nombre']: graf.chart_nivel_dist(c['nombre'], c['dist'], c['evaluados'])
         for c in ctx['categorias_agregadas']
+        if not _dist_es_trivial(c['dist'].values())
     }
     graficas['dominios'] = {
         d['nombre']: graf.chart_nivel_dist(d['nombre'], d['dist'], d['evaluados'])
         for d in ctx['dominios_oficiales_agregados']
+        if not _dist_es_trivial(d['dist'].values())
     }
 
     graficas['muestra'] = {}
     for tabla in ctx['muestra_tablas']:
         datos = tabla['datos']
-        if not datos:
-            continue
-        labels = [d['label'] for d in datos]
+        variable = _VARIABLE_DE_COLUMNA.get(tabla['col'], tabla['col'])
+        if not datos or variable in variables_sin_grafica:
+            continue  # faltantes críticos: alerta en el texto, sin gráfica
         counts = [d['count'] for d in datos]
+        if _dist_es_trivial(counts):
+            continue  # 100% en una sola respuesta: la gráfica no aporta
+        labels = [d['label'] for d in datos]
         if len(datos) <= 3:
             graficas['muestra'][tabla['col']] = graf.chart_pie(labels, counts)
         else:
@@ -955,88 +1117,113 @@ def _build_graficas_informe(ctx):
 
 
 def _riesgo_por_grupo(res_iii, keyfn):
-    """Nivel de riesgo promedio (Guía III) agrupado por un atributo del trabajador."""
+    """Distribución de niveles individuales (Guía III) agrupada por un
+    atributo del trabajador. NUNCA clasifica el promedio del grupo: reporta
+    la moda, la distribución y el % en alto+muy alto. Los grupos con n menor
+    al umbral de confidencialidad se reservan."""
     groups = {}
     for r in res_iii:
         k = keyfn(r.aplicacion.trabajador) or 'Sin dato'
-        g = groups.setdefault(k, {'suma': 0, 'n': 0})
+        g = groups.setdefault(k, {'suma': 0, 'n': 0, 'dist': {x: 0 for x in DIST_KEYS}})
         g['suma'] += r.puntaje_total
         g['n'] += 1
+        if r.categoria in g['dist']:
+            g['dist'][r.categoria] += 1
     out = []
     for label, g in groups.items():
-        prom = round(g['suma'] / g['n']) if g['n'] else 0
+        if grupo_reservado(g['n']):
+            out.append({
+                'label':     label,
+                'evaluados': g['n'],
+                'reservado': True,
+                'promedio':  None,
+                'categoria': None,
+                'categoria_label': ETIQUETA_RESERVADO,
+                'pct_alto':  None,
+                'dist':      None,
+            })
+            continue
+        alto_mas = g['dist']['alto'] + g['dist']['muy_alto']
+        cat_modal = max(DIST_KEYS, key=lambda k2: g['dist'][k2])
         out.append({
             'label':     label,
             'evaluados': g['n'],
-            'promedio':  prom,
-            'categoria': _categoria_por_rangos(prom, _CORTES_FINAL),
+            'reservado': False,
+            'promedio':  round(g['suma'] / g['n']) if g['n'] else 0,  # descriptivo
+            'categoria': cat_modal,  # moda de niveles individuales
+            'categoria_label': CAT_LABELS[cat_modal],
+            'pct_alto':  round(alto_mas / g['n'] * 100) if g['n'] else 0,
+            'dist':      g['dist'],
         })
-    out.sort(key=lambda x: -x['promedio'])
+    out.sort(key=lambda x: -(x['pct_alto'] or 0))
     return out
 
 
-def _agregar_por_grupo(por_trabajador, orden, cortes_por_nombre):
-    """Reduce un dict {trabajador_id: {grupo: {pt, pm}}} a una lista ordenada de
-    agregados por grupo (categoría o dominio oficial), clasificando a cada
-    trabajador con los cortes oficiales de suma (Tabla 6, Guía III) del
-    grupo correspondiente. `pct_promedio` es solo descriptivo."""
-    grupos = defaultdict(lambda: {'dist': {k: 0 for k in DIST_KEYS}, 'pct_sum': 0, 'n': 0})
-    for items in por_trabajador.values():
-        for nombre, vals in items.items():
-            if not vals['pm']:
+# (_agregar_por_grupo fue sustituido por documents.report_data — fuente única.)
+
+
+def _legacy_desde_report_data(filas_rd, orden_normativo):
+    """Adapta las filas de ReportDataNOM035 (fuente única) al formato legado
+    que consumen las gráficas, conclusiones y la plantilla HTML. NO recalcula
+    nada: solo renombra campos."""
+    idx = {nombre: i for i, nombre in enumerate(orden_normativo)}
+    filas = sorted(filas_rd, key=lambda f: idx.get(f['nombre'], 999))
+    return [
+        {
+            'nombre':                 f['nombre'],
+            'evaluados':              f['n'],
+            'dist':                   f['dist'],
+            'pct_promedio':           round(f['pct_promedio'] or 0),
+            'categoria_predominante': f['nivel_predominante'] or 'nulo',
+            'requieren_atencion':     f['n_alto_o_muy_alto'],
+            'pct_intervencion':       round(f['pct_alto_o_muy_alto'] or 0),
+            'pct_accion':             round(f['pct_medio_o_mas'] or 0),
+            'prioridad':              f['prioridad'],
+        }
+        for f in filas
+    ]
+
+
+def _agregar_dimensiones_oficiales(res_iii):
+    """Agrega los registros `ResultadoDimension` (25 dimensiones, Tabla 6)
+    del ciclo. SOLO estadísticos descriptivos: la NOM-035 no establece
+    puntos de corte por dimensión, así que NUNCA se asigna nivel."""
+    acc = {}
+    for r in res_iii:
+        for d in r.dimensiones.all():
+            if not d.puntaje_max:
                 continue
-            pct = round(vals['pt'] / vals['pm'] * 100)
-            nivel = _categoria_por_rangos(vals['pt'], cortes_por_nombre[nombre])
-            g = grupos[nombre]
-            g['dist'][nivel] += 1
-            g['pct_sum'] += pct
-            g['n'] += 1
+            e = acc.setdefault(d.orden, {
+                'orden':           d.orden,
+                'nombre':          d.nombre,
+                'dominio_oficial': d.dominio_oficial,
+                'pcts':            [],
+                'pt':              0,
+                'pm':              0,
+            })
+            e['pcts'].append(float(d.pct or 0))
+            e['pt'] += d.puntaje
+            e['pm'] += d.puntaje_max
 
     salida = []
-    for nombre in orden:
-        g = grupos.get(nombre)
-        if not g or not g['n']:
-            continue
-        requieren = g['dist']['alto'] + g['dist']['muy_alto']
-        en_accion = g['dist']['medio'] + requieren
+    for e in sorted(acc.values(), key=lambda x: x['orden']):
+        pcts = sorted(e['pcts'])
+        n = len(pcts)
+        mediana = pcts[n // 2] if n % 2 else (pcts[n // 2 - 1] + pcts[n // 2]) / 2
         salida.append({
-            'nombre':                nombre,
-            'evaluados':             g['n'],
-            'dist':                  g['dist'],
-            'pct_promedio':          round(g['pct_sum'] / g['n']),
-            'categoria_predominante':max(g['dist'], key=g['dist'].get),
-            'requieren_atencion':    requieren,
-            'pct_intervencion':      round(requieren / g['n'] * 100),
-            'pct_accion':            round(en_accion / g['n'] * 100),
+            'orden':           e['orden'],
+            'nombre':          e['nombre'],
+            'dominio_oficial': e['dominio_oficial'],
+            'n':               n,
+            'pct_promedio':    round(sum(pcts) / n, 1),
+            'pct_mediana':     round(mediana, 1),
+            'pct_maximo':      round(pcts[-1], 1),
+            'nota':            NOTA_DIMENSIONES,
         })
     return salida
 
 
-def _build_jerarquia_categorias(res_iii):
-    """Agrega los 10 dominios oficiales ya calculados (Tabla 6, Guía III,
-    `ResultadoDominioOficial`) en la jerarquía Categoría (5) → Dominio (10),
-    sumando puntaje/puntaje_max por trabajador y reclasificando con los
-    cortes oficiales de suma. No fabrica datos: solo reagrupa los puntajes
-    ya calculados en `m06_results.scoring`."""
-    cat_por_trabajador = defaultdict(lambda: defaultdict(lambda: {'pt': 0, 'pm': 0}))
-    dom_por_trabajador = defaultdict(lambda: defaultdict(lambda: {'pt': 0, 'pm': 0}))
-    for r in res_iii:
-        tid = r.aplicacion.trabajador_id
-        for d in r.dominios_oficiales.all():
-            if not d.puntaje_max:
-                continue
-            categoria = _CATEGORIA_DE_DOMINIO.get(d.nombre)
-            if categoria:
-                cat_por_trabajador[tid][categoria]['pt'] += d.puntaje
-                cat_por_trabajador[tid][categoria]['pm'] += d.puntaje_max
-            dom_por_trabajador[tid][d.nombre]['pt'] += d.puntaje
-            dom_por_trabajador[tid][d.nombre]['pm'] += d.puntaje_max
-
-    orden_categorias = [c for c, _ in _CATEGORIA_DOMINIOS]
-    orden_dominios = [dom for _, doms in _CATEGORIA_DOMINIOS for dom in doms]
-    categorias_agregadas = _agregar_por_grupo(cat_por_trabajador, orden_categorias, _CORTES_CATEGORIA)
-    dominios_oficiales_agregados = _agregar_por_grupo(dom_por_trabajador, orden_dominios, _CORTES_DOMINIO)
-    return categorias_agregadas, dominios_oficiales_agregados
+# (_build_jerarquia_categorias fue sustituido por documents.report_data.)
 
 
 def _build_conclusiones(ctx):
@@ -1148,7 +1335,8 @@ def _build_anexos(res_iii, res_i):
     }
 
 
-def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendido=False):
+def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendido=False,
+                         incluir_anexo_confidencial=True):
     """`informe_extendido=True` agrega gráficas (matplotlib) y recomendaciones
     extensas por dominio — solo lo activa `descargar_informe_diagnostico`
     (botón "Descargar informe"). El flujo borrador/aprobar existente nunca lo
@@ -1157,9 +1345,13 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
 
     resultados_lista = list(resultados_qs.select_related(
         'aplicacion__trabajador', 'aplicacion__cuestionario'
-    ).prefetch_related('dominios__dominio', 'dominios_oficiales'))
-    res_iii = [r for r in resultados_lista if r.aplicacion.cuestionario.clave == 'III']
-    res_i = [r for r in resultados_lista if r.aplicacion.cuestionario.clave == 'I']
+    ).prefetch_related('dominios__dominio', 'dominios_oficiales', 'categorias', 'dimensiones'))
+    res_iii = [r for r in resultados_lista
+               if r.aplicacion.cuestionario.clave == 'III'
+               and getattr(r, 'estatus_validacion', 'valido') == 'valido']
+    res_i = [r for r in resultados_lista
+             if r.aplicacion.cuestionario.clave == 'I'
+             and getattr(r, 'estatus_validacion', 'valido') == 'valido']
     riesgo_por_grupo = {
         'sexo':    _riesgo_por_grupo(res_iii, lambda t: t.get_sexo_display() if t.sexo else None),
         'edad':    _riesgo_por_grupo(res_iii, lambda t: _grupo_edad(t.edad)),
@@ -1180,15 +1372,32 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
 
     dominios_prioritarios = [d for d in ctx['dominios_agregados'] if d['prioritario']]
 
-    # Dimensiones (9.4) = los 14 dominios D1-D14 ya calificados, etiquetados con
-    # el dominio oficial (Tabla 6) al que pertenecen — es el nivel de
-    # desagregación más fino con el que cuenta el sistema.
-    dimensiones = [
+    # Bloques internos de captura (D1-D14): análisis complementario NO
+    # normativo — la NOM no define cortes por bloque. Se conservan para el
+    # detalle técnico, claramente etiquetados.
+    bloques_captura = [
         {**dom, 'dominio_oficial': norm.DOMINIO_OFICIAL_DE_BLOQUE.get(dom['clave'], dom['nombre'])}
         for dom in ctx['dominios_agregados']
     ]
 
-    categorias_agregadas, dominios_oficiales_agregados = _build_jerarquia_categorias(res_iii)
+    # Dimensiones OFICIALES (25, Tabla 6): indicador exclusivamente
+    # descriptivo — la NOM-035 no establece puntos de corte por dimensión.
+    dimensiones = _agregar_dimensiones_oficiales(res_iii)
+
+    # ------------------------------------------------------------------
+    # MOTOR DE COMPOSICIÓN EJECUTIVA: objeto único ReportDataNOM035.
+    # Todas las tarjetas, tablas y rankings del informe derivan de aquí;
+    # los agregados "legado" que consumen gráficas/plantillas se adaptan
+    # con _legacy_desde_report_data (sin recalcular).
+    # ------------------------------------------------------------------
+    report_data = build_report_data(tenant, ciclo)
+
+    orden_categorias = [c for c, _ in _CATEGORIA_DOMINIOS]
+    orden_dominios = [dom for _, doms in _CATEGORIA_DOMINIOS for dom in doms]
+    categorias_agregadas = _legacy_desde_report_data(
+        report_data['tablas']['categorias']['filas'], orden_categorias)
+    dominios_oficiales_agregados = _legacy_desde_report_data(
+        report_data['tablas']['dominios']['filas'], orden_dominios)
 
     # Guía I — texto interpretativo según haya o no casos positivos
     if ctx['guia_i']['requieren_atencion'] > 0:
@@ -1220,6 +1429,7 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
     sexo_dist = {d['label']: d['count'] for d in muestra['sexo']}
 
     ctx.update({
+        'report_data':           report_data,
         'anonimo':               anonimo,
         # Se llena solo al aprobar, vía _inyectar_validacion_revisor() — nunca es texto libre.
         'validacion':            None,
@@ -1231,18 +1441,23 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
         'muestra_tablas':        muestra_tablas,
         'tasas_respuesta':       _build_tasas_respuesta(tenant, ciclo),
         'dominios_prioritarios': dominios_prioritarios,
-        'dimensiones':           dimensiones,
+        'dimensiones':           dimensiones,       # 25 oficiales, descriptivas
+        'bloques_captura':       bloques_captura,   # D1-D14, no normativos
+        'nota_dimensiones':      NOTA_DIMENSIONES,
         'categorias_agregadas':  categorias_agregadas,
         'dominios_oficiales_agregados': dominios_oficiales_agregados,
         'riesgo_por_grupo':      riesgo_por_grupo,
         'riesgo_tablas':         riesgo_tablas,
         # Recomendaciones derivadas de los dominios prioritarios (sustituye las genéricas)
         'recomendaciones':       _recomendaciones_desde_dominios(dominios_prioritarios),
-        # ---- Contenido normativo fijo + datos del centro de trabajo (Fase 2) ----
+        # ---- Datos del centro de trabajo: SIEMPRE del tenant. Los valores
+        # de `contenido_normativo` solo son respaldo si el tenant no los
+        # define (evita que un informe salga con la razón social de otro
+        # cliente — hallazgo H-17 de la auditoría). ----
         'datos_centro_trabajo': {
-            'nombre':    norm.RAZON_SOCIAL,
+            'nombre':    getattr(tenant, 'razon_social', '') or norm.RAZON_SOCIAL,
             'direccion': tenant.direccion,
-            'giro':      norm.ACTIVIDAD_PRINCIPAL,
+            'giro':      tenant.giro or norm.ACTIVIDAD_PRINCIPAL,
         },
         'objetivo_general':      norm.OBJETIVO_GENERAL,
         'objetivos_especificos': norm.OBJETIVOS_ESPECIFICOS,
@@ -1257,13 +1472,18 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
         'metodologia': norm.METODOLOGIA,
     })
     ctx['conclusiones'] = _build_conclusiones(ctx)
-    ctx['anexos'] = _build_anexos(res_iii, res_i)
+    # Anexo con resultados individuales (folios): es información CONFIDENCIAL
+    # y no debe integrarse automáticamente a la versión general del informe.
+    ctx['anexos'] = _build_anexos(res_iii, res_i) if incluir_anexo_confidencial else None
+    ctx['incluye_anexo_confidencial'] = bool(incluir_anexo_confidencial)
 
     if informe_extendido:
         ctx['acciones_generales'] = norm.ACCIONES_GENERALES
         ctx['recomendaciones_extendidas'] = _recomendaciones_extendidas(dominios_oficiales_agregados)
         ctx['justificacion_muestra']['parrafos'] = norm.JUSTIFICACION_MUESTRA_PARRAFOS
         ctx['justificacion_muestra']['ecuacion1'] = _datos_muestra_ecuacion1(tenant, ciclo)
+        # Fuente única: el flujo de muestra viene de ReportDataNOM035.
+        ctx['flujo_muestra'] = report_data['tablas']['flujo_muestra']['filas']
         ctx['ats_desglose'] = _ats_desglose(tenant, ciclo)
         ctx['graficas'] = _build_graficas_informe(ctx)
 
@@ -1373,6 +1593,18 @@ def reporte_psicologico_aprobar(request):
         return _wrap(None, errors={'detail': 'No hay resultados calculados para este ciclo.'}, status_code=400)
 
     ctx = _build_psico_context(tenant, ciclo, resultados_qs, reporte.anonimo)
+
+    # Bloqueo de emisión definitiva: no se aprueba un reporte con errores
+    # críticos de consistencia detectados por el motor de composición.
+    validaciones = ctx['report_data']['validaciones']
+    if not validaciones['puede_emitirse']:
+        return _wrap(
+            None,
+            errors={'detail': 'No es posible aprobar el reporte. Errores críticos: '
+                              + ' | '.join(validaciones['errores_criticos'])},
+            status_code=409,
+        )
+
     ctx = _inyectar_validacion_revisor(ctx, request.user)
     html_final = render_to_string('documents/reporte_psicologico.html', ctx, request=request)
 
