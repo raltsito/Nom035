@@ -1,8 +1,9 @@
 import io
 from collections import defaultdict
 from datetime import date
+from pathlib import Path
 
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from openpyxl import Workbook
@@ -34,6 +35,14 @@ from . import interpretaciones as interp
 from .report_data import build_report_data
 from .docx_builder import build_informe_diagnostico_docx, build_reporte_psicologico_docx
 from .models import ReportePsicologico
+
+SAN_LUIS_INFORME_2026 = (
+    Path(__file__).resolve().parent
+    / 'static'
+    / 'documents'
+    / 'informes'
+    / 'san_luis_informe_diagnostico_2026.docx'
+)
 
 # nombre de dominio oficial → categoría (5 grupos), derivado de la misma
 # jerarquía que usa el motor de calificación.
@@ -564,6 +573,16 @@ def descargar_informe_diagnostico(request):
         ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
     except CicloNOM.DoesNotExist:
         return HttpResponse('Ciclo no encontrado', status=404)
+
+    if tenant.nombre.strip().lower() == 'san luis' and ciclo.anio == 2026:
+        if not SAN_LUIS_INFORME_2026.exists():
+            return HttpResponse('Informe fijo de San Luis no encontrado', status=500)
+        return FileResponse(
+            SAN_LUIS_INFORME_2026.open('rb'),
+            as_attachment=True,
+            filename='Informe_Diagnostico_NOM035_San_Luis_2026 (2)-2.docx',
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
 
     resultados_qs = ResultadoAplicacion.objects.filter(
         aplicacion__tenant=tenant,
