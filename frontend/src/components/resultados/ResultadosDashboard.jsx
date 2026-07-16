@@ -5,7 +5,7 @@ import GaugeRiesgo          from './charts/GaugeRiesgo';
 import CardTop3Dominios     from './charts/CardTop3Dominios';
 import RadarCategorias      from './charts/RadarCategorias';
 import BarDominios          from './charts/BarDominios';
-import HeatmapDominiosAreas from './charts/HeatmapDominiosAreas';
+// import HeatmapDominiosAreas from './charts/HeatmapDominiosAreas'; // oculto temporalmente
 import BarDepartamentos     from './charts/BarDepartamentos';
 import StackedBarPoblacion  from './charts/StackedBarPoblacion';
 import TablaAtencionClinica from './charts/TablaAtencionClinica';
@@ -14,7 +14,7 @@ function Skeleton() {
   const cells = [
     ['span 4', 200], ['span 4', 200], ['span 4', 200],
     ['span 12', 380],
-    ['span 7', 300], ['span 5', 300],
+    ['span 12', 300],
     ['span 12', 240],
     ['span 12', 200],
   ];
@@ -57,10 +57,10 @@ export default function ResultadosDashboard({ cicloId }) {
         <BarDominios data={data.dominios} />
       </div>
 
-      {/* ── Fila 3: Heatmap | Departamentos ── */}
-      <div className={styles.cellHeatmap}>
+      {/* ── Fila 3: Departamentos (heatmap oculto temporalmente) ── */}
+      {/* <div className={styles.cellHeatmap}>
         <HeatmapDominiosAreas data={data.dominios} />
-      </div>
+      </div> */}
       <div className={styles.cellAreas}>
         <BarDepartamentos data={data.areas} />
       </div>

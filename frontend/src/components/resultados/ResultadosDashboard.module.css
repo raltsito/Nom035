@@ -16,9 +16,9 @@
 .cellRadar   { grid-column: span 4; }
 /* Fila 2 */
 .cellDominios { grid-column: span 12; }
-/* Fila 3 */
+/* Fila 3 (heatmap oculto temporalmente; al restaurarlo volver a span 7 / span 5) */
 .cellHeatmap  { grid-column: span 7; }
-.cellAreas    { grid-column: span 5; }
+.cellAreas    { grid-column: span 12; }
 /* Fila 4 */
 .cellStacked  { grid-column: span 12; }
 /* Fila 5 */
