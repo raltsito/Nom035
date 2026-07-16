@@ -43,6 +43,13 @@ SAN_LUIS_INFORME_2026 = (
     / 'informes'
     / 'san_luis_informe_diagnostico_2026.docx'
 )
+ZAPOTITLAN_INFORME_2026 = (
+    Path(__file__).resolve().parent
+    / 'static'
+    / 'documents'
+    / 'informes'
+    / 'zapotitlan_informe_diagnostico_2026.pdf'
+)
 
 # nombre de dominio oficial → categoría (5 grupos), derivado de la misma
 # jerarquía que usa el motor de calificación.
@@ -582,6 +589,16 @@ def descargar_informe_diagnostico(request):
             as_attachment=True,
             filename='Informe_Diagnostico_NOM035_San_Luis_2026 (2)-2.docx',
             content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+
+    if tenant.nombre.strip().lower() == 'zapotitlan' and ciclo.anio == 2026:
+        if not ZAPOTITLAN_INFORME_2026.exists():
+            return HttpResponse('Informe fijo de Zapotitlan no encontrado', status=500)
+        return FileResponse(
+            ZAPOTITLAN_INFORME_2026.open('rb'),
+            as_attachment=True,
+            filename='PLANTA Zapot.pdf',
+            content_type='application/pdf',
         )
 
     resultados_qs = ResultadoAplicacion.objects.filter(
