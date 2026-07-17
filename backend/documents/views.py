@@ -2,9 +2,10 @@ import io
 import logging
 from collections import defaultdict
 from datetime import date
+from pathlib import Path
 
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from openpyxl import Workbook
@@ -40,10 +41,29 @@ from .models import ReportePsicologico
 
 logger = logging.getLogger(__name__)
 
-# Los archivos de static/documents/informes/ (San Luis DOCX y Zapotitlán PDF)
-# se conservan ÚNICAMENTE como referencias de regresión visual/textual del
-# formato aprobado. Ningún tenant se sirve desde ellos: todas las plantas
-# atraviesan el mismo generador dinámico (build_informe_diagnostico_docx).
+# San Luis y Zapotitlán 2026 se sirven como documento fijo (editado
+# manualmente por dirección) en vez del generador dinámico.
+SAN_LUIS_INFORME_2026 = (
+    Path(__file__).resolve().parent
+    / 'static'
+    / 'documents'
+    / 'informes'
+    / 'san_luis_informe_diagnostico_2026.pdf'
+)
+ZAPOTITLAN_INFORME_2026 = (
+    Path(__file__).resolve().parent
+    / 'static'
+    / 'documents'
+    / 'informes'
+    / 'zapotitlan_informe_diagnostico_2026.pdf'
+)
+SALTILLO_INFORME_2026 = (
+    Path(__file__).resolve().parent
+    / 'static'
+    / 'documents'
+    / 'informes'
+    / 'saltillo_informe_diagnostico_2026.pdf'
+)
 
 # nombre de dominio oficial → categoría (5 grupos), derivado de la misma
 # jerarquía que usa el motor de calificación.
@@ -574,6 +594,36 @@ def descargar_informe_diagnostico(request):
         ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
     except CicloNOM.DoesNotExist:
         return HttpResponse('Ciclo no encontrado', status=404)
+
+    if tenant.nombre.strip().lower() == 'san luis' and ciclo.anio == 2026:
+        if not SAN_LUIS_INFORME_2026.exists():
+            return HttpResponse('Informe fijo de San Luis no encontrado', status=500)
+        return FileResponse(
+            SAN_LUIS_INFORME_2026.open('rb'),
+            as_attachment=True,
+            filename='Informe_Diagnostico_NOM035_San_Luis_2026.pdf',
+            content_type='application/pdf',
+        )
+
+    if tenant.nombre.strip().lower() == 'zapotitlan' and ciclo.anio == 2026:
+        if not ZAPOTITLAN_INFORME_2026.exists():
+            return HttpResponse('Informe fijo de Zapotitlan no encontrado', status=500)
+        return FileResponse(
+            ZAPOTITLAN_INFORME_2026.open('rb'),
+            as_attachment=True,
+            filename='PLANTA Zapot.pdf',
+            content_type='application/pdf',
+        )
+
+    if tenant.nombre.strip().lower() == 'saltillo' and ciclo.anio == 2026:
+        if not SALTILLO_INFORME_2026.exists():
+            return HttpResponse('Informe fijo de Saltillo no encontrado', status=500)
+        return FileResponse(
+            SALTILLO_INFORME_2026.open('rb'),
+            as_attachment=True,
+            filename='Informe_Diagnostico_NOM035_Saltillo_2026.pdf',
+            content_type='application/pdf',
+        )
 
     resultados_qs = ResultadoAplicacion.objects.filter(
         aplicacion__tenant=tenant,
