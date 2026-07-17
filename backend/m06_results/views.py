@@ -21,6 +21,7 @@ from .models import (
 )
 from .serializers import ResultadoAplicacionSerializer, ResultadoListSerializer
 from .scoring import VERSION_MOTOR, calcular_resultado
+from .services import calcular_ciclo
 
 
 def _wrap(data, meta=None, errors=None, status_code=status.HTTP_200_OK):
@@ -99,120 +100,18 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 errors={'ciclo_id': ['Ciclo no encontrado.']},
                 status_code=status.HTTP_404_NOT_FOUND)
 
-        aplicaciones = Aplicacion.objects.filter(
-            tenant=tenant, ciclo=ciclo, estado='completado',
-        ).select_related('cuestionario', 'trabajador').prefetch_related(
-            'respuestas__pregunta',
-            'cuestionario__dominios__preguntas',
-        )
-
-        if not aplicaciones.exists():
+        # Persistencia delegada al servicio único (m06_results.services):
+        # el mismo camino que usa el cargador de fixtures de prueba.
+        resumen = calcular_ciclo(tenant, ciclo)
+        if resumen is None:
             return _wrap(None,
                 errors={'detalle': ['No hay aplicaciones completadas en este ciclo.']},
                 status_code=status.HTTP_400_BAD_REQUEST)
 
-        calculadas = actualizadas = omitidas = requieren_revision = 0
-        for aplicacion in aplicaciones:
-            datos = calcular_resultado(aplicacion)
-            if datos is None:
-                ResultadoAplicacion.objects.filter(aplicacion=aplicacion).delete()
-                omitidas += 1
-                continue
-
-            es_valido = datos.get('es_valido', True)
-            detalle = {'validacion': datos.get('validacion')}
-            if datos.get('guia_i'):
-                detalle['guia_i'] = datos['guia_i']
-            if datos.get('filtros'):
-                detalle['filtros'] = datos['filtros']
-
-            resultado, created = ResultadoAplicacion.objects.update_or_create(
-                aplicacion=aplicacion,
-                defaults={
-                    'puntaje_total':      datos['puntaje_total'] or 0,
-                    'puntaje_max':        datos['puntaje_max'] or 0,
-                    # Un cuestionario inválido NO se clasifica.
-                    'categoria':          datos['categoria'] if es_valido else 'sin_calificar',
-                    'requiere_atencion':  datos.get('requiere_atencion') if es_valido else None,
-                    'estatus_validacion': 'valido' if es_valido else 'requiere_revision',
-                    'version_motor':      datos.get('version_motor', VERSION_MOTOR),
-                    'hash_respuestas':    datos.get('hash_respuestas', ''),
-                    'detalle':            detalle,
-                },
-            )
-
-            resultado.dominios.all().delete()
-            resultado.dominios_oficiales.all().delete()
-            resultado.categorias.all().delete()
-            resultado.dimensiones.all().delete()
-
-            if not es_valido:
-                requieren_revision += 1
-                continue
-
-            ResultadoDominio.objects.bulk_create([
-                ResultadoDominio(
-                    resultado   = resultado,
-                    dominio_id  = d['dominio_id'],
-                    puntaje     = d['puntaje'],
-                    puntaje_max = d['puntaje_max'],
-                    categoria   = d['categoria'],
-                )
-                for d in datos['dominios']
-            ])
-
-            ResultadoDominioOficial.objects.bulk_create([
-                ResultadoDominioOficial(
-                    resultado   = resultado,
-                    clave       = d['clave'],
-                    nombre      = d['nombre'],
-                    orden       = d['orden'],
-                    puntaje     = d['puntaje'],
-                    puntaje_max = d['puntaje_max'],
-                    categoria   = d['categoria'],
-                )
-                for d in datos.get('dominios_oficiales', [])
-            ])
-
-            ResultadoCategoria.objects.bulk_create([
-                ResultadoCategoria(
-                    resultado   = resultado,
-                    nombre      = c['nombre'],
-                    orden       = c['orden'],
-                    puntaje     = c['puntaje'],
-                    puntaje_max = c['puntaje_max'],
-                    categoria   = c['categoria'],
-                )
-                for c in datos.get('categorias', [])
-            ])
-
-            ResultadoDimension.objects.bulk_create([
-                ResultadoDimension(
-                    resultado       = resultado,
-                    nombre          = d['nombre'],
-                    dominio_oficial = d['dominio_oficial'],
-                    orden           = d['orden'],
-                    puntaje         = d['puntaje'],
-                    puntaje_max     = d['puntaje_max'],
-                    pct             = d['pct'],
-                )
-                for d in datos.get('dimensiones', [])
-            ])
-
-            if created:
-                calculadas += 1
-            else:
-                actualizadas += 1
-
         return _wrap(None, meta={
-            'ciclo_id':           ciclo.id,
-            'ciclo_anio':         ciclo.anio,
-            'calculadas':         calculadas,
-            'actualizadas':       actualizadas,
-            'omitidas':           omitidas,
-            'requieren_revision': requieren_revision,
-            'version_motor':      VERSION_MOTOR,
-            'total':              calculadas + actualizadas,
+            'ciclo_id':   ciclo.id,
+            'ciclo_anio': ciclo.anio,
+            **resumen,
         })
 
     # ------------------------------------------------------------------

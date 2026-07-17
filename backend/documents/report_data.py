@@ -23,11 +23,20 @@ from datetime import date, datetime, timezone as dt_timezone
 
 from core.confidencialidad import ETIQUETA_RESERVADO, umbral_confidencialidad
 from m06_results.scoring import (
+    DIMENSIONES,
     VERSION_MOTOR,
     _CATEGORIA_DE_DOMINIO,
     _CATEGORIAS_OFICIALES,
     _DOMINIOS_OFICIALES,
 )
+
+# Dimensiones oficiales (Tabla 6). Las de los órdenes 7 y 20 son condicionales:
+# solo aplican a quienes atienden clientes/usuarios (ítems 65-68) o supervisan
+# a otros trabajadores (ítems 69-72).
+_DIMENSIONES_OFICIALES = {nombre for _, nombre, _, _ in DIMENSIONES}
+_DIMENSIONES_CONDICIONALES = {nombre for orden, nombre, _, _ in DIMENSIONES
+                              if orden in (7, 20)}
+_DIMENSIONES_SIEMPRE = _DIMENSIONES_OFICIALES - _DIMENSIONES_CONDICIONALES
 
 NIVELES = ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')
 NIVEL_LABEL = {
@@ -125,7 +134,8 @@ def extraer_datos(tenant, ciclo, fecha_corte=None):
     from m00_onboarding.models import Trabajador
     from m05_questionnaires.models import Aplicacion
     from m06_results.models import (
-        ResultadoAplicacion, ResultadoCategoria, ResultadoDominioOficial,
+        ResultadoAplicacion, ResultadoCategoria, ResultadoDimension,
+        ResultadoDominioOficial,
     )
 
     fecha_corte = fecha_corte or date.today()
@@ -165,6 +175,14 @@ def extraer_datos(tenant, ciclo, fecha_corte=None):
             .select_related('resultado__aplicacion__trabajador')
         if d.puntaje_max
     ]
+
+    # Dimensiones observadas (con puntaje máximo aplicable): para la
+    # validación estructural de completitud (25 oficiales, 2 condicionales).
+    dimensiones_observadas = sorted(
+        ResultadoDimension.objects.filter(
+            resultado_id__in=ids_validos, puntaje_max__gt=0,
+        ).values_list('nombre', flat=True).distinct()
+    )
 
     # Guía I — desde los criterios persistidos por el motor de calificación
     res_i = ResultadoAplicacion.objects.filter(
@@ -232,6 +250,7 @@ def extraer_datos(tenant, ciclo, fecha_corte=None):
         'iii_invalidos': invalidos_iii,
         'categorias_ind': categorias_ind,
         'dominios_ind':  dominios_ind,
+        'dimensiones_observadas': dimensiones_observadas,
         'guia_i':        guia_i,
         'demograficos':  demograficos,
     }
@@ -516,6 +535,9 @@ def componer_report_data(raw, umbral_conf=None, umbral_faltantes_pct=None):
             'matriz_intervencion': matriz_tabla,
         },
         'faltantes_criticos': faltantes,
+        # Dimensiones distintas observadas (None si el extractor no las
+        # aporta, p. ej. en composiciones sintéticas de prueba antiguas).
+        'dimensiones_observadas': raw.get('dimensiones_observadas'),
         'exclusiones': {
             'variables_sin_grafica': variables_sin_grafica,
             'bloques_captura_solo_anexo_tecnico': True,
@@ -574,6 +596,36 @@ def _validar(rd):
     check('sin_nivel_global_de_promedio',
           not any(t['id'] == 'nivel_global' for t in rd['tarjetas']),
           'No existe tarjeta de nivel global organizacional')
+
+    # ---- Completitud estructural: con cuestionarios Guía III válidos el
+    # informe DEBE traer las 5 categorías oficiales, los 10 dominios
+    # oficiales y las 25 dimensiones descriptivas (las 2 condicionales solo
+    # cuando aplican). Una lista vacía no pasa "por iteración vacía": estos
+    # checks son críticos y bloquean la emisión. ----
+    if n_valido:
+        cats = {f['nombre'] for f in rd['tablas']['categorias']['filas']}
+        faltan_cats = set(_CATEGORIAS_OFICIALES) - cats
+        check('categorias_oficiales_completas', not faltan_cats,
+              f'Faltan categorías: {sorted(faltan_cats)}' if faltan_cats
+              else '5 categorías oficiales presentes')
+
+        doms = {f['nombre'] for f in rd['tablas']['dominios']['filas']}
+        faltan_doms = set(_DOMINIOS_OFICIALES) - doms
+        check('dominios_oficiales_completos', not faltan_doms,
+              f'Faltan dominios: {sorted(faltan_doms)}' if faltan_doms
+              else '10 dominios oficiales presentes')
+
+        dims = rd.get('dimensiones_observadas')
+        if dims is not None:
+            dims = set(dims)
+            faltan_dims = _DIMENSIONES_SIEMPRE - dims
+            desconocidas = dims - _DIMENSIONES_OFICIALES
+            check('dimensiones_oficiales_completas',
+                  not faltan_dims and not desconocidas,
+                  (f'Faltan dimensiones: {sorted(faltan_dims)}; '
+                   f'desconocidas: {sorted(desconocidas)}')
+                  if (faltan_dims or desconocidas) else
+                  f'{len(dims)} dimensiones observadas (23 obligatorias + condicionales)')
 
     # Tarjetas coinciden con tablas (fuente única)
     t = {x['id']: x for x in rd['tarjetas']}

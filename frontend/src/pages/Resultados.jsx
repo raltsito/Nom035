@@ -108,10 +108,14 @@ export default function Resultados() {
     setDescargandoInforme(true);
     try {
       const res = await documentosService.informeDiagnostico(cicloId);
+      // El nombre y la extensión reales vienen del backend (Content-Disposition):
+      // así el archivo guardado siempre coincide con el contenido entregado.
+      const cd = res.headers?.['content-disposition'] || '';
+      const nombreServidor = cd.match(/filename="?([^";]+)"?/)?.[1];
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Informe_Diagnostico_NOM035_ciclo_${cicloId}.docx`;
+      a.download = nombreServidor || `Informe_Diagnostico_NOM035_ciclo_${cicloId}.docx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

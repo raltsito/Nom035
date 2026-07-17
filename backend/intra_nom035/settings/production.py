@@ -20,3 +20,5 @@ SECURE_HSTS_PRELOAD = True
 
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS')
 CORS_ALLOW_CREDENTIALS = True
+# El frontend nombra las descargas con el filename del servidor.
+CORS_EXPOSE_HEADERS = ['Content-Disposition']

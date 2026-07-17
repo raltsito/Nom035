@@ -25,9 +25,25 @@ def _cat(nombre, nivel):
     return {'nombre': nombre, 'nivel': nivel, 'puntaje': 10, 'puntaje_max': 40}
 
 
+def _dominios_completos(parciales=None, nivel_resto='nulo'):
+    """Completa una lista parcial de dominios individuales con el resto de
+    los 10 oficiales en `nivel_resto` (la validación estructural exige los
+    10 dominios cuando hay Guía III válida)."""
+    parciales = list(parciales or [])
+    presentes = {d['nombre'] for d in parciales}
+    for nombre in _DOMINIOS_OFICIALES:
+        if nombre not in presentes:
+            parciales.append(_dom(nombre, nivel_resto))
+    return parciales
+
+
 def _raw(iii, dominios_ind=None, categorias_ind=None, demograficos=None,
          guia_i=None, poblacion=100, invalidos=0):
     n = len(iii)
+    if categorias_ind is None:
+        categorias_ind = [_cat(c, 'medio') for c in _CATEGORIAS_OFICIALES] * max(n, 1)
+    if dominios_ind is None:
+        dominios_ind = [_dom(d, 'medio') for d in _DOMINIOS_OFICIALES] * max(n, 1)
     return {
         'tenant_nombre': 'Planta Test',
         'ciclo_id': 1,
@@ -38,8 +54,8 @@ def _raw(iii, dominios_ind=None, categorias_ind=None, demograficos=None,
                   'completadas': n + invalidos, 'excluidas': invalidos, 'validas': n},
         'iii': iii,
         'iii_invalidos': invalidos,
-        'categorias_ind': categorias_ind or [],
-        'dominios_ind': dominios_ind or [],
+        'categorias_ind': categorias_ind,
+        'dominios_ind': dominios_ind,
         'guia_i': guia_i or {'validos': n, 'invalidos': 0, 'reporta_ats': 0,
                              'requieren_atencion': 0, 'criterio_ii': 0,
                              'criterio_iii': 0, 'criterio_iv': 0},
@@ -116,7 +132,8 @@ class TestRankingDominios(SimpleTestCase):
         self.assertEqual(filas[0]['nombre'], 'Carga de trabajo')
 
     def test_tarjeta_dominio_prioritario_es_rank_1(self):
-        dominios = [_dom('Violencia', 'muy_alto')] * 6 + [_dom('Liderazgo', 'nulo')] * 6
+        dominios = _dominios_completos(
+            [_dom('Violencia', 'muy_alto')] * 6 + [_dom('Liderazgo', 'nulo')] * 6)
         rd = _componer(_raw([_persona('A', 'alto')] * 6, dominios_ind=dominios))
         t = {x['id']: x for x in rd['tarjetas']}
         self.assertEqual(t['dominio_prioritario']['valor'],

@@ -183,3 +183,7 @@ cover/
 *.orig
 logs/
 log/
+
+# BD de pruebas locales (settings.testing) y referencias de fidelidad de trabajo
+backend/test_local.sqlite3
+_refs_fidelidad/

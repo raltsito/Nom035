@@ -1,6 +1,10 @@
 FROM python:3.12-slim
 
-# WeasyPrint, Pillow y psycopg necesitan estas libs de sistema
+# WeasyPrint, Pillow y psycopg necesitan estas libs de sistema.
+# libreoffice-writer: actualización real del índice (TOC) del Informe
+# Diagnóstico DOCX antes de entregarlo (documents/docx_postprocess.py).
+# fonts-crosextra-carlito: métricamente compatible con Calibri — sin ella la
+# paginación (y por tanto los números de página del índice) se desvía.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
@@ -13,6 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfontconfig1 \
     shared-mime-info \
     fonts-dejavu-core \
+    libreoffice-writer \
+    fonts-crosextra-carlito \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

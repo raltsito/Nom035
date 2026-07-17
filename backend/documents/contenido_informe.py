@@ -6,6 +6,12 @@ Los bloques BLOQUE_* fueron extraídos textualmente del documento de
 referencia (espacios finales, tabs y saltos internos incluidos): cada
 ítem es un párrafo con su estilo Word, alineación y segmentos
 (texto, negrita).
+
+Claves opcionales por ítem (fidelidad con el maestro PLANTA Zapot-2.pdf):
+- 'lista': (tipo, grupo) — el párrafo pertenece a una lista REAL de Word.
+  `tipo` ∈ {'decimal', 'bullet', 'bullet_negra'}; cada `grupo` distinto es
+  una instancia de numeración nueva (la lista reinicia en 1).
+- 'nivel': nivel de la lista (0 por defecto; 1 = subnivel 'o').
 """
 
 BLOQUE_METODOLOGIA_PROC = [
@@ -19,6 +25,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('decimal', 'proc_antes'),
         'segs': [
             ('Se determinó el número mínimo de trabajadores a quienes se aplicarían los cuestionarios, el cual debía ser igual o superior al tamaño de muestra calculado mediante la Ecuación 1 de la NOM-035-STPS-2018. ', False),
         ],
@@ -26,6 +33,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('decimal', 'proc_antes'),
         'segs': [
             ('A partir de la plantilla nominal de trabajadores activos del centro de trabajo, con fecha de corte previamente definida, se realizó una selección aleatoria estratificada. Se procuró que todos los trabajadores elegibles tuvieran posibilidad de ser seleccionados y que la distribución de hombres y mujeres correspondiera a su proporción en la población del centro de trabajo. La estratificación complementaria consideró las áreas, turnos y tipos de puesto establecidos para el estudio. ', False),
         ],
@@ -33,6 +41,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('decimal', 'proc_antes'),
         'segs': [
             ('Las personas que permanecieron imposibilitadas para participar durante todo el periodo de aplicación, por baja, licencia, incapacidad temporal o ausencia justificada, fueron registradas como no disponibles. Cuando fue necesario realizar una sustitución, ésta se efectuó aleatoriamente con una persona del mismo estrato, dejando evidencia del motivo y del procedimiento aplicado. ', False),
         ],
@@ -40,6 +49,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('decimal', 'proc_antes'),
         'segs': [
             ('Se verificó que las condiciones de las instalaciones, el mobiliario y los equipos utilizados fueran adecuadas. ', False),
         ],
@@ -47,6 +57,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('decimal', 'proc_antes'),
         'segs': [
             ('Se realizó la presentación del aplicador ante las personas participantes. ', False),
         ],
@@ -54,6 +65,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('decimal', 'proc_antes'),
         'segs': [
             ('Se explicó el objetivo de la evaluación. ', False),
         ],
@@ -61,6 +73,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('decimal', 'proc_antes'),
         'segs': [
             ('Se enfatizó la protección de la privacidad y confidencialidad de la información, señalando que las respuestas y resultados serían utilizados exclusivamente para la identificación, prevención y atención de las condiciones relacionadas con el ambiente de trabajo. ', False),
         ],
@@ -68,6 +81,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('decimal', 'proc_antes'),
         'segs': [
             ('Se proporcionaron instrucciones claras sobre la forma de responder las diferentes secciones. Se indicó que el cuestionario debía contestarse completamente, que no existían respuestas correctas o incorrectas, que era necesario mantener la concentración y que las respuestas debían considerar las condiciones de los dos últimos meses y expresar la opinión del trabajador con sinceridad. ', False),
         ],
@@ -82,6 +96,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
+        'lista': ('bullet_negra', 'proc_durante'),
         'segs': [
             ('Se propició un ambiente de respeto y confianza. ', False),
         ],
@@ -89,6 +104,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
+        'lista': ('bullet_negra', 'proc_durante'),
         'segs': [
             ('Se permitió una comunicación fluida entre los trabajadores y el personal aplicador. ', False),
         ],
@@ -96,6 +112,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
+        'lista': ('bullet_negra', 'proc_durante'),
         'segs': [
             ('Se aclararon dudas sobre el funcionamiento del instrumento, sin explicar, interpretar o sugerir el sentido de las respuestas. ', False),
         ],
@@ -103,6 +120,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
+        'lista': ('bullet_negra', 'proc_durante'),
         'segs': [
             ('Se presentó la plataforma digital y el procedimiento para ingresar, responder, avanzar y concluir cada cuestionario y sus secciones. ', False),
         ],
@@ -110,6 +128,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
+        'lista': ('bullet_negra', 'proc_durante'),
         'segs': [
             ('Se verificó que las indicaciones hubieran quedado claras. ', False),
         ],
@@ -117,6 +136,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
+        'lista': ('bullet_negra', 'proc_durante'),
         'segs': [
             ('Se evitó interrumpir a los trabajadores mientras respondían. ', False),
         ],
@@ -124,6 +144,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
+        'lista': ('bullet_negra', 'proc_durante'),
         'segs': [
             ('Se evitó conducir, persuadir o dirigir las respuestas.', False),
         ],
@@ -138,6 +159,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': 'JUSTIFY',
+        'lista': ('decimal', 'proc_despues_a'),
         'segs': [
             ('Al concluir los instrumentos, la plataforma realizó una verificación automática de completitud y mostró al trabajador una confirmación de envío. El coordinador de la sesión verificó únicamente el estado de finalización o el folio de confirmación, sin visualizar las respuestas individuales. ', False),
         ],
@@ -145,6 +167,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': 'JUSTIFY',
+        'lista': ('decimal', 'proc_despues_b'),
         'segs': [
             ('Se conciliaron los registros de personas convocadas, aplicaciones iniciadas, aplicaciones completadas, cuestionarios excluidos, cuestionarios válidos y cuestionarios finalmente analizados. Se comprobó que el número de cuestionarios válidos fuera igual o superior al tamaño mínimo de muestra requerido. ', False),
         ],
@@ -152,6 +175,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': 'JUSTIFY',
+        'lista': ('decimal', 'proc_despues_b'),
         'segs': [
             ('Para fines operativos, los instrumentos se aplicaron en el orden siguiente: ', False),
         ],
@@ -159,6 +183,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': 'JUSTIFY',
+        'lista': ('decimal', 'proc_despues_c'),
         'segs': [
             ('a)', True),
             (' Guía de Referencia III: Identificación y análisis de los factores de riesgo psicosocial y evaluación del entorno organizacional.\n', False),
@@ -169,7 +194,9 @@ BLOQUE_METODOLOGIA_PROC = [
         ],
     },
     {
-        'style': 'List Number',
+        # Separador: un párrafo vacío con estilo de lista dejaba un número
+        # colgante en la salida cruda del generador.
+        'style': 'Normal',
         'align': 'JUSTIFY',
         'segs': [
         ],
@@ -211,6 +238,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet_negra', 'check_64'),
         'segs': [
             ('Presencia de todos los reactivos obligatorios. ', False),
         ],
@@ -218,6 +246,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet_negra', 'check_64'),
         'segs': [
             ('Valores dentro del rango permitido. ', False),
         ],
@@ -225,6 +254,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet_negra', 'check_64'),
         'segs': [
             ('Integridad de las preguntas filtro. ', False),
         ],
@@ -232,6 +262,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet_negra', 'check_64'),
         'segs': [
             ('Consistencia de los reactivos condicionados. ', False),
         ],
@@ -239,6 +270,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet_negra', 'check_64'),
         'segs': [
             ('Ausencia de duplicidades. ', False),
         ],
@@ -246,6 +278,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet_negra', 'check_64'),
         'segs': [
             ('Correspondencia entre trabajador, centro de trabajo, ciclo y versión del cuestionario. ', False),
         ],
@@ -295,6 +328,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet', 'crit_gi_64'),
         'segs': [
             ('Una o más respuestas afirmativas en la Sección II. ', False),
         ],
@@ -302,6 +336,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet', 'crit_gi_64'),
         'segs': [
             ('Tres o más respuestas afirmativas en la Sección III. ', False),
         ],
@@ -309,6 +344,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet', 'crit_gi_64'),
         'segs': [
             ('Dos o más respuestas afirmativas en la Sección IV. ', False),
         ],
@@ -337,6 +373,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet', 'calc_giii'),
         'segs': [
             ('Cdom se obtuvo sumando los puntajes de los reactivos que integran cada dominio. ', False),
         ],
@@ -344,6 +381,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet', 'calc_giii'),
         'segs': [
             ('Ccat se obtuvo sumando los puntajes de los reactivos que integran cada categoría. ', False),
         ],
@@ -351,6 +389,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': 'JUSTIFY',
+        'lista': ('bullet', 'calc_giii'),
         'segs': [
             ('Cfinal se obtuvo sumando los puntajes de todos los reactivos aplicables del cuestionario. ', False),
         ],
@@ -377,10 +416,11 @@ BLOQUE_METODOLOGIA_PROC = [
         ],
     },
     {
-        'style': 'Normal',
+        # Encabezado real (aparece en el índice del maestro con página propia).
+        'style': 'Heading 3',
         'align': 'JUSTIFY',
         'segs': [
-            ('6.5. Evaluación y análisis de resultados', True),
+            ('6.5. Evaluación y análisis de resultados', False),
         ],
     },
     {
@@ -462,6 +502,7 @@ BLOQUE_ATS_INTRO = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'crit_ats'),
         'segs': [
             ('al menos una respuesta afirmativa en la ', False),
             ('Sección I', True),
@@ -471,6 +512,7 @@ BLOQUE_ATS_INTRO = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'crit_ats'),
         'segs': [
             ('además, cualquiera de las condiciones siguientes: ', False),
         ],
@@ -478,6 +520,8 @@ BLOQUE_ATS_INTRO = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'crit_ats'),
+        'nivel': 1,
         'segs': [
             ('una o más respuestas afirmativas en la ', False),
             ('Sección II', True),
@@ -487,6 +531,8 @@ BLOQUE_ATS_INTRO = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'crit_ats'),
+        'nivel': 1,
         'segs': [
             ('tres o más respuestas afirmativas en la ', False),
             ('Sección III', True),
@@ -496,6 +542,8 @@ BLOQUE_ATS_INTRO = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'crit_ats'),
+        'nivel': 1,
         'segs': [
             ('dos o más respuestas afirmativas en la ', False),
             ('Sección IV', True),
@@ -571,6 +619,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_121'),
         'segs': [
             ('Coordinar técnicamente la interpretación de los resultados. ', False),
         ],
@@ -578,6 +627,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_121'),
         'segs': [
             ('Verificar que las acciones propuestas sean congruentes con los hallazgos de la Guía de Referencia I y la Guía de Referencia III. ', False),
         ],
@@ -585,6 +635,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_121'),
         'segs': [
             ('Asesorar en la integración del Programa de intervención. ', False),
         ],
@@ -592,6 +643,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_121'),
         'segs': [
             ('Proponer indicadores para el seguimiento de las acciones preventivas y correctivas. ', False),
         ],
@@ -599,6 +651,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_121'),
         'segs': [
             ('Orientar la revisión de la política de prevención de riesgos psicosociales. ', False),
         ],
@@ -606,6 +659,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_121'),
         'segs': [
             ('Dar acompañamiento técnico en la difusión de resultados y campañas de sensibilización. ', False),
         ],
@@ -613,6 +667,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_121'),
         'segs': [
             ('Verificar la congruencia metodológica de los informes, matrices de intervención y evidencias documentales. ', False),
         ],
@@ -620,6 +675,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_121'),
         'segs': [
             ('Participar en la revisión del avance y efectividad de las medidas implementadas. ', False),
         ],
@@ -649,6 +705,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_122'),
         'segs': [
             ('Traducir los resultados de categorías, dominios y áreas prioritarias en acciones aplicables a la operación. ', False),
         ],
@@ -656,6 +713,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_122'),
         'segs': [
             ('Formular recomendaciones específicas para las áreas de producción, operaciones, calidad, mantenimiento, logística y áreas administrativas. ', False),
         ],
@@ -663,6 +721,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_122'),
         'segs': [
             ('Proponer mejoras en procesos, organización del trabajo, comunicación operativa y coordinación entre áreas. ', False),
         ],
@@ -670,6 +729,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_122'),
         'segs': [
             ('Asesorar en el diseño de medidas relacionadas con jornadas, rotación de turnos, pausas, descansos y cobertura de personal. ', False),
         ],
@@ -677,6 +737,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_122'),
         'segs': [
             ('Apoyar en la definición de indicadores operativos y de calidad vinculados con las medidas de intervención. ', False),
         ],
@@ -684,6 +745,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_122'),
         'segs': [
             ('Evaluar la viabilidad técnica de las recomendaciones antes de su implementación. ', False),
         ],
@@ -716,6 +778,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
             ('Diseñar y coordinar internamente la ejecución del Programa de intervención. ', False),
         ],
@@ -723,6 +786,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
             ('Gestionar los recursos humanos, materiales y administrativos necesarios. ', False),
         ],
@@ -730,6 +794,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
             ('Convocar a las áreas responsables. ', False),
         ],
@@ -737,6 +802,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
             ('Vigilar el cumplimiento de los plazos establecidos. ', False),
         ],
@@ -744,6 +810,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
             ('Integrar y conservar las evidencias de implementación. ', False),
         ],
@@ -751,6 +818,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
             ('Informar a la dirección sobre los avances, dificultades y resultados. ', False),
         ],
@@ -758,6 +826,7 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
             ('Coordinar la comunicación de las acciones a los trabajadores. ', False),
         ],
@@ -765,13 +834,15 @@ BLOQUE_RESPONSABLES = [
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
-            ('Canalizar y atender a los casos individuales identificados en ATS, Violencia laboral y alto y muy alto. ', False),
+            ('Canalizar a las personas que cumplan los criterios de la Guía I para ATS y activar los mecanismos de atención, queja o evaluación cuando existan signos, síntomas o reportes relacionados con violencia laboral o factores de riesgo psicosocial. ', False),
         ],
     },
     {
         'style': 'Normal',
         'align': None,
+        'lista': ('bullet', 'resp_123'),
         'segs': [
             ('Dar seguimiento a los mecanismos de queja, atención y canalización.', False),
         ],

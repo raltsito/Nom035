@@ -17,6 +17,7 @@ from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor, Twips
 
 from . import contenido_informe as inf
+from . import docx_geometry as geom
 
 # Plantilla del Informe Diagnóstico (formato aprobado por dirección jul-2026):
 # conserva estilos de Word (Grid Table 1 Light Accent 2, toc 1/3, etc.),
@@ -62,7 +63,7 @@ def _cell_run(cell, text, bold=False, size=10, color=None, align=WD_ALIGN_PARAGR
         run.font.color.rgb = color
 
 
-def _simple_table(doc, headers, rows):
+def _simple_table(doc, headers, rows, familia=None, anchos=None):
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = 'Table Grid'
     hdr = table.rows[0].cells
@@ -75,16 +76,29 @@ def _simple_table(doc, headers, rows):
         cells = table.add_row().cells
         for i, v in enumerate(row_vals):
             cells[i].text = str(v)
+    if familia or anchos:
+        geom.fijar_geometria_tabla(table, anchos_twips=anchos, familia=familia)
     doc.add_paragraph()
 
 
-def _add_field(paragraph, instr_text):
+def _add_field(paragraph, instr_text, resultado=None):
     """Inserta un campo de Word (ej. ' PAGE ') en un paragraph, con la
-    secuencia begin/instrText/separate/end — mismo mecanismo que usa
-    `_add_indice` para el campo TOC."""
-    for ftype, text in [('begin', None), (None, instr_text), ('separate', None), ('end', None)]:
+    secuencia begin/instrText/separate/[resultado]/end — mismo mecanismo que
+    usa `_add_indice` para el campo TOC.
+
+    `resultado` (texto entre separate y end) es OBLIGATORIO para que
+    LibreOffice importe un campo TOC como DocumentIndex actualizable: con el
+    resultado vacío el importador de LO ignora el campo y el índice jamás se
+    puede poblar (verificado con LibreOffice 24/25)."""
+    partes = [('begin', None), (None, instr_text), ('separate', None)]
+    if resultado is not None:
+        partes.append(('texto', resultado))
+    partes.append(('end', None))
+    for ftype, text in partes:
         run = paragraph.add_run()
-        if ftype:
+        if ftype == 'texto':
+            run.text = text
+        elif ftype:
             fc = OxmlElement('w:fldChar')
             fc.set(qn('w:fldCharType'), ftype)
             run._r.append(fc)
@@ -365,6 +379,7 @@ def _add_ats_tabla(doc, filas):
         valores = [f['orden'], f['texto'], f['h_si'], f['h_no'], f['m_si'], f['m_no'], f['t_si'], f['t_no']]
         for j, v in enumerate(valores):
             _cell_run(cells[j], v, size=9, align=(WD_ALIGN_PARAGRAPH.LEFT if j == 1 else WD_ALIGN_PARAGRAPH.CENTER))
+    geom.fijar_geometria_tabla(table, familia='ats_desglose_8')
     doc.add_paragraph()
 
 
@@ -482,14 +497,12 @@ def _add_panel_ejecutivo(doc, ctx):
                 r4 = p.add_run('\n' + t['nota'])
                 r4.font.size = Pt(7)
                 r4.italic = True
+    geom.fijar_geometria_tabla(table, familia='panel_3',
+                               repetir_encabezado=False, dividir_filas=False)
 
-    val = rd['validaciones']
-    estado = 'sin errores críticos' if val['puede_emitirse'] else 'CON ERRORES CRÍTICOS'
-    doc.add_paragraph(
-        f"Validación de consistencia previa a la emisión: {len(val['checks'])} "
-        f"comprobaciones, {estado}."
-        + (f" Advertencias: {'; '.join(val['advertencias'])}" if val['advertencias'] else '')
-    ).runs[0].italic = True
+    # (La línea "Validación de consistencia previa a la emisión…" se retiró
+    # del formato aprobado: el maestro de Zapotitlán no la incluye. La
+    # validación sigue ejecutándose y bloqueando la emisión en views.py.)
 
     if rd['faltantes_criticos']['variables']:
         doc.add_paragraph(
@@ -645,7 +658,7 @@ def _add_informe_diagnostico(doc, ctx):
     ).runs[0].italic = True
 
 
-def _add_conclusiones_tabla_rankeada(doc, encabezado_col1, filas):
+def _add_conclusiones_tabla_rankeada(doc, encabezado_col1, filas, familia=None):
     encabezados = [encabezado_col1, 'Nivel predominante', '% Programa de intervención (M+A+MA)', '% Alto+Muy alto', 'Prioridad']
     table = doc.add_table(rows=1, cols=len(encabezados))
     table.style = 'Table Grid'
@@ -660,6 +673,8 @@ def _add_conclusiones_tabla_rankeada(doc, encabezado_col1, filas):
         _cell_run(cells[2], f"{g['pct_accion']}%", size=10)
         _cell_run(cells[3], f"{g['pct_intervencion']}%", size=10)
         _cell_run(cells[4], f'{idx}°', bold=True, size=10)
+    if familia:
+        geom.fijar_geometria_tabla(table, familia=familia)
     doc.add_paragraph()
 
 
@@ -803,13 +818,16 @@ def _add_datos_responsable(doc, ctx):
     doc.add_paragraph('Fecha de aprobación: ______________________________')
 
 
-def _add_anexos(doc, ctx):
+def _add_anexos(doc, ctx, con_geometria=False):
     # Anexo confidencial (resultados individuales por folio): solo se emite
     # si el contexto lo incluyó expresamente (incluir_anexo_confidencial).
     if not ctx.get('anexos'):
         return
     anexos = ctx['anexos']
     _heading(doc, '13. Anexos', level=1)
+
+    def _anchos(n_cols, primera=0.12):
+        return geom.anchos_equitativos(n_cols, primera=primera) if con_geometria else None
 
     _heading(doc, '13.1. ATS y Calificación final', level=3)
     if ctx.get('acciones_generales'):
@@ -819,6 +837,7 @@ def _add_anexos(doc, ctx):
             [[f['clave'], f['ats'], f['valoracion_clinica'], f['calificacion_final'],
               NIVEL_LABEL_DOCX.get(f['nivel_final'], f['nivel_final'])]
              for f in anexos['ats_final']],
+            anchos=_anchos(5),
         )
     else:
         _simple_table(
@@ -827,6 +846,7 @@ def _add_anexos(doc, ctx):
             [[f['clave'], f['ats_combinado'], f['calificacion_final'],
               NIVEL_LABEL_DOCX.get(f['nivel_final'], f['nivel_final'])]
              for f in anexos['ats_final']],
+            anchos=_anchos(4),
         )
 
     _heading(doc, '13.2. Categorías', level=3)
@@ -835,6 +855,7 @@ def _add_anexos(doc, ctx):
         ['Folio'] + anexos['categorias_columnas'],
         [[f['clave']] + [NIVEL_LABEL_DOCX.get(n, '—') if n else '—' for n in f['niveles']]
          for f in anexos['categorias_filas']],
+        anchos=_anchos(1 + len(anexos['categorias_columnas'])),
     )
 
     _heading(doc, '13.3. Dominios', level=3)
@@ -843,6 +864,7 @@ def _add_anexos(doc, ctx):
         ['Folio'] + anexos['dominios_columnas'],
         [[f['clave']] + [NIVEL_LABEL_DOCX.get(n, '—') if n else '—' for n in f['niveles']]
          for f in anexos['dominios_filas']],
+        anchos=_anchos(1 + len(anexos['dominios_columnas']), primera=0.08),
     )
 
     _heading(doc, '13.4. Tabla de agrupación de dominios', level=3)
@@ -850,6 +872,7 @@ def _add_anexos(doc, ctx):
         doc,
         ['Categoría', 'Dominio', 'Dimensiones (D1-D14)'],
         [[f['categoria'], f['dominio'], ', '.join(f['claves'])] for f in anexos['agrupacion']],
+        anchos=_anchos(3, primera=0.30),
     )
 
 
@@ -908,19 +931,40 @@ def _p_segs(doc, segs, style=None, align=None):
     return p
 
 
-def _emit_bloque(doc, bloque):
+def _emit_bloque(doc, bloque, listas=None):
     """Emite un bloque estático extraído del documento de referencia
     (contenido_informe.BLOQUE_*): párrafos con estilo, alineación y
-    segmentos de negrita idénticos."""
+    segmentos de negrita idénticos.
+
+    Los ítems con clave 'lista' se emiten como listas REALES de Word
+    (docx_geometry.nueva_lista/parrafo_lista): cada grupo distinto es una
+    instancia de numeración nueva, de modo que cada sublista reinicia en 1
+    — igual que el documento maestro de Zapotitlán."""
+    listas = {} if listas is None else listas
     for item in bloque:
+        align = _ALIGN_INF.get(item['align'])
+        if item.get('lista'):
+            tipo, grupo = item['lista']
+            if grupo not in listas:
+                listas[grupo] = geom.nueva_lista(doc, tipo)
+            p = geom.parrafo_lista(doc, listas[grupo], ilvl=item.get('nivel', 0))
+            if align:
+                p.alignment = align
+            for texto, bold in item['segs']:
+                run = p.add_run(texto)
+                if bold:
+                    run.bold = True
+            continue
         style = item['style'] if item['style'] != 'Normal' else None
-        _p_segs(doc, item['segs'], style=style,
-                align=_ALIGN_INF.get(item['align']))
+        _p_segs(doc, item['segs'], style=style, align=align)
 
 
-def _tabla_grid(doc, headers, rows, espacio=True):
+def _tabla_grid(doc, headers, rows, espacio=True, familia=None, anchos=None):
     """Tabla de datos con el estilo Word 'Grid Table 1 Light Accent 2'
-    (encabezado formateado por el propio estilo, sin negrita manual)."""
+    (encabezado formateado por el propio estilo, sin negrita manual).
+
+    Con `familia`/`anchos` se aplica geometría explícita (tblW/tblGrid/tcW,
+    layout fijo, encabezado repetido): ver docx_geometry.FAMILIAS_TABLA."""
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = 'Grid Table 1 Light Accent 2'
     for i, h in enumerate(headers):
@@ -929,6 +973,8 @@ def _tabla_grid(doc, headers, rows, espacio=True):
         cells = table.add_row().cells
         for i, v in enumerate(row_vals):
             cells[i].text = str(v)
+    if familia or anchos:
+        geom.fijar_geometria_tabla(table, anchos_twips=anchos, familia=familia)
     if espacio:
         doc.add_paragraph()
     return table
@@ -991,10 +1037,39 @@ def _add_indice_inf(doc):
     para = doc.add_paragraph(style='toc 1')
     para.paragraph_format.tab_stops.add_tab_stop(
         Twips(8630), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS)
-    _add_field(para, ' TOC \\o "1-3" \\h \\z \\u ')
+    # El resultado provisional es indispensable: sin él LibreOffice no
+    # reconoce el campo como índice y la actualización determinista del TOC
+    # (docx_postprocess) no tendría nada que poblar.
+    _add_field(para, ' TOC \\o "1-3" \\h \\z \\u ',
+               resultado='Índice pendiente de actualización.')
     doc.add_paragraph()
     doc.add_paragraph()
     doc.add_page_break()
+
+
+def _add_objetivo_inf(doc, ctx):
+    """§3 del formato aprobado: los objetivos específicos van con viñeta
+    ⚫ (lista real de Word), como en el maestro de Zapotitlán — no con
+    números ni con símbolos escritos como texto."""
+    _heading(doc, '3. Objetivo', level=1)
+    _heading(doc, '3.1. Objetivo general', level=3)
+    doc.add_paragraph(ctx['objetivo_general'])
+    _heading(doc, '3.2. Objetivos específicos', level=3)
+    num_id = geom.nueva_lista(doc, 'bullet_negra')
+    for obj in ctx['objetivos_especificos']:
+        p = geom.parrafo_lista(doc, num_id)
+        p.add_run(obj)
+
+
+def _add_definiciones_inf(doc, ctx):
+    """§4 del formato aprobado: viñetas • (Symbol) con el término en
+    negrita, como el maestro."""
+    _heading(doc, '4. Definiciones', level=1)
+    num_id = geom.nueva_lista(doc, 'bullet')
+    for termino, definicion in ctx['definiciones']:
+        p = geom.parrafo_lista(doc, num_id)
+        p.add_run(f'{termino}: ').bold = True
+        p.add_run(definicion)
 
 
 def _add_justificacion_muestra_inf(doc, ctx):
@@ -1035,18 +1110,22 @@ def _add_justificacion_muestra_inf(doc, ctx):
         ]
         for j, d in enumerate(datos):
             _cell_run(table.rows[2].cells[j], d, size=10)
+        geom.fijar_geometria_tabla(table, familia='sextos_6')
 
         doc.add_paragraph()
 
     if ctx.get('flujo_muestra'):
-        doc.add_paragraph(
+        p_intro = doc.add_paragraph(
             'Flujo de la muestra (Guía III) — de la población total a los '
             'cuestionarios analizados:'
-        ).runs[0].italic = True
+        )
+        p_intro.runs[0].italic = True
+        geom.unir_con_siguiente(p_intro)
         _tabla_grid(
             doc,
             ['Etapa', 'N'],
             [[f['etapa'], f['n']] for f in ctx['flujo_muestra']],
+            familia='flujo_2',
         )
         doc.add_paragraph()
 
@@ -1058,7 +1137,8 @@ def _add_metodologia_inf(doc, ctx):
     doc.add_paragraph(met['objetivo_evaluacion'])
 
     _heading(doc, '6.2. Instrumentos utilizados', level=3)
-    _tabla_grid(doc, ['Instrumento', 'Descripción'], met['instrumentos'])
+    _tabla_grid(doc, ['Instrumento', 'Descripción'], met['instrumentos'],
+                familia='descripcion_2')
 
     _heading(doc, '6.3. Procedimiento de aplicación', level=3)
     # 6.3 completo + 6.4 Procesamiento a digital + 6.5 Evaluación y análisis:
@@ -1072,6 +1152,7 @@ def _add_metodologia_inf(doc, ctx):
             doc,
             ['Instrumento', 'Aplicados', 'Respondidos', 'Tasa'],
             [[t['guia'], t['total'], t['completadas'], f"{t['pct']}%"] for t in ctx['tasas_respuesta']],
+            familia='tasa_4',
         )
 
 
@@ -1100,6 +1181,7 @@ def _add_informe_demografico_inf(doc, ctx):
             _tabla_grid(
                 doc, [tabla['col'], 'Trabajadores', '%'],
                 [[d['label'], d['count'], f"{d['pct']}%"] for d in tabla['datos']],
+                familia='tercios_3',
             )
             _add_grafica(doc, graficas_muestra.get(tabla['col']))
 
@@ -1110,6 +1192,7 @@ def _add_informe_demografico_inf(doc, ctx):
             _tabla_grid(
                 doc, [tabla['col'], 'Trabajadores', '%'],
                 [[d['label'], d['count'], f"{d['pct']}%"] for d in tabla['datos']],
+                familia='tercios_3',
             )
             _add_grafica(doc, graficas_muestra.get(tabla['col']))
 
@@ -1129,6 +1212,7 @@ def _add_ats_inf(doc, ctx):
         ['Indicador', 'N', '%'],
         [[f['indicador'], f['n'], f"{f['pct']}%" if f['pct'] is not None else '—']
          for f in ats['filas']],
+        familia='ats_resumen_3',
     )
     doc.add_paragraph(
         f"Denominador: {ats['denominador']} (N = {ats['n_valido']}). "
@@ -1149,6 +1233,7 @@ def _tabla_niveles_rd_inf(doc, tabla_rd, col1, sufijo_nota=''):
          + [_fmt_pct(f['pct_nivel'][k]) for k in ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')]
          + [_fmt_pct(f['pct_medio_o_mas']), _fmt_pct(f['pct_alto_o_muy_alto']), f"{f['prioridad']}°"]
          for f in filas],
+        familia='niveles_10',
     )
     doc.add_paragraph(
         f"Denominador: {tabla_rd['denominador']}. {inf.NOTA_NIVELES}{sufijo_nota}"
@@ -1173,18 +1258,22 @@ def _add_informe_diagnostico_inf(doc, ctx):
         doc,
         ['Nivel de riesgo', 'Trabajadores', '%'],
         [[d['label'], d['count'], f"{d['pct']}%"] for d in ctx['distribucion']],
+        familia='tercios_3',
     )
     _add_grafica(doc, ctx.get('graficas', {}).get('distribucion'), width_cm=11)
 
     if ctx.get('acciones'):
-        doc.add_paragraph(
+        p_t7 = doc.add_paragraph(
             'Tabla 7, Guía de Referencia III, NOM-035-STPS-2018 — Criterios para la toma '
             'de acciones (transcripción del texto oficial):'
-        ).runs[0].italic = True
+        )
+        p_t7.runs[0].italic = True
+        geom.unir_con_siguiente(p_t7)
         _tabla_grid(
             doc,
             ['Nivel de riesgo', 'Acción requerida'],
             [[a['label'], a['accion']] for a in ctx['acciones']],
+            familia='descripcion_2',
         )
 
     graficas_categorias = ctx.get('graficas', {}).get('categorias', {})
@@ -1193,11 +1282,14 @@ def _add_informe_diagnostico_inf(doc, ctx):
 
     _heading(doc, '9.2. Calificaciones por categoría', level=3)
     if ctx.get('rangos_categoria'):
-        doc.add_paragraph(inf.INTRO_RANGOS_CATEGORIA).runs[0].italic = True
+        p_rc = doc.add_paragraph(inf.INTRO_RANGOS_CATEGORIA)
+        p_rc.runs[0].italic = True
+        geom.unir_con_siguiente(p_rc)
         _tabla_grid(
             doc,
             ['Categoría'] + [NIVEL_LABEL_DOCX[n] for n in _niveles],
             [[r['nombre']] + [r['rangos'][n] for n in _niveles] for r in ctx['rangos_categoria']],
+            familia='rangos_6',
         )
     _tabla_niveles_rd_inf(doc, ctx['report_data']['tablas']['categorias'], 'Categoría',
                           sufijo_nota=' ')
@@ -1206,11 +1298,14 @@ def _add_informe_diagnostico_inf(doc, ctx):
 
     _heading(doc, '9.3. Calificaciones por dominio', level=3)
     if ctx.get('rangos_dominio'):
-        doc.add_paragraph(inf.INTRO_RANGOS_DOMINIO).runs[0].italic = True
+        p_rd = doc.add_paragraph(inf.INTRO_RANGOS_DOMINIO)
+        p_rd.runs[0].italic = True
+        geom.unir_con_siguiente(p_rd)
         _tabla_grid(
             doc,
             ['Dominio'] + [NIVEL_LABEL_DOCX[n] for n in _niveles],
             [[r['nombre']] + [r['rangos'][n] for n in _niveles] for r in ctx['rangos_dominio']],
+            familia='rangos_6',
         )
     _tabla_niveles_rd_inf(doc, ctx['report_data']['tablas']['dominios'], 'Dominio')
     for d in ctx['dominios_oficiales_agregados']:
@@ -1224,7 +1319,9 @@ def _add_informe_diagnostico_inf(doc, ctx):
     # conserva tal cual el documento de referencia) ----
     areas = rd['tablas']['areas']
     _heading(doc, '9.5. Áreas prioritarias', level=3)
-    doc.add_paragraph(f"{areas['nota']} Denominador: {areas['denominador']}.").runs[0].italic = True
+    p_ar = doc.add_paragraph(f"{areas['nota']} Denominador: {areas['denominador']}.")
+    p_ar.runs[0].italic = True
+    geom.unir_con_siguiente(p_ar)
     if areas['filas']:
         _tabla_grid(
             doc,
@@ -1234,6 +1331,7 @@ def _add_informe_diagnostico_inf(doc, ctx):
              + [_fmt_pct(a['pct_nivel'][k]) for k in ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')]
              + [_fmt_pct(a['pct_medio_o_mas']), _fmt_pct(a['pct_alto_o_muy_alto']), f"{a['prioridad']}°"]
              for a in areas['filas']],
+            familia='niveles_10',
         )
     else:
         doc.add_paragraph('No hay áreas con N suficiente para el análisis desagregado.')
@@ -1247,11 +1345,14 @@ def _add_informe_diagnostico_inf(doc, ctx):
     # ---- 9.6. Violencia laboral (resumen del dominio oficial) ----
     viol = rd['tablas']['violencia']
     _heading(doc, '9.6. Violencia laboral (resumen)', level=3)
-    doc.add_paragraph(viol['nota']).runs[0].italic = True
+    p_vi = doc.add_paragraph(viol['nota'])
+    p_vi.runs[0].italic = True
+    geom.unir_con_siguiente(p_vi)
     _tabla_grid(
         doc,
         ['Nivel', 'N', '%'],
         [[f['label'], f['n'], _fmt_pct(f['pct'])] for f in viol['filas']],
+        familia='tercios_3',
     )
     doc.add_paragraph(
         f"Denominador: {viol['denominador']} (N = {viol['n_valido']}). "
@@ -1272,7 +1373,9 @@ def _add_conclusiones_inf(doc, ctx):
         style='pdq2pg_selectionanchorcontainer',
     )
     doc.add_paragraph(inf.CONCLUSIONES_INTRO_2, style='Normal (Web)')
-    doc.add_paragraph(style='Heading 3')
+    # Separador simple: un Heading vacío contaminaba el índice y la
+    # secuencia canónica de encabezados.
+    doc.add_paragraph()
 
     _heading(doc, '10.1. Calificación final', level=3)
     doc.add_paragraph()
@@ -1291,19 +1394,22 @@ def _add_conclusiones_inf(doc, ctx):
          'Prioridad interna (Alto+Muy alto)', 'Nivel predominante'],
         [[c['muestra'], f"{c['accion_global']} ({c['pct_accion']}%)",
           f"{c['riesgo_alto']} ({c['pct_riesgo']}%)", nivel_label]],
+        familia='conclusion_4',
     )
 
     _heading(doc, '10.2. Análisis por categoría', level=3)
-    doc.add_paragraph(inf.CONCLUSION_10_2_INTRO)
-    _add_conclusiones_tabla_rankeada(doc, 'Categoría', c['categorias_rankeadas'])
+    geom.unir_con_siguiente(doc.add_paragraph(inf.CONCLUSION_10_2_INTRO))
+    _add_conclusiones_tabla_rankeada(doc, 'Categoría', c['categorias_rankeadas'],
+                                     familia='rankeada_5')
 
     _heading(doc, '10.3. Análisis por dominio', level=3)
-    doc.add_paragraph(
+    geom.unir_con_siguiente(doc.add_paragraph(
         'Los dominios se presentan ordenados de mayor a menor porcentaje de población en '
         'niveles Alto y Muy alto, permitiendo identificar los aspectos específicos del entorno '
         'laboral que concentran mayor riesgo psicosocial.'
-    )
-    _add_conclusiones_tabla_rankeada(doc, 'Dominio', c['dominios_rankeados'])
+    ))
+    _add_conclusiones_tabla_rankeada(doc, 'Dominio', c['dominios_rankeados'],
+                                     familia='rankeada_5')
 
     cat_top = c['categorias_rankeadas'][0]['nombre'] if c['categorias_rankeadas'] else '—'
     dom_top = c['dominios_rankeados'][0]['nombre'] if c['dominios_rankeados'] else '—'
@@ -1318,6 +1424,7 @@ def _add_recomendaciones_inf(doc, ctx):
     _tabla_grid(
         doc, ['Acción', 'Descripción'],
         [[titulo, texto] for titulo, texto in ctx['acciones_generales']],
+        familia='descripcion_2',
     )
 
     recs_extendidas = ctx.get('recomendaciones_extendidas') or []
@@ -1340,9 +1447,11 @@ def _add_recomendaciones_inf(doc, ctx):
 
 def _add_matriz_intervencion_inf(doc, ctx):
     """En el formato aprobado la matriz quedó como título + nota (la tabla
-    operativa la llena el centro de trabajo)."""
+    operativa la llena el centro de trabajo). El encabezado forma parte de
+    la estructura canónica (índice del maestro), así que se emite siempre
+    que el informe lleve datos compuestos."""
     rd = ctx.get('report_data')
-    if not rd or not rd['tablas']['matriz_intervencion']['filas']:
+    if not rd:
         return
     matriz = rd['tablas']['matriz_intervencion']
     _heading(doc, 'Matriz de intervención', level=3)
@@ -1366,17 +1475,20 @@ def _add_anexo_tecnico_inf(doc, ctx):
 
     if bloques:
         _heading(doc, 'A.T.1. Bloques internos de captura (análisis complementario no normativo)', level=3)
-        doc.add_paragraph(
+        p_bl = doc.add_paragraph(
             'Los bloques D1-D14 corresponden a la organización interna del cuestionario y '
             'no son unidades de calificación de la NOM-035; su semáforo es únicamente '
             'referencial.'
-        ).runs[0].italic = True
+        )
+        p_bl.runs[0].italic = True
+        geom.unir_con_siguiente(p_bl)
         _simple_table(
             doc,
             ['Clave', 'Bloque', 'Dominio oficial', 'Promedio'],
             [[dim['clave'], dim['nombre'], dim['dominio_oficial'],
               f"{dim['puntaje_promedio']}/{dim['puntaje_max']}"]
              for dim in bloques],
+            familia='bloques_4',
         )
 
     if desglose:
@@ -1415,6 +1527,7 @@ def _add_anexo_tecnico_inf(doc, ctx):
               f"{dim['pct_promedio']}%", f"{dim['pct_mediana']}%"]
              for dim in ctx['dimensiones']],
             espacio=False,
+            familia='dimensiones_6',
         )
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -1431,8 +1544,8 @@ def build_informe_diagnostico_docx(ctx: dict) -> io.BytesIO:
     _add_indice_inf(doc)
     _add_panel_ejecutivo(doc, ctx)
     _add_datos_centro_trabajo(doc, ctx)
-    _add_objetivo(doc, ctx)
-    _add_definiciones(doc, ctx)
+    _add_objetivo_inf(doc, ctx)
+    _add_definiciones_inf(doc, ctx)
     _add_justificacion_muestra_inf(doc, ctx)
     _add_metodologia_inf(doc, ctx)
     _add_informe_demografico_inf(doc, ctx)
@@ -1443,7 +1556,10 @@ def build_informe_diagnostico_docx(ctx: dict) -> io.BytesIO:
     _add_matriz_intervencion_inf(doc, ctx)
     _add_datos_responsable_inf(doc, ctx)
     _add_anexo_tecnico_inf(doc, ctx)
-    _add_anexos(doc, ctx)
+    _add_anexos(doc, ctx, con_geometria=True)
+
+    # Control global de saltos: títulos con keep_with_next y viudas/huérfanas.
+    geom.aplicar_control_saltos(doc)
 
     buf = io.BytesIO()
     doc.save(buf)

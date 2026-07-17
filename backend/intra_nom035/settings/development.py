@@ -10,6 +10,8 @@ CORS_ALLOWED_ORIGINS = env.list(
     ],
 )
 CORS_ALLOW_CREDENTIALS = True
+# El frontend nombra las descargas con el filename del servidor.
+CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 

@@ -1,9 +1,10 @@
 import io
+import logging
 from collections import defaultdict
 from datetime import date
-from pathlib import Path
 
-from django.http import FileResponse, HttpResponse
+from django.conf import settings
+from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from openpyxl import Workbook
@@ -30,26 +31,19 @@ from m06_results.scoring import (
     _categoria_por_rangos,
 )
 from . import contenido_normativo as norm
+from . import docx_postprocess as docx_pp
 from . import graficas as graf
 from . import interpretaciones as interp
 from .report_data import build_report_data
 from .docx_builder import build_informe_diagnostico_docx, build_reporte_psicologico_docx
 from .models import ReportePsicologico
 
-SAN_LUIS_INFORME_2026 = (
-    Path(__file__).resolve().parent
-    / 'static'
-    / 'documents'
-    / 'informes'
-    / 'san_luis_informe_diagnostico_2026.docx'
-)
-ZAPOTITLAN_INFORME_2026 = (
-    Path(__file__).resolve().parent
-    / 'static'
-    / 'documents'
-    / 'informes'
-    / 'zapotitlan_informe_diagnostico_2026.pdf'
-)
+logger = logging.getLogger(__name__)
+
+# Los archivos de static/documents/informes/ (San Luis DOCX y Zapotitlán PDF)
+# se conservan ÚNICAMENTE como referencias de regresión visual/textual del
+# formato aprobado. Ningún tenant se sirve desde ellos: todas las plantas
+# atraviesan el mismo generador dinámico (build_informe_diagnostico_docx).
 
 # nombre de dominio oficial → categoría (5 grupos), derivado de la misma
 # jerarquía que usa el motor de calificación.
@@ -581,26 +575,6 @@ def descargar_informe_diagnostico(request):
     except CicloNOM.DoesNotExist:
         return HttpResponse('Ciclo no encontrado', status=404)
 
-    if tenant.nombre.strip().lower() == 'san luis' and ciclo.anio == 2026:
-        if not SAN_LUIS_INFORME_2026.exists():
-            return HttpResponse('Informe fijo de San Luis no encontrado', status=500)
-        return FileResponse(
-            SAN_LUIS_INFORME_2026.open('rb'),
-            as_attachment=True,
-            filename='Informe_Diagnostico_NOM035_San_Luis_2026 (2)-2.docx',
-            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        )
-
-    if tenant.nombre.strip().lower() == 'zapotitlan' and ciclo.anio == 2026:
-        if not ZAPOTITLAN_INFORME_2026.exists():
-            return HttpResponse('Informe fijo de Zapotitlan no encontrado', status=500)
-        return FileResponse(
-            ZAPOTITLAN_INFORME_2026.open('rb'),
-            as_attachment=True,
-            filename='PLANTA Zapot.pdf',
-            content_type='application/pdf',
-        )
-
     resultados_qs = ResultadoAplicacion.objects.filter(
         aplicacion__tenant=tenant,
         aplicacion__ciclo=ciclo,
@@ -632,10 +606,24 @@ def descargar_informe_diagnostico(request):
         )
 
     buf = build_informe_diagnostico_docx(ctx)
+    docx_bytes = buf.read()
+
+    # El DOCX descargado ya debe llegar con el índice poblado y las páginas
+    # reales: actualización determinista con LibreOffice (no basta el flag
+    # updateFields, que depende de que Word lo permita al abrir).
+    try:
+        docx_bytes = docx_pp.actualizar_campos_docx(docx_bytes)
+    except docx_pp.ErrorPostprocesoDocx:
+        if getattr(settings, 'INFORME_TOC_ESTRICTO', not settings.DEBUG):
+            raise
+        logger.exception(
+            'No se pudo actualizar el índice con LibreOffice; se entrega el '
+            'DOCX con updateFields como respaldo (solo entornos de desarrollo).'
+        )
 
     filename = f'Informe_Diagnostico_NOM035_{tenant.nombre.replace(" ", "_")}_{ciclo.anio}.docx'
     response = HttpResponse(
-        buf.read(),
+        docx_bytes,
         content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -1486,14 +1474,14 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
         'riesgo_tablas':         riesgo_tablas,
         # Recomendaciones derivadas de los dominios prioritarios (sustituye las genéricas)
         'recomendaciones':       _recomendaciones_desde_dominios(dominios_prioritarios),
-        # ---- Datos del centro de trabajo: SIEMPRE del tenant. Los valores
-        # de `contenido_normativo` solo son respaldo si el tenant no los
-        # define (evita que un informe salga con la razón social de otro
-        # cliente — hallazgo H-17 de la auditoría). ----
+        # ---- Datos del centro de trabajo: SIEMPRE del tenant. Sin respaldos
+        # de otro cliente: si el tenant no define razón social se usa su
+        # propio nombre (hallazgo H-17 de la auditoría — un informe jamás
+        # debe salir con la razón social o el giro de otra empresa). ----
         'datos_centro_trabajo': {
-            'nombre':    getattr(tenant, 'razon_social', '') or norm.RAZON_SOCIAL,
+            'nombre':    getattr(tenant, 'razon_social', '') or tenant.nombre,
             'direccion': tenant.direccion,
-            'giro':      tenant.giro or norm.ACTIVIDAD_PRINCIPAL,
+            'giro':      tenant.giro or '—',
         },
         'objetivo_general':      norm.OBJETIVO_GENERAL,
         'objetivos_especificos': norm.OBJETIVOS_ESPECIFICOS,
