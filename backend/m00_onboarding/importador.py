@@ -296,12 +296,14 @@ def _norm_experiencia(value):
         return round(float(v), 1)
     except (ValueError, TypeError):
         pass
-    match = re.search(r'(\d+)\s*a', v, re.IGNORECASE)
-    meses = re.search(r'(\d+)\s*m', v, re.IGNORECASE)
+    match = re.search(r'(\d+)[.\s]*a', v, re.IGNORECASE)
+    meses = re.search(r'(\d+)[.\s]*m', v, re.IGNORECASE)
     if match:
         years = int(match.group(1))
         months = int(meses.group(1)) if meses else 0
         return round(years + months / 12, 1)
+    if meses:
+        return round(int(meses.group(1)) / 12, 1)
     return None
 
 

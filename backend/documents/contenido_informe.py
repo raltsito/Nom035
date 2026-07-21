@@ -25,7 +25,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
-        'lista': ('decimal', 'proc_antes'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se determinó el número mínimo de trabajadores a quienes se aplicarían los cuestionarios, el cual debía ser igual o superior al tamaño de muestra calculado mediante la Ecuación 1 de la NOM-035-STPS-2018. ', False),
         ],
@@ -33,7 +33,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
-        'lista': ('decimal', 'proc_antes'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('A partir de la plantilla nominal de trabajadores activos del centro de trabajo, con fecha de corte previamente definida, se realizó una selección aleatoria estratificada. Se procuró que todos los trabajadores elegibles tuvieran posibilidad de ser seleccionados y que la distribución de hombres y mujeres correspondiera a su proporción en la población del centro de trabajo. La estratificación complementaria consideró las áreas, turnos y tipos de puesto establecidos para el estudio. ', False),
         ],
@@ -41,7 +41,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
-        'lista': ('decimal', 'proc_antes'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Las personas que permanecieron imposibilitadas para participar durante todo el periodo de aplicación, por baja, licencia, incapacidad temporal o ausencia justificada, fueron registradas como no disponibles. Cuando fue necesario realizar una sustitución, ésta se efectuó aleatoriamente con una persona del mismo estrato, dejando evidencia del motivo y del procedimiento aplicado. ', False),
         ],
@@ -49,7 +49,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
-        'lista': ('decimal', 'proc_antes'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se verificó que las condiciones de las instalaciones, el mobiliario y los equipos utilizados fueran adecuadas. ', False),
         ],
@@ -57,7 +57,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
-        'lista': ('decimal', 'proc_antes'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se realizó la presentación del aplicador ante las personas participantes. ', False),
         ],
@@ -65,7 +65,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
-        'lista': ('decimal', 'proc_antes'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se explicó el objetivo de la evaluación. ', False),
         ],
@@ -73,7 +73,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
-        'lista': ('decimal', 'proc_antes'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se enfatizó la protección de la privacidad y confidencialidad de la información, señalando que las respuestas y resultados serían utilizados exclusivamente para la identificación, prevención y atención de las condiciones relacionadas con el ambiente de trabajo. ', False),
         ],
@@ -81,7 +81,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'Normal',
         'align': None,
-        'lista': ('decimal', 'proc_antes'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se proporcionaron instrucciones claras sobre la forma de responder las diferentes secciones. Se indicó que el cuestionario debía contestarse completamente, que no existían respuestas correctas o incorrectas, que era necesario mantener la concentración y que las respuestas debían considerar las condiciones de los dos últimos meses y expresar la opinión del trabajador con sinceridad. ', False),
         ],
@@ -96,7 +96,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
-        'lista': ('bullet_negra', 'proc_durante'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se propició un ambiente de respeto y confianza. ', False),
         ],
@@ -104,7 +104,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
-        'lista': ('bullet_negra', 'proc_durante'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se permitió una comunicación fluida entre los trabajadores y el personal aplicador. ', False),
         ],
@@ -112,7 +112,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
-        'lista': ('bullet_negra', 'proc_durante'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se aclararon dudas sobre el funcionamiento del instrumento, sin explicar, interpretar o sugerir el sentido de las respuestas. ', False),
         ],
@@ -120,7 +120,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
-        'lista': ('bullet_negra', 'proc_durante'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se presentó la plataforma digital y el procedimiento para ingresar, responder, avanzar y concluir cada cuestionario y sus secciones. ', False),
         ],
@@ -128,7 +128,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
-        'lista': ('bullet_negra', 'proc_durante'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se verificó que las indicaciones hubieran quedado claras. ', False),
         ],
@@ -136,7 +136,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
-        'lista': ('bullet_negra', 'proc_durante'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se evitó interrumpir a los trabajadores mientras respondían. ', False),
         ],
@@ -144,7 +144,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': None,
-        'lista': ('bullet_negra', 'proc_durante'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se evitó conducir, persuadir o dirigir las respuestas.', False),
         ],
@@ -159,7 +159,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': 'JUSTIFY',
-        'lista': ('decimal', 'proc_despues_a'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Al concluir los instrumentos, la plataforma realizó una verificación automática de completitud y mostró al trabajador una confirmación de envío. El coordinador de la sesión verificó únicamente el estado de finalización o el folio de confirmación, sin visualizar las respuestas individuales. ', False),
         ],
@@ -167,7 +167,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': 'JUSTIFY',
-        'lista': ('decimal', 'proc_despues_b'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Se conciliaron los registros de personas convocadas, aplicaciones iniciadas, aplicaciones completadas, cuestionarios excluidos, cuestionarios válidos y cuestionarios finalmente analizados. Se comprobó que el número de cuestionarios válidos fuera igual o superior al tamaño mínimo de muestra requerido. ', False),
         ],
@@ -175,7 +175,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': 'JUSTIFY',
-        'lista': ('decimal', 'proc_despues_b'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('Para fines operativos, los instrumentos se aplicaron en el orden siguiente: ', False),
         ],
@@ -183,7 +183,7 @@ BLOQUE_METODOLOGIA_PROC = [
     {
         'style': 'List Number',
         'align': 'JUSTIFY',
-        'lista': ('decimal', 'proc_despues_c'),
+        'lista': ('decimal', 'proc'),
         'segs': [
             ('a)', True),
             (' Guía de Referencia III: Identificación y análisis de los factores de riesgo psicosocial y evaluación del entorno organizacional.\n', False),

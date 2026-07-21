@@ -35,7 +35,7 @@ from . import contenido_normativo as norm
 from . import docx_postprocess as docx_pp
 from . import graficas as graf
 from . import interpretaciones as interp
-from .report_data import build_report_data
+from .report_data import build_report_data, datos_guia_v_por_trabajador, valor_efectivo_guia_v
 from .docx_builder import build_informe_diagnostico_docx, build_reporte_psicologico_docx
 from .models import ReportePsicologico
 
@@ -846,26 +846,35 @@ PRINT_HINT = """
 # ===========================================================================
 
 def _distribucion_simple(valores):
-    """Cuenta ocurrencias y devuelve [{label, count, pct}] ordenado desc.
-    El porcentaje se calcula sobre el N VÁLIDO (excluyendo 'Sin dato'); la
-    fila 'Sin dato' reporta su % sobre el total para transparencia de
-    faltantes. Cada fila incluye el denominador usado."""
+    """Cuenta ocurrencias por categoría y devuelve un único denominador para
+    toda la distribución: N VÁLIDO (excluye 'Sin dato'). 'Sin dato' NUNCA se
+    presenta como categoría de la distribución -- se reporta aparte
+    (n_faltante/pct_faltante) para que la tabla y la nota que la acompaña no
+    mezclen dos denominadores distintos en la misma cifra."""
     counts = defaultdict(int)
     for v in valores:
         counts[v or 'Sin dato'] += 1
-    total = sum(counts.values()) or 1
-    n_faltante = counts.get('Sin dato', 0)
-    n_valido = (total - n_faltante) or 1
-    return [
+    n_faltante = counts.pop('Sin dato', 0)
+    n_total = sum(counts.values()) + n_faltante
+    n_valido = n_total - n_faltante
+    datos = [
         {
-            'label': k,
-            'count': v,
-            'pct': round(v / (total if k == 'Sin dato' else n_valido) * 100),
-            'n_valido': total - n_faltante,
-            'n_faltante': n_faltante,
+            'label':        k,
+            'count':        v,
+            # Precisión completa para sumas/pruebas; 'pct' es el redondeo
+            # visual aprobado que consume la tabla del DOCX.
+            'pct_preciso':  (v / n_valido * 100) if n_valido else 0.0,
+            'pct':          round(v / n_valido * 100) if n_valido else 0,
         }
         for k, v in sorted(counts.items(), key=lambda x: (-x[1], x[0]))
     ]
+    return {
+        'datos':        datos,
+        'n_total':      n_total,
+        'n_valido':     n_valido,
+        'n_faltante':   n_faltante,
+        'pct_faltante': round(n_faltante / n_total * 100, 1) if n_total else 0.0,
+    }
 
 
 def _grupo_edad(edad):
@@ -900,7 +909,13 @@ def _build_muestra(tenant, ciclo):
     """Distribución sociodemográfica de la POBLACIÓN ANALÍTICA: trabajadores
     con Guía III válida en el ciclo (misma población que el informe FRPS).
     Si el ciclo aún no tiene resultados calculados, cae al universo de
-    participantes para no dejar la sección vacía."""
+    participantes para no dejar la sección vacía.
+
+    Cuando el perfil importado (Trabajador) llegó vacío en alguna variable,
+    se usa como respaldo la respuesta que el propio trabajador dio en
+    Guía V ("Datos del trabajador") antes de bucketearla como 'Sin dato'
+    (ver documents.report_data: mismo respaldo que usa la alerta de
+    faltantes críticos, para que ambas cifras sean consistentes)."""
     trab_ids = list(
         ResultadoAplicacion.objects.filter(
             aplicacion__tenant=tenant, aplicacion__ciclo=ciclo,
@@ -913,32 +928,47 @@ def _build_muestra(tenant, ciclo):
             .values_list('trabajador_id', flat=True).distinct()
         )
     trabajadores = list(Trabajador.objects.filter(id__in=trab_ids))
+    guia_v = datos_guia_v_por_trabajador(tenant, ciclo, trab_ids)
+
+    def _resp(t, campo):
+        return valor_efectivo_guia_v(campo, guia_v.get(t.id, {}).get(campo))
+
+    def _rotacion(t):
+        if t.rotacion_turnos is not None:
+            return 'Sí' if t.rotacion_turnos else 'No'
+        efectivo = _resp(t, 'rotacion_turnos')
+        return ('Sí' if efectivo else 'No') if efectivo is not None else None
 
     return {
         'total':      len(trabajadores),
         'sexo':       _distribucion_simple(
-            [t.get_sexo_display() if t.sexo else None for t in trabajadores]),
+            [(t.get_sexo_display() if t.sexo else None) or _resp(t, 'sexo') for t in trabajadores]),
         'edad':       _distribucion_simple(
-            [_grupo_edad(t.edad) for t in trabajadores]),
+            [_grupo_edad(t.edad if t.edad is not None else _resp(t, 'edad')) for t in trabajadores]),
         'estado_civil': _distribucion_simple(
-            [t.get_estado_civil_display() if t.estado_civil else None for t in trabajadores]),
-        'estudios':   _distribucion_simple(
-            [t.get_nivel_estudios_display() if t.nivel_estudios else None for t in trabajadores]),
-        'puesto':     _distribucion_simple(
-            [t.tipo_puesto or None for t in trabajadores]),
-        'contratacion': _distribucion_simple(
-            [t.get_tipo_contratacion_display() if t.tipo_contratacion else None for t in trabajadores]),
-        'personal':   _distribucion_simple(
-            [t.get_tipo_personal_display() if t.tipo_personal else None for t in trabajadores]),
-        'jornada':    _distribucion_simple(
-            [t.get_tipo_jornada_display() if t.tipo_jornada else None for t in trabajadores]),
-        'rotacion':   _distribucion_simple(
-            [('Sí' if t.rotacion_turnos else 'No') if t.rotacion_turnos is not None else None
+            [(t.get_estado_civil_display() if t.estado_civil else None) or _resp(t, 'estado_civil')
              for t in trabajadores]),
+        'estudios':   _distribucion_simple(
+            [(t.get_nivel_estudios_display() if t.nivel_estudios else None) or _resp(t, 'nivel_estudios')
+             for t in trabajadores]),
+        'puesto':     _distribucion_simple(
+            [t.tipo_puesto or _resp(t, 'tipo_puesto') for t in trabajadores]),
+        'contratacion': _distribucion_simple(
+            [(t.get_tipo_contratacion_display() if t.tipo_contratacion else None) or _resp(t, 'tipo_contratacion')
+             for t in trabajadores]),
+        'personal':   _distribucion_simple(
+            [(t.get_tipo_personal_display() if t.tipo_personal else None) or _resp(t, 'tipo_personal')
+             for t in trabajadores]),
+        'jornada':    _distribucion_simple(
+            [(t.get_tipo_jornada_display() if t.tipo_jornada else None) or _resp(t, 'tipo_jornada')
+             for t in trabajadores]),
+        'rotacion':   _distribucion_simple([_rotacion(t) for t in trabajadores]),
         'tiempo_puesto': _distribucion_simple(
-            [_grupo_antiguedad(t.tiempo_puesto_actual) for t in trabajadores]),
+            [_grupo_antiguedad(t.tiempo_puesto_actual if t.tiempo_puesto_actual is not None
+                                else _resp(t, 'tiempo_puesto_actual')) for t in trabajadores]),
         'experiencia_total': _distribucion_simple(
-            [_grupo_antiguedad(t.experiencia_anios) for t in trabajadores]),
+            [_grupo_antiguedad(t.experiencia_anios if t.experiencia_anios is not None
+                                else _resp(t, 'experiencia_anios')) for t in trabajadores]),
     }
 
 
@@ -982,19 +1012,63 @@ _ATS_SECCIONES = [
 
 
 def _ats_desglose(tenant, ciclo):
-    """Desglose de Guía I por pregunta y sexo, agrupado en las 4 secciones
-    oficiales (I-IV, D1-D4). Es una consulta de solo lectura para mostrar el
-    detalle en el informe — el criterio de `requiere_atencion` lo sigue
-    decidiendo únicamente `scoring.py`, ya calculado en `ResultadoAplicacion`."""
-    respuestas = RespuestaPregunta.objects.filter(
+    """Desglose de Guía I por pregunta y sexo (Anexo A.T.2), agrupado en las
+    4 secciones oficiales (I-IV, D1-D4). Es una consulta de solo lectura —
+    el criterio de `requiere_atencion` lo sigue decidiendo únicamente
+    `scoring.py`, ya calculado en `ResultadoAplicacion`.
+
+    Sección I (D1) describe los cuestionarios Guía I VÁLIDOS completos. Las
+    secciones condicionadas II-IV (D2-D4) solo son aplicables a los
+    cuestionarios cuyo resultado persistido tiene
+    `detalle.guia_i.reporta_ats == True` (>=1 "Sí" en Sección I) — el mismo
+    filtro condicional configurado en el catálogo de preguntas
+    (`Pregunta.condicion_preguntas` sobre D1) y el mismo gate que usa
+    `m06_results/scoring.py::_calcular_guia_i` para `reporta_ats`. Un
+    cuestionario válido puede conservar respuestas residuales en II-IV sin
+    ser elegible (Sección I = 0 "Sí"); esas respuestas NO se eliminan ni
+    invalidan el registro — simplemente quedan fuera de las secciones
+    condicionadas del anexo y se registran como advertencia técnica no
+    bloqueante (log)."""
+    resultados_validos = ResultadoAplicacion.objects.filter(
         aplicacion__tenant=tenant, aplicacion__ciclo=ciclo,
-        aplicacion__cuestionario__clave='I', aplicacion__estado='completado',
+        aplicacion__cuestionario__clave='I', estatus_validacion='valido',
+    )
+
+    aplicacion_ids_validas = set()
+    aplicacion_ids_elegibles = set()  # detalle.guia_i.reporta_ats == True
+    for r in resultados_validos:
+        aplicacion_ids_validas.add(r.aplicacion_id)
+        det = (r.detalle or {}).get('guia_i') or {}
+        if det.get('reporta_ats'):
+            aplicacion_ids_elegibles.add(r.aplicacion_id)
+
+    respuestas = RespuestaPregunta.objects.filter(
+        aplicacion_id__in=aplicacion_ids_validas,
+        pregunta__dominio__cuestionario__clave='I',
     ).select_related('pregunta__dominio', 'aplicacion__trabajador')
 
     preguntas = defaultdict(dict)  # {dominio_clave: {pregunta_id: fila}}
+    advertencias = []
     for r in respuestas:
         p = r.pregunta
-        fila = preguntas[p.dominio.clave].setdefault(p.id, {
+        clave = p.dominio.clave
+        if clave != 'D1' and r.aplicacion_id not in aplicacion_ids_elegibles:
+            # Residual: cuestionario válido pero sin "Sí" vigente en Sección
+            # I, por lo que esta sección no le es aplicable. Se excluye del
+            # anexo condicionado sin tocar la respuesta ni el resultado.
+            advertencias.append({
+                'aplicacion_id': r.aplicacion_id,
+                'trabajador_id': r.aplicacion.trabajador_id,
+                'seccion':       clave,
+                'pregunta_id':   p.id,
+                'motivo': (
+                    f'Respuesta residual excluida del Anexo A.T.2: la Sección I de '
+                    f'este cuestionario no tiene ningún "Sí" (reporta_ats=False), '
+                    f'por lo que la Sección {clave} no es aplicable.'
+                ),
+            })
+            continue
+        fila = preguntas[clave].setdefault(p.id, {
             'orden': p.orden, 'texto': p.texto,
             'h_si': 0, 'h_no': 0, 'm_si': 0, 'm_no': 0, 't_si': 0, 't_no': 0,
         })
@@ -1006,19 +1080,22 @@ def _ats_desglose(tenant, ciclo):
         elif sexo == 'F':
             fila['m_si' if si else 'm_no'] += 1
 
+    if advertencias:
+        logger.warning(
+            'Anexo A.T.2 (Guía I): %d respuesta(s) residual(es) excluida(s) de '
+            'secciones condicionadas por Sección I sin "Sí" vigente (no '
+            'bloqueante). tenant=%s ciclo=%s',
+            len(advertencias), tenant.id, ciclo.id,
+        )
+
     secciones = []
     for clave, nombre in _ATS_SECCIONES:
         filas = sorted(preguntas.get(clave, {}).values(), key=lambda f: f['orden'])
-        secciones.append({'clave': clave, 'nombre': nombre, 'filas': filas})
+        n_seccion = len(aplicacion_ids_validas) if clave == 'D1' else len(aplicacion_ids_elegibles)
+        secciones.append({'clave': clave, 'nombre': nombre, 'filas': filas, 'n': n_seccion})
 
-    muestra = Aplicacion.objects.filter(
-        tenant=tenant, ciclo=ciclo, cuestionario__clave='I', estado='completado',
-    ).count()
-    con_ats = ResultadoDominio.objects.filter(
-        resultado__aplicacion__tenant=tenant, resultado__aplicacion__ciclo=ciclo,
-        resultado__aplicacion__cuestionario__clave='I',
-        dominio__clave='D1', puntaje__gt=0,
-    ).count()
+    muestra = len(aplicacion_ids_validas)
+    con_ats = len(aplicacion_ids_elegibles)
     clinica = ResultadoAplicacion.objects.filter(
         aplicacion__tenant=tenant, aplicacion__ciclo=ciclo,
         aplicacion__cuestionario__clave='I', requiere_atencion=True,
@@ -1026,6 +1103,7 @@ def _ats_desglose(tenant, ciclo):
 
     return {
         'secciones': secciones,
+        'advertencias_tecnicas': advertencias,
         'resumen': {
             'muestra':      muestra,
             'con_ats':      con_ats,
@@ -1479,19 +1557,27 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
     else:
         guia_i_texto = interp.GUIA_I_TEXTO_SIN_INDICADORES
 
+    def _tabla_muestra(titulo, col, dist):
+        return {
+            'titulo': titulo, 'col': col,
+            'datos': dist['datos'],
+            'n_total': dist['n_total'], 'n_valido': dist['n_valido'],
+            'n_faltante': dist['n_faltante'], 'pct_faltante': dist['pct_faltante'],
+        }
+
     muestra = _build_muestra(tenant, ciclo)
     muestra_tablas = [
-        {'titulo': 'Distribución por sexo',            'col': 'Sexo',             'datos': muestra['sexo']},
-        {'titulo': 'Distribución por grupo de edad',   'col': 'Grupo de edad',    'datos': muestra['edad']},
-        {'titulo': 'Distribución por estado civil',    'col': 'Estado civil',     'datos': muestra['estado_civil']},
-        {'titulo': 'Distribución por nivel de estudios','col': 'Nivel de estudios','datos': muestra['estudios']},
-        {'titulo': 'Distribución por tipo de puesto',  'col': 'Tipo de puesto',   'datos': muestra['puesto']},
-        {'titulo': 'Distribución por tipo de contratación', 'col': 'Tipo de contratación', 'datos': muestra['contratacion']},
-        {'titulo': 'Distribución por tipo de personal','col': 'Tipo de personal', 'datos': muestra['personal']},
-        {'titulo': 'Distribución por tipo de jornada', 'col': 'Tipo de jornada',  'datos': muestra['jornada']},
-        {'titulo': 'Rotación de turnos',               'col': 'Realiza rotación', 'datos': muestra['rotacion']},
-        {'titulo': 'Tiempo en el puesto actual',       'col': 'Tiempo en el puesto actual', 'datos': muestra['tiempo_puesto']},
-        {'titulo': 'Tiempo de experiencia laboral total', 'col': 'Tiempo de experiencia laboral total', 'datos': muestra['experiencia_total']},
+        _tabla_muestra('Distribución por sexo',            'Sexo',             muestra['sexo']),
+        _tabla_muestra('Distribución por grupo de edad',   'Grupo de edad',    muestra['edad']),
+        _tabla_muestra('Distribución por estado civil',    'Estado civil',     muestra['estado_civil']),
+        _tabla_muestra('Distribución por nivel de estudios','Nivel de estudios',muestra['estudios']),
+        _tabla_muestra('Distribución por tipo de puesto',  'Tipo de puesto',   muestra['puesto']),
+        _tabla_muestra('Distribución por tipo de contratación', 'Tipo de contratación', muestra['contratacion']),
+        _tabla_muestra('Distribución por tipo de personal','Tipo de personal', muestra['personal']),
+        _tabla_muestra('Distribución por tipo de jornada', 'Tipo de jornada',  muestra['jornada']),
+        _tabla_muestra('Rotación de turnos',               'Realiza rotación', muestra['rotacion']),
+        _tabla_muestra('Tiempo en el puesto actual',       'Tiempo en el puesto actual', muestra['tiempo_puesto']),
+        _tabla_muestra('Tiempo de experiencia laboral total', 'Tiempo de experiencia laboral total', muestra['experiencia_total']),
     ]
     riesgo_tablas = [
         {'titulo': 'Por sexo',           'col': 'Sexo',          'datos': riesgo_por_grupo['sexo']},
@@ -1500,7 +1586,7 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
         {'titulo': 'Por tipo de jornada','col': 'Tipo de jornada','datos': riesgo_por_grupo['jornada']},
     ]
 
-    sexo_dist = {d['label']: d['count'] for d in muestra['sexo']}
+    sexo_dist = {d['label']: d['count'] for d in muestra['sexo']['datos']}
 
     ctx.update({
         'report_data':           report_data,

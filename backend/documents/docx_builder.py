@@ -1156,6 +1156,23 @@ def _add_metodologia_inf(doc, ctx):
         )
 
 
+def _nota_denominador_muestra(tabla):
+    """Nota fija tras cada tabla demográfica: dato faltante SEPARADO del
+    denominador de las categorías válidas (nunca mezclados en la misma
+    cifra)."""
+    if tabla['n_faltante'] == 0:
+        return (
+            f"N válido: {tabla['n_valido']}. Sin datos faltantes. "
+            f"Los porcentajes se calculan sobre el N válido."
+        )
+    pct_f = tabla['pct_faltante']
+    pct_f_txt = f"{pct_f:.0f}" if pct_f == int(pct_f) else f"{pct_f:.1f}"
+    return (
+        f"N válido: {tabla['n_valido']}. Datos faltantes: {tabla['n_faltante']} "
+        f"({pct_f_txt}%). Los porcentajes se calculan sobre el N válido."
+    )
+
+
 def _add_informe_demografico_inf(doc, ctx):
     _heading(doc, '7. Informe demográfico', level=1)
     doc.add_paragraph(
@@ -1163,6 +1180,11 @@ def _add_informe_demografico_inf(doc, ctx):
         f"{ctx['muestra']['total']} trabajadores con cuestionario de la Guía III válido. "
         f"Cada variable reporta su N válido; los porcentajes se calculan sobre ese denominador."
     )
+    doc.add_paragraph(
+        'Nota general: pequeñas diferencias frente al 100% en la suma de porcentajes '
+        'de una tabla pueden deberse exclusivamente al redondeo visual (cada '
+        'categoría se redondea de forma independiente).'
+    ).runs[0].italic = True
     rd = ctx.get('report_data')
     if rd and rd['faltantes_criticos']['variables']:
         doc.add_paragraph(
@@ -1183,6 +1205,7 @@ def _add_informe_demografico_inf(doc, ctx):
                 [[d['label'], d['count'], f"{d['pct']}%"] for d in tabla['datos']],
                 familia='tercios_3',
             )
+            doc.add_paragraph(_nota_denominador_muestra(tabla)).runs[0].italic = True
             _add_grafica(doc, graficas_muestra.get(tabla['col']))
 
     _heading(doc, '7.1.1. Informe de datos laborales', level=3)
@@ -1194,6 +1217,7 @@ def _add_informe_demografico_inf(doc, ctx):
                 [[d['label'], d['count'], f"{d['pct']}%"] for d in tabla['datos']],
                 familia='tercios_3',
             )
+            doc.add_paragraph(_nota_denominador_muestra(tabla)).runs[0].italic = True
             _add_grafica(doc, graficas_muestra.get(tabla['col']))
 
 
@@ -1439,8 +1463,9 @@ def _add_recomendaciones_inf(doc, ctx):
     for idx, rec in enumerate(recs_extendidas, 1):
         _heading(doc, f"{idx}. {rec['dominio']} ({rec['pct_intervencion']}%)", level=4)
         doc.add_paragraph(rec['intro'])
+        num_id = geom.nueva_lista(doc, 'bullet')
         for titulo, texto in rec['bullets']:
-            p = doc.add_paragraph(style='List Bullet')
+            p = geom.parrafo_lista(doc, num_id)
             p.add_run(f'{titulo}: ').bold = True
             p.add_run(texto)
 
@@ -1501,6 +1526,13 @@ def _add_anexo_tecnico_inf(doc, ctx):
         graficas_ats = ctx.get('graficas', {}).get('ats', {})
         for seccion in desglose['secciones']:
             _heading(doc, seccion['nombre'], level=4)
+            n_seccion = seccion.get('n')
+            if n_seccion is not None:
+                nota_n = (
+                    f"N = {n_seccion} (cuestionarios Guía I válidos)." if seccion['clave'] == 'D1'
+                    else f"N = {n_seccion} (cuestionarios Guía I elegibles: Sección I con ≥1 \"Sí\")."
+                )
+                doc.add_paragraph(nota_n).runs[0].italic = True
             if not seccion['filas']:
                 doc.add_paragraph('Sin preguntas registradas para esta sección.')
                 continue

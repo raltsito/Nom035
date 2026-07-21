@@ -127,6 +127,109 @@ def _rankear(filas, orden_normativo):
 
 
 # ---------------------------------------------------------------------------
+# Respaldo demográfico: Guía V ("Datos del trabajador")
+#
+# Los 12 campos demográficos de `Trabajador` (sexo, edad, estado_civil, ...)
+# normalmente llegan por la importación de RH (m00_onboarding.importador),
+# que es la que pre-llena Guía V (m05_questionnaires.prefill_guia_v) para
+# que el trabajador no tenga que volver a capturarlos. Cuando el archivo de
+# RH llegó incompleto, el trabajador SÍ respondió esas preguntas al
+# contestar Guía V — esa respuesta nunca se sincroniza de vuelta al perfil,
+# así que sin este respaldo el informe reporta "faltante" un dato que en
+# realidad existe (ver `m05_questionnaires_respuestapregunta`, cuestionario
+# clave 'V'). Este bloque nunca sobreescribe el perfil importado: solo se
+# consulta cuando el campo de `Trabajador` viene vacío.
+# ---------------------------------------------------------------------------
+
+_ORDEN_GUIA_V = {
+    'sexo': 3, 'edad': 4, 'estado_civil': 5, 'nivel_estudios': 6, 'area': 8,
+    'tipo_puesto': 9, 'tipo_contratacion': 10, 'tipo_personal': 11,
+    'tipo_jornada': 12, 'rotacion_turnos': 13, 'tiempo_puesto_actual': 14,
+    'experiencia_anios': 15,
+}
+
+_GUIA_V_DISPLAY_TABLA = None
+
+
+def _guia_v_display_tabla():
+    """Mapa {campo: (texto_guia_v→código, código→verbose)} construido a
+    partir de las mismas tablas de conversión que usa `prefill_guia_v`
+    (dirección Trabajador→Guía V), invertidas, para que el respaldo muestre
+    el mismo vocabulario que ya usan las tablas del informe."""
+    global _GUIA_V_DISPLAY_TABLA
+    if _GUIA_V_DISPLAY_TABLA is None:
+        from m00_onboarding.models import Trabajador
+        from m05_questionnaires import prefill_guia_v as pv
+
+        def _inv(d):
+            return {texto: codigo for codigo, texto in d.items()}
+
+        _GUIA_V_DISPLAY_TABLA = {
+            'sexo':              (_inv(pv._SEXO), dict(Trabajador.SEXO_CHOICES)),
+            'estado_civil':      (_inv(pv._ESTADO_CIVIL), dict(Trabajador.ESTADO_CIVIL_CHOICES)),
+            'nivel_estudios':    (_inv(pv._NIVEL), dict(Trabajador.NIVEL_ESTUDIOS_CHOICES)),
+            'tipo_contratacion': (_inv(pv._CONTRAT), dict(Trabajador.TIPO_CHOICES)),
+            'tipo_personal':     (_inv(pv._PERSONAL), dict(Trabajador.TIPO_PERSONAL_CHOICES)),
+            'tipo_jornada':      (_inv(pv._JORNADA), dict(Trabajador.TIPO_JORNADA_CHOICES)),
+        }
+    return _GUIA_V_DISPLAY_TABLA
+
+
+def _display_guia_v(campo, valor_texto):
+    if not valor_texto:
+        return None
+    tabla = _guia_v_display_tabla()
+    if campo not in tabla:
+        return valor_texto
+    inverso, display = tabla[campo]
+    codigo = inverso.get(valor_texto)
+    return display.get(codigo, valor_texto) if codigo else valor_texto
+
+
+def datos_guia_v_por_trabajador(tenant, ciclo, trabajador_ids):
+    """{trabajador_id: {campo_trabajador: (valor, valor_texto)}} con las
+    respuestas de Guía V del ciclo dado, para los campos que también
+    existen en el perfil de `Trabajador` (ver `_ORDEN_GUIA_V`)."""
+    from m05_questionnaires.models import RespuestaPregunta
+    if not trabajador_ids:
+        return {}
+    campo_por_orden = {orden: campo for campo, orden in _ORDEN_GUIA_V.items()}
+    filas = RespuestaPregunta.objects.filter(
+        tenant=tenant, aplicacion__ciclo=ciclo,
+        aplicacion__cuestionario__clave='V',
+        aplicacion__trabajador_id__in=trabajador_ids,
+        pregunta__orden__in=campo_por_orden,
+    ).values_list('aplicacion__trabajador_id', 'pregunta__orden', 'valor', 'valor_texto')
+    out = {}
+    for trabajador_id, orden, valor, valor_texto in filas:
+        campo = campo_por_orden[orden]
+        out.setdefault(trabajador_id, {})[campo] = (valor, valor_texto)
+    return out
+
+
+def valor_efectivo_guia_v(campo, resp):
+    """A partir de (valor, valor_texto) de una respuesta de Guía V, produce
+    el valor ya normalizado al mismo tipo/vocabulario que tendría el campo
+    equivalente de `Trabajador` (o None si el trabajador no la respondió)."""
+    if resp is None:
+        return None
+    valor, valor_texto = resp
+    if campo == 'rotacion_turnos':
+        return None if valor is None else bool(valor)
+    if campo == 'edad':
+        if not valor_texto:
+            return None
+        from m00_onboarding.importador import _norm_edad
+        return _norm_edad(valor_texto)
+    if campo in ('tiempo_puesto_actual', 'experiencia_anios'):
+        if not valor_texto:
+            return None
+        from m00_onboarding.importador import _norm_experiencia
+        return _norm_experiencia(valor_texto)
+    return _display_guia_v(campo, valor_texto)
+
+
+# ---------------------------------------------------------------------------
 # Extracción (ORM) — sin lógica de composición
 # ---------------------------------------------------------------------------
 
@@ -213,26 +316,36 @@ def extraer_datos(tenant, ciclo, fecha_corte=None):
         'validas':       len(validos_iii),
     }
 
-    # Demografía de la población analítica (trabajadores con Guía III válida)
+    # Demografía de la población analítica (trabajadores con Guía III válida).
+    # Si el perfil importado (Trabajador) viene vacío en alguna variable, se
+    # consulta como respaldo la respuesta que el trabajador dio en Guía V
+    # antes de contarla como faltante (ver bloque "Respaldo demográfico"
+    # arriba).
     trab_ids = {r.aplicacion.trabajador_id for r in validos_iii}
     trabajadores = list(Trabajador.objects.filter(id__in=trab_ids))
+    guia_v = datos_guia_v_por_trabajador(tenant, ciclo, trab_ids)
     variables = [
-        ('Sexo',                 lambda t: t.sexo),
-        ('Edad',                 lambda t: t.edad),
-        ('Estado civil',         lambda t: t.estado_civil),
-        ('Nivel de estudios',    lambda t: t.nivel_estudios),
-        ('Tipo de puesto',       lambda t: t.tipo_puesto),
-        ('Área',                 lambda t: t.area),
-        ('Tipo de contratación', lambda t: t.tipo_contratacion),
-        ('Tipo de personal',     lambda t: t.tipo_personal),
-        ('Tipo de jornada',      lambda t: t.tipo_jornada),
-        ('Rotación de turnos',   lambda t: t.rotacion_turnos),
-        ('Tiempo en el puesto',  lambda t: t.tiempo_puesto_actual),
-        ('Experiencia laboral',  lambda t: t.experiencia_anios),
+        ('Sexo',                 'sexo',                lambda t: t.sexo),
+        ('Edad',                 'edad',                lambda t: t.edad),
+        ('Estado civil',         'estado_civil',        lambda t: t.estado_civil),
+        ('Nivel de estudios',    'nivel_estudios',       lambda t: t.nivel_estudios),
+        ('Tipo de puesto',       'tipo_puesto',          lambda t: t.tipo_puesto),
+        ('Área',                 'area',                 lambda t: t.area),
+        ('Tipo de contratación', 'tipo_contratacion',    lambda t: t.tipo_contratacion),
+        ('Tipo de personal',     'tipo_personal',        lambda t: t.tipo_personal),
+        ('Tipo de jornada',      'tipo_jornada',         lambda t: t.tipo_jornada),
+        ('Rotación de turnos',   'rotacion_turnos',      lambda t: t.rotacion_turnos),
+        ('Tiempo en el puesto',  'tiempo_puesto_actual', lambda t: t.tiempo_puesto_actual),
+        ('Experiencia laboral',  'experiencia_anios',    lambda t: t.experiencia_anios),
     ]
     demograficos = []
-    for nombre, getter in variables:
-        faltantes = sum(1 for t in trabajadores if getter(t) in (None, ''))
+    for nombre, campo, getter in variables:
+        faltantes = 0
+        for t in trabajadores:
+            if getter(t) in (None, ''):
+                resp = guia_v.get(t.id, {}).get(campo)
+                if valor_efectivo_guia_v(campo, resp) in (None, ''):
+                    faltantes += 1
         demograficos.append({
             'variable':   nombre,
             'n_valido':   len(trabajadores) - faltantes,
