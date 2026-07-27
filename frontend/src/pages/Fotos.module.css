@@ -1,0 +1,178 @@
+.page {
+  animation: nomFadeUp 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---- Header ---- */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--nom-space-4);
+  margin-bottom: var(--nom-space-6);
+  flex-wrap: wrap;
+}
+.title {
+  font-size: var(--nom-text-3xl);
+  font-weight: var(--nom-font-extrabold);
+  color: var(--nom-text);
+  letter-spacing: -0.028em;
+  margin: var(--nom-space-3) 0 var(--nom-space-1);
+}
+.subtitle { font-size: var(--nom-text-sm); color: var(--nom-text-muted); }
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-3);
+  flex-wrap: wrap;
+}
+
+/* ---- Estados ---- */
+.centro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--nom-space-2);
+  padding: var(--nom-space-8) 0;
+  color: var(--nom-text-muted);
+  font-size: var(--nom-text-sm);
+}
+.aviso {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-2);
+  padding: var(--nom-space-3) var(--nom-space-4);
+  margin-bottom: var(--nom-space-4);
+  border: 1px solid var(--nom-border);
+  border-left: 3px solid var(--nom-riesgo-alto);
+  border-radius: var(--nom-radius);
+  background: var(--nom-surface);
+  color: var(--nom-text);
+  font-size: var(--nom-text-sm);
+}
+
+/* ---- Cuadrícula de miniaturas ---- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--nom-space-3);
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 1px solid var(--nom-border);
+  border-radius: var(--nom-radius);
+  background: var(--nom-surface);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--nom-shadow-md, 0 6px 16px rgba(0, 0, 0, 0.12));
+}
+.thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+  background: var(--nom-bg-subtle, #f2f2f2);
+}
+.sinThumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nom-text-muted);
+  background: var(--nom-bg-subtle, #f2f2f2);
+}
+.cardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--nom-space-2);
+  min-width: 0;
+}
+.numEmpleado {
+  font-size: var(--nom-text-sm);
+  font-weight: var(--nom-font-semibold, 600);
+  color: var(--nom-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.area {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Paginación ---- */
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--nom-space-4);
+  margin-top: var(--nom-space-6);
+  flex-wrap: wrap;
+}
+.paginaTexto {
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text-muted);
+}
+
+/* ---- Visor ---- */
+.visorFondo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--nom-space-4);
+  background: rgba(0, 0, 0, 0.72);
+  animation: nomFadeUp 0.2s ease both;
+}
+.visor {
+  position: relative;
+  max-width: min(92vw, 720px);
+  border-radius: var(--nom-radius-lg, 12px);
+  background: var(--nom-surface);
+  overflow: hidden;
+}
+.visorImg {
+  display: block;
+  max-width: 100%;
+  max-height: 74vh;
+  object-fit: contain;
+  background: #000;
+}
+.visorInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--nom-space-3);
+  padding: var(--nom-space-3) var(--nom-space-4);
+  font-size: var(--nom-text-sm);
+  color: var(--nom-text-muted);
+}
+.visorInfo strong { color: var(--nom-text); }
+.cerrar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+}
+.cerrar:hover { background: rgba(0, 0, 0, 0.75); }

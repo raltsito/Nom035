@@ -3,9 +3,10 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart2, RefreshCw, Loader2, ChevronDown, X,
   ChevronRight, AlertTriangle, CheckCircle2, FileDown,
-  FileSpreadsheet, Users, Target,
+  FileSpreadsheet, Users, Target, Camera,
 } from 'lucide-react';
-import { resultadosService, documentosService } from '../services/resultados';
+import { useNavigate } from 'react-router-dom';
+import { resultadosService, documentosService, fotosService } from '../services/resultados';
 import { ciclosService } from '../services/trabajadores';
 import ResultadosDashboard from '../components/resultados/ResultadosDashboard';
 import DashboardErrorBoundary from '../components/resultados/DashboardErrorBoundary';
@@ -40,6 +41,7 @@ function RiesgoBar({ pct, cat }) {
 
 export default function Resultados() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [ciclos, setCiclos]           = useState([]);
   const [cicloId, setCicloId]         = useState('');
   const [resultados, setResultados]   = useState([]);
@@ -53,6 +55,9 @@ export default function Resultados() {
   const [tablaAbierta, setTablaAbierta] = useState(false);
   const [descargandoInforme, setDescargandoInforme]     = useState(false);
   const [descargandoRespuestas, setDescargandoRespuestas] = useState(false);
+  // Informe fotográfico: solo se ofrece si la cobertura del ciclo llega al
+  // umbral (el backend lo resuelve y devuelve `habilitado`).
+  const [fotosResumen, setFotosResumen] = useState(null);
 
   useEffect(() => {
     ciclosService.list().then(res => {
@@ -83,6 +88,15 @@ export default function Resultados() {
   }, [cicloId, catFilter]);
 
   useEffect(() => { fetchResultados(); }, [fetchResultados]);
+
+  useEffect(() => {
+    if (!cicloId) { setFotosResumen(null); return; }
+    let vigente = true;
+    fotosService.resumen(cicloId)
+      .then(res => { if (vigente) setFotosResumen(res.data.data); })
+      .catch(() => { if (vigente) setFotosResumen(null); });
+    return () => { vigente = false; };
+  }, [cicloId]);
 
   const handleCalcular = async () => {
     if (!cicloId) return;
@@ -207,6 +221,16 @@ export default function Resultados() {
               : <FileDown size={15} strokeWidth={2} />}
             Descargar informe
           </button>
+          {fotosResumen?.habilitado && (
+            <button
+              className="nom-btn nom-btn-ghost"
+              onClick={() => navigate(`/fotos?ciclo=${cicloId}`)}
+              title={`Ver las fotografías tomadas al aplicar la Guía III (${fotosResumen.cobertura_pct}% de cobertura)`}
+            >
+              <Camera size={15} strokeWidth={2} />
+              Ver informe de fotografías
+            </button>
+          )}
           <button
             className="nom-btn nom-btn-ghost"
             onClick={handleDescargarRespuestas}

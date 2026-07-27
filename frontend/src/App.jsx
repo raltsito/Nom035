@@ -9,6 +9,7 @@ import Cuestionarios from './pages/Cuestionarios';
 import Responder from './pages/Responder';
 import Identificacion from './pages/Identificacion';
 import Resultados from './pages/Resultados';
+import Fotos from './pages/Fotos';
 import Comite from './pages/Comite';
 import Calculadora from './pages/Calculadora';
 import PlanAccion from './pages/PlanAccion';
@@ -19,7 +20,7 @@ import Asistencias from './pages/Asistencias';
 
 const TENANT_ADMIN_PATHS = new Set([
   'dashboard', 'trabajadores', 'comite', 'plan-accion', 'politica', 'difusion',
-  'cuestionarios', 'resultados', 'evidencias', 'asistencias', 'calculadora',
+  'cuestionarios', 'resultados', 'fotos', 'evidencias', 'asistencias', 'calculadora',
 ]);
 
 function ProtectedRoute({ children }) {
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="difusion"      element={<Difusion />} />
         <Route path="cuestionarios" element={<Cuestionarios />} />
         <Route path="resultados"    element={<Resultados />} />
+        <Route path="fotos"         element={<Fotos />} />
         <Route path="evidencias"    element={<Evidencias />} />
         <Route path="asistencias"   element={<Asistencias />} />
         <Route path="calculadora"   element={<Calculadora />} />

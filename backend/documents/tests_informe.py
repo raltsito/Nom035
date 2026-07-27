@@ -31,6 +31,7 @@ from .docx_postprocess import localizar_soffice
 from .estructura_canonica import ESTRUCTURA_CANONICA, TEXTOS_CANONICOS
 from .report_data import componer_report_data
 from .tests import _cat, _dom, _persona, _raw
+from .views import RAZON_SOCIAL_CORPORATIVA
 
 MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
@@ -80,9 +81,11 @@ TEXTO_FIJO_MAESTRO = [
 ]
 
 # Datos de otras plantas que JAMÁS deben aparecer en el informe de PRUEBA.
+# La razón social corporativa NO entra en esta lista: todas las plantas son la
+# misma persona moral, así que §2.1 la lleva fija (views.RAZON_SOCIAL_CORPORATIVA).
 DATOS_OTRAS_PLANTAS = [
     'San Luis Potosí', 'Circuito Exportación', 'Zona Industrial',
-    'Zapotitlán', 'Zapotitlan', 'Tláhuac', 'CONSORCIO INDUSTRIAL MEXICANO',
+    'Zapotitlán', 'Zapotitlan', 'Tláhuac',
 ]
 
 
@@ -171,6 +174,8 @@ class TestInformeIntegralPrueba(FixturePruebaMixin, TestCase):
         presentes = [d for d in DATOS_OTRAS_PLANTAS if d in texto]
         self.assertEqual(presentes, [], f'Datos ajenos presentes: {presentes}')
         self.assertIn('PRUEBA', texto)
+        # §2.1: razón social única del corporativo, igual en todas las plantas.
+        self.assertIn(RAZON_SOCIAL_CORPORATIVA, texto)
 
     def test_auditoria_ooxml_anchos_de_tablas(self):
         """tblW dxa == suma de tblGrid == suma de tcW por fila, layout fijo y

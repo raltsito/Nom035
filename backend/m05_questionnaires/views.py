@@ -1,5 +1,6 @@
 import csv
 import zipfile
+from base64 import b64encode
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -14,6 +15,7 @@ from django.core.mail import send_mail
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 
 from accounts.permissions import IsTenantAdmin
@@ -63,6 +65,25 @@ def _foto_estado(aplicacion):
         return aplicacion.foto_guia.estado
     except AplicacionFoto.DoesNotExist:
         return 'pendiente'
+
+
+MINIATURA_LADO = 220
+MINIATURA_CALIDAD = 45
+
+
+def generar_miniatura(foto_bytes):
+    """Miniatura JPEG (220 px de lado mayor) para la galería del informe
+    fotográfico. Se persiste junto a la foto para no recomprimir en cada
+    petición; devuelve None si los bytes no son una imagen legible."""
+    try:
+        image = Image.open(BytesIO(foto_bytes))
+        image = image.convert('RGB')
+    except (UnidentifiedImageError, OSError):
+        return None
+    image.thumbnail((MINIATURA_LADO, MINIATURA_LADO), Image.Resampling.LANCZOS)
+    salida = BytesIO()
+    image.save(salida, format='JPEG', quality=MINIATURA_CALIDAD, optimize=True)
+    return salida.getvalue()
 
 
 def _comprimir_foto(uploaded_file):
@@ -755,6 +776,8 @@ def subir_foto_aplicacion(request, token):
                 'foto': None,
                 'foto_mime': '',
                 'foto_tamanio': 0,
+                'miniatura': None,
+                'miniatura_tamanio': 0,
                 'estado': 'omitida',
             },
         )
@@ -777,6 +800,7 @@ def subir_foto_aplicacion(request, token):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    miniatura = generar_miniatura(foto_bytes)
     foto, _ = AplicacionFoto.objects.update_or_create(
         aplicacion=aplicacion,
         defaults={
@@ -784,6 +808,8 @@ def subir_foto_aplicacion(request, token):
             'foto': foto_bytes,
             'foto_mime': foto_mime,
             'foto_tamanio': len(foto_bytes),
+            'miniatura': miniatura,
+            'miniatura_tamanio': len(miniatura) if miniatura else 0,
             'estado': 'capturada',
         },
     )
@@ -897,3 +923,229 @@ def responder_aplicacion(request, token):
         'total': total_preguntas,
         'siguiente_guia_token': siguiente_guia_token,
     }, 'meta': {}, 'errors': None})
+
+
+# ===========================================================================
+# INFORME FOTOGRÁFICO
+#
+# Galería de las fotos capturadas antes de la Guía III. Solo se habilita para
+# los ciclos cuya cobertura alcanza UMBRAL_INFORME_FOTOGRAFICO sobre la
+# muestra válida del informe (mismos cuestionarios que reporta el diagnóstico),
+# para que la evidencia sea representativa y no una colección parcial.
+#
+# Costo de transferencia: el listado devuelve SOLO la miniatura persistida
+# (~8 KB) embebida en el JSON — una petición por página — y la imagen de
+# 640 px se descarga únicamente al abrir una foto concreta.
+# ===========================================================================
+UMBRAL_INFORME_FOTOGRAFICO = 80.0
+FOTOS_POR_PAGINA = 60
+FOTOS_POR_PAGINA_MAX = 120
+
+
+def _tenant_para_ciclo_fotos(request, ciclo_id):
+    """Super admin consulta el tenant del ciclo elegido; tenant_admin siempre
+    el suyo (mismo criterio que documents._tenant_para_ciclo)."""
+    if request.user.is_super_admin and ciclo_id:
+        ciclo = CicloNOM.objects.filter(id=ciclo_id).select_related('tenant').first()
+        return ciclo.tenant if ciclo else None
+    return request.user.tenant
+
+
+def _aplicaciones_muestra_valida(tenant, ciclo):
+    """IDs de las aplicaciones de Guía III que forman la muestra del informe:
+    las que tienen resultado calculado y válido."""
+    from m06_results.models import ResultadoAplicacion
+    return set(
+        ResultadoAplicacion.objects.filter(
+            aplicacion__tenant=tenant, aplicacion__ciclo=ciclo,
+            aplicacion__cuestionario__clave='III', estatus_validacion='valido',
+        ).values_list('aplicacion_id', flat=True)
+    )
+
+
+def _cobertura_fotografica(tenant, ciclo):
+    """(capturadas, muestra, pct) de la muestra válida del informe."""
+    aplic_ids = _aplicaciones_muestra_valida(tenant, ciclo)
+    muestra = len(aplic_ids)
+    capturadas = AplicacionFoto.objects.filter(
+        tenant=tenant, estado='capturada', aplicacion_id__in=aplic_ids,
+    ).count() if muestra else 0
+    pct = round(capturadas / muestra * 100, 1) if muestra else 0.0
+    return capturadas, muestra, pct
+
+
+def _resolver_ciclo(request):
+    """(tenant, ciclo) del `ciclo_id` de la query, o (None, None)."""
+    ciclo_id = request.query_params.get('ciclo_id')
+    if not ciclo_id:
+        return None, None
+    tenant = _tenant_para_ciclo_fotos(request, ciclo_id)
+    if tenant is None:
+        return None, None
+    ciclo = CicloNOM.objects.filter(id=ciclo_id, tenant=tenant).first()
+    return (tenant, ciclo) if ciclo else (None, None)
+
+
+@api_view(['GET'])
+@deco_perms([IsTenantAdmin])
+def informe_fotografico_resumen(request):
+    """Cobertura del ciclo y si el informe fotográfico está habilitado. El
+    frontend usa `habilitado` para mostrar u ocultar el botón."""
+    tenant, ciclo = _resolver_ciclo(request)
+    if ciclo is None:
+        return _wrap(None, errors={'ciclo_id': ['Ciclo no encontrado.']},
+                     status_code=status.HTTP_404_NOT_FOUND)
+    capturadas, muestra, pct = _cobertura_fotografica(tenant, ciclo)
+    return _wrap({
+        'ciclo_id':     ciclo.id,
+        'planta':       tenant.nombre,
+        'anio':         ciclo.anio,
+        'capturadas':   capturadas,
+        'muestra':      muestra,
+        'cobertura_pct': pct,
+        'umbral_pct':   UMBRAL_INFORME_FOTOGRAFICO,
+        'habilitado':   pct >= UMBRAL_INFORME_FOTOGRAFICO,
+    })
+
+
+@api_view(['GET'])
+@deco_perms([IsTenantAdmin])
+def informe_fotografico_listado(request):
+    """Página de la galería: metadatos + miniatura embebida (data URI)."""
+    tenant, ciclo = _resolver_ciclo(request)
+    if ciclo is None:
+        return _wrap(None, errors={'ciclo_id': ['Ciclo no encontrado.']},
+                     status_code=status.HTTP_404_NOT_FOUND)
+
+    capturadas, muestra, pct = _cobertura_fotografica(tenant, ciclo)
+    if pct < UMBRAL_INFORME_FOTOGRAFICO:
+        return _wrap(None, errors={'detalle': [
+            f'El informe fotográfico requiere al menos {UMBRAL_INFORME_FOTOGRAFICO:.0f}% '
+            f'de cobertura; este ciclo tiene {pct}%.'
+        ]}, status_code=status.HTTP_403_FORBIDDEN)
+
+    try:
+        pagina = max(1, int(request.query_params.get('page', 1)))
+    except (TypeError, ValueError):
+        pagina = 1
+    try:
+        por_pagina = int(request.query_params.get('page_size', FOTOS_POR_PAGINA))
+    except (TypeError, ValueError):
+        por_pagina = FOTOS_POR_PAGINA
+    por_pagina = max(1, min(por_pagina, FOTOS_POR_PAGINA_MAX))
+
+    aplic_ids = _aplicaciones_muestra_valida(tenant, ciclo)
+    qs = (AplicacionFoto.objects
+          .filter(tenant=tenant, estado='capturada', aplicacion_id__in=aplic_ids)
+          .defer('foto')  # la galería solo usa la miniatura: no traer los 640 px
+          .select_related('aplicacion__trabajador')
+          .order_by('aplicacion__trabajador__num_empleado', 'id'))
+    total = qs.count()
+    inicio = (pagina - 1) * por_pagina
+    items = []
+    for foto in qs[inicio:inicio + por_pagina]:
+        trabajador = foto.aplicacion.trabajador
+        mini = bytes(foto.miniatura) if foto.miniatura else None
+        items.append({
+            'id':           foto.id,
+            'num_empleado': getattr(trabajador, 'num_empleado', '') or '—',
+            'area':         getattr(trabajador, 'area', '') or '—',
+            'fecha':        (foto.aplicacion.fecha_completado or foto.creado_en).date().isoformat(),
+            'miniatura':    ('data:image/jpeg;base64,' + b64encode(mini).decode()) if mini else None,
+        })
+
+    return _wrap(items, meta={
+        'page':        pagina,
+        'page_size':   por_pagina,
+        'total':       total,
+        'total_pages': max(1, (total + por_pagina - 1) // por_pagina),
+        'planta':      tenant.nombre,
+        'anio':        ciclo.anio,
+        'cobertura_pct': pct,
+        'capturadas':  capturadas,
+        'muestra':     muestra,
+    })
+
+
+@api_view(['GET'])
+@deco_perms([IsTenantAdmin])
+def informe_fotografico_anexo(request):
+    """Anexo fotográfico (DOCX) con una muestra impresa de las fotografías.
+    Lleva solo FOTOS_POR_ANEXO imágenes y explica en su primera página cómo
+    consultar la galería completa dentro de la plataforma."""
+    from documents.anexo_fotografico import (
+        FOTOS_POR_ANEXO, build_anexo_fotografico_docx, seleccionar_muestra,
+    )
+
+    tenant, ciclo = _resolver_ciclo(request)
+    if ciclo is None:
+        return HttpResponse('Ciclo no encontrado', status=404)
+
+    capturadas, muestra, pct = _cobertura_fotografica(tenant, ciclo)
+    if pct < UMBRAL_INFORME_FOTOGRAFICO:
+        return HttpResponse(
+            f'El anexo fotográfico requiere al menos {UMBRAL_INFORME_FOTOGRAFICO:.0f}% '
+            f'de cobertura; este ciclo tiene {pct}%.', status=403)
+
+    aplic_ids = _aplicaciones_muestra_valida(tenant, ciclo)
+    # Solo se leen los identificadores para elegir la muestra: las imágenes
+    # (una columna pesada) se traen después, ya reducidas a 20 filas.
+    ids = list(AplicacionFoto.objects
+               .filter(tenant=tenant, estado='capturada', aplicacion_id__in=aplic_ids)
+               .order_by('aplicacion__trabajador__num_empleado', 'id')
+               .values_list('id', flat=True))
+    if not ids:
+        return HttpResponse('No hay fotografías para este ciclo', status=404)
+
+    ids_muestra = seleccionar_muestra(ids, FOTOS_POR_ANEXO)
+    orden = {foto_id: pos for pos, foto_id in enumerate(ids_muestra)}
+    seleccion = sorted(
+        AplicacionFoto.objects.filter(id__in=ids_muestra).select_related('aplicacion__trabajador'),
+        key=lambda f: orden[f.id],
+    )
+
+    fotos = []
+    for foto in seleccion:
+        trabajador = foto.aplicacion.trabajador
+        fotos.append({
+            'imagen':       bytes(foto.foto) if foto.foto else b'',
+            'num_empleado': getattr(trabajador, 'num_empleado', '') or '—',
+            'area':         getattr(trabajador, 'area', '') or '—',
+            'fecha':        (foto.aplicacion.fecha_completado or foto.creado_en).date().isoformat(),
+        })
+
+    buf = build_anexo_fotografico_docx(
+        planta=tenant.nombre, anio=ciclo.anio, fotos=fotos,
+        total_fotos=capturadas, muestra_informe=muestra, cobertura_pct=pct,
+        fecha_texto=timezone.localdate().strftime('%d/%m/%Y'),
+    )
+    nombre = f'Anexo_Fotografico_NOM035_{tenant.nombre.replace(" ", "_")}_{ciclo.anio}.docx'
+    respuesta = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    )
+    respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
+    return respuesta
+
+
+@api_view(['GET'])
+@deco_perms([IsTenantAdmin])
+def informe_fotografico_imagen(request, foto_id):
+    """Imagen de 640 px de una foto concreta: se descarga solo al abrirla."""
+    filtro = {'id': foto_id, 'estado': 'capturada'}
+    if not request.user.is_super_admin:
+        filtro['tenant'] = request.user.tenant
+    foto = (AplicacionFoto.objects.filter(**filtro)
+            .defer('miniatura')  # aquí se sirve la imagen grande, no la miniatura
+            .select_related('aplicacion__ciclo').first())
+    if foto is None or not foto.foto:
+        return HttpResponse('Foto no encontrada', status=404)
+
+    _, _, pct = _cobertura_fotografica(foto.tenant, foto.aplicacion.ciclo)
+    if pct < UMBRAL_INFORME_FOTOGRAFICO:
+        return HttpResponse('Informe fotográfico no habilitado para este ciclo', status=403)
+
+    respuesta = HttpResponse(bytes(foto.foto), content_type=foto.foto_mime or 'image/jpeg')
+    # Datos personales: caché solo en el navegador del usuario, nunca en proxies.
+    respuesta['Cache-Control'] = 'private, max-age=3600'
+    return respuesta

@@ -132,6 +132,11 @@ class AplicacionFoto(TenantAwareModel):
     foto       = models.BinaryField(null=True, blank=True)
     foto_mime  = models.CharField(max_length=80, blank=True)
     foto_tamanio = models.PositiveIntegerField(default=0)
+    # Miniatura persistida: la galería del informe fotográfico solo lee esta
+    # columna (~8 KB) en vez de la imagen completa, para no arrastrar megas
+    # por página ni recomprimir en cada petición.
+    miniatura  = models.BinaryField(null=True, blank=True)
+    miniatura_tamanio = models.PositiveIntegerField(default=0)
     estado     = models.CharField(max_length=20, choices=FOTO_ESTADO_CHOICES)
 
     class Meta:

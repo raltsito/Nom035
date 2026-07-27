@@ -658,13 +658,18 @@ def _add_informe_diagnostico(doc, ctx):
     ).runs[0].italic = True
 
 
-def _add_conclusiones_tabla_rankeada(doc, encabezado_col1, filas, familia=None):
+def _add_conclusiones_tabla_rankeada(doc, encabezado_col1, filas, familia=None,
+                                     diseno_informe=False):
+    """`diseno_informe=True` viste la tabla con el diseño aprobado del Informe
+    Diagnóstico (encabezado rojo, banding y bordes finos) conservando las
+    negritas propias de esta tabla — nivel predominante y prioridad. El
+    borrador psicológico la sigue emitiendo con encabezado negro."""
     encabezados = [encabezado_col1, 'Nivel predominante', '% Programa de intervención (M+A+MA)', '% Alto+Muy alto', 'Prioridad']
     table = doc.add_table(rows=1, cols=len(encabezados))
     table.style = 'Table Grid'
     for j, h in enumerate(encabezados):
         cell = table.rows[0].cells[j]
-        _cell_bg(cell, '1A1A2E')
+        _cell_bg(cell, _TABLA_ENCABEZADO if diseno_informe else '1A1A2E')
         _cell_run(cell, h, bold=True, size=9, color=RGBColor(0xFF, 0xFF, 0xFF))
     for idx, g in enumerate(filas, 1):
         cells = table.add_row().cells
@@ -675,6 +680,16 @@ def _add_conclusiones_tabla_rankeada(doc, encabezado_col1, filas, familia=None):
         _cell_run(cells[4], f'{idx}°', bold=True, size=10)
     if familia:
         geom.fijar_geometria_tabla(table, familia=familia)
+    if diseno_informe:
+        _fijar_bordes_tabla(table)
+        for i, row in enumerate(table.rows[1:]):
+            if i % 2 == 1:
+                for cell in row.cells:
+                    _cell_bg(cell, _TABLA_BANDA)
+        # Semáforo en la columna "Nivel predominante" (§10.2 y §10.3).
+        for row, g in zip(table.rows[1:], filas):
+            _pintar_celda_nivel(row.cells[1], g['categoria_predominante'],
+                                align=WD_ALIGN_PARAGRAPH.CENTER)
     doc.add_paragraph()
 
 
@@ -959,14 +974,133 @@ def _emit_bloque(doc, bloque, listas=None):
         _p_segs(doc, item['segs'], style=style, align=align)
 
 
+# --- Diseño de tabla aprobado por dirección (jul-2026, "opción 2"):
+# encabezado rojo corporativo con texto blanco, filas alternadas en gris muy
+# claro y bordes finos grises. Sustituye al estilo 'Grid Table 1 Light Accent
+# 2' del maestro. Solo cambia la apariencia: contenido, anchos de columna y
+# repetición de encabezado siguen viniendo de docx_geometry. ---
+_TABLA_ENCABEZADO = 'C8102E'
+_TABLA_BANDA = 'F2F2F2'
+_TABLA_BORDE = 'D9D9D9'
+
+
+# Semáforo de nivel de riesgo (misma paleta que las gráficas de barras del
+# informe y que el frontend `--nom-riesgo-*`). La NOM-035 no define colores:
+# es una convención interna, aprobada por dirección jul-2026.
+NIVEL_COLOR_DOCX = {
+    'nulo':     '10B981',
+    'bajo':     '84CC16',
+    'medio':    'F59E0B',
+    'alto':     'EF4444',
+    'muy_alto': '7C3AED',
+}
+
+
+def _texto_contrastante(hex6):
+    """Negro o blanco, el que tenga mayor contraste sobre `hex6` (WCAG 2.1).
+    Con esta paleta el ámbar y el lima exigen texto negro; el morado, blanco."""
+    canales = [int(hex6[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    lineal = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in canales]
+    luminancia = 0.2126 * lineal[0] + 0.7152 * lineal[1] + 0.0722 * lineal[2]
+    contraste_negro = (luminancia + 0.05) / 0.05
+    contraste_blanco = 1.05 / (luminancia + 0.05)
+    return RGBColor(0, 0, 0) if contraste_negro >= contraste_blanco else RGBColor(0xFF, 0xFF, 0xFF)
+
+
+def _pintar_celda_nivel(cell, clave_nivel, align=WD_ALIGN_PARAGRAPH.LEFT):
+    """Colorea la celda con el semáforo del nivel. Reemplaza el sombreado que
+    haya puesto el diseño de tabla (banding) en vez de acumular otro w:shd,
+    que dejaría la celda con dos rellenos en el XML."""
+    color_fondo = NIVEL_COLOR_DOCX.get(clave_nivel)
+    if not color_fondo:
+        return
+    tcPr = cell._tc.get_or_add_tcPr()
+    for shd in tcPr.findall(qn('w:shd')):
+        tcPr.remove(shd)
+    _cell_bg(cell, color_fondo)
+    _celda_texto(cell, cell.text, bold=True, color=_texto_contrastante(color_fondo),
+                 align=align)
+
+
+_ETIQUETA_A_NIVEL = {
+    'nulo': 'nulo', 'nulo / despreciable': 'nulo', 'nulo o despreciable': 'nulo',
+    'bajo': 'bajo', 'medio': 'medio', 'alto': 'alto', 'muy alto': 'muy_alto',
+}
+
+
+def _nivel_de_etiqueta(texto):
+    """Clave de nivel a partir del texto de una celda ('Muy alto %', 'Nulo /
+    Despreciable'…). Devuelve None para las columnas acumuladas ('Medio o
+    superior %', 'Alto o Muy alto %'), que no corresponden a un solo nivel."""
+    limpio = (texto or '').strip().rstrip('%').strip().lower()
+    return _ETIQUETA_A_NIVEL.get(limpio)
+
+
+def _pintar_encabezado_niveles(table):
+    """Aplica el semáforo a las celdas del encabezado que nombran un nivel
+    (tablas cuyos niveles van en columnas, no en filas)."""
+    for cell in table.rows[0].cells:
+        clave = _nivel_de_etiqueta(cell.text)
+        if clave:
+            _pintar_celda_nivel(cell, clave, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+
+def _fijar_bordes_tabla(table, exterior=8, interior=4, color=_TABLA_BORDE):
+    """Reemplaza los bordes que hereda el estilo por una rejilla fina."""
+    tblPr = table._tbl.tblPr
+    for viejo in tblPr.findall(qn('w:tblBorders')):
+        tblPr.remove(viejo)
+    borders = OxmlElement('w:tblBorders')
+    for lado, sz in (('top', exterior), ('left', exterior), ('bottom', exterior),
+                     ('right', exterior), ('insideH', interior), ('insideV', interior)):
+        el = OxmlElement(f'w:{lado}')
+        el.set(qn('w:val'), 'single')
+        el.set(qn('w:sz'), str(sz))
+        el.set(qn('w:color'), color)
+        el.set(qn('w:space'), '0')
+        borders.append(el)
+    tblPr.append(borders)
+
+
+def _celda_texto(cell, texto, bold=False, size=9, color=None, align=None):
+    """Reescribe el contenido de la celda con el formato del diseño aprobado
+    (9 pt, 2 pt de aire arriba/abajo)."""
+    cell.text = ''
+    p = cell.paragraphs[0]
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(2)
+    p.alignment = align
+    run = p.add_run(str(texto))
+    run.bold = bold
+    run.font.size = Pt(size)
+    if color is not None:
+        run.font.color.rgb = color
+
+
+def _aplicar_diseno_tabla(table):
+    """Encabezado rojo + banding gris. Se llama DESPUÉS de fijar la geometría
+    para que el sombreado se añada sobre el tcPr ya construido (tcW antes de
+    shd, como exige el esquema OOXML)."""
+    _fijar_bordes_tabla(table)
+    for cell in table.rows[0].cells:
+        _cell_bg(cell, _TABLA_ENCABEZADO)
+        _celda_texto(cell, cell.text, bold=True, color=RGBColor(0xFF, 0xFF, 0xFF),
+                     align=WD_ALIGN_PARAGRAPH.CENTER)
+    for idx, row in enumerate(table.rows[1:]):
+        for j, cell in enumerate(row.cells):
+            if idx % 2 == 1:
+                _cell_bg(cell, _TABLA_BANDA)
+            _celda_texto(cell, cell.text, bold=(j == 0),
+                         align=WD_ALIGN_PARAGRAPH.LEFT if j == 0 else None)
+
+
 def _tabla_grid(doc, headers, rows, espacio=True, familia=None, anchos=None):
-    """Tabla de datos con el estilo Word 'Grid Table 1 Light Accent 2'
-    (encabezado formateado por el propio estilo, sin negrita manual).
+    """Tabla de datos con el diseño aprobado (_aplicar_diseno_tabla).
 
     Con `familia`/`anchos` se aplica geometría explícita (tblW/tblGrid/tcW,
     layout fijo, encabezado repetido): ver docx_geometry.FAMILIAS_TABLA."""
     table = doc.add_table(rows=1, cols=len(headers))
-    table.style = 'Grid Table 1 Light Accent 2'
+    table.style = 'Table Grid'
     for i, h in enumerate(headers):
         table.rows[0].cells[i].text = str(h)
     for row_vals in rows:
@@ -975,6 +1109,7 @@ def _tabla_grid(doc, headers, rows, espacio=True, familia=None, anchos=None):
             cells[i].text = str(v)
     if familia or anchos:
         geom.fijar_geometria_tabla(table, anchos_twips=anchos, familia=familia)
+    _aplicar_diseno_tabla(table)
     if espacio:
         doc.add_paragraph()
     return table
@@ -1177,8 +1312,9 @@ def _add_informe_demografico_inf(doc, ctx):
     _heading(doc, '7. Informe demográfico', level=1)
     doc.add_paragraph(
         f"El perfil demográfico corresponde a la población analítica del informe: "
-        f"{ctx['muestra']['total']} trabajadores con cuestionario de la Guía III válido. "
-        f"Cada variable reporta su N válido; los porcentajes se calculan sobre ese denominador."
+        f"{ctx['muestra']['total']} trabajadores con cuestionario de la Guía III Y Guía V "
+        f"válido. Cada variable reporta su N válido; los porcentajes se calculan sobre "
+        f"ese denominador."
     )
     doc.add_paragraph(
         'Nota general: pequeñas diferencias frente al 100% en la suma de porcentajes '
@@ -1249,7 +1385,7 @@ def _tabla_niveles_rd_inf(doc, tabla_rd, col1, sufijo_nota=''):
     no incluye la frase 'No existe un nivel global oficial…' (retirada por
     dirección)."""
     filas = sorted(tabla_rd['filas'], key=lambda f: f['prioridad'])
-    _tabla_grid(
+    _pintar_encabezado_niveles(_tabla_grid(
         doc,
         [col1, 'N', 'Nulo %', 'Bajo %', 'Medio %', 'Alto %', 'Muy alto %',
          'Medio o superior %', 'Alto o Muy alto %', 'Prioridad'],
@@ -1258,7 +1394,7 @@ def _tabla_niveles_rd_inf(doc, tabla_rd, col1, sufijo_nota=''):
          + [_fmt_pct(f['pct_medio_o_mas']), _fmt_pct(f['pct_alto_o_muy_alto']), f"{f['prioridad']}°"]
          for f in filas],
         familia='niveles_10',
-    )
+    ))
     doc.add_paragraph(
         f"Denominador: {tabla_rd['denominador']}. {inf.NOTA_NIVELES}{sufijo_nota}"
     ).runs[0].italic = True
@@ -1278,12 +1414,14 @@ def _add_informe_diagnostico_inf(doc, ctx):
     if ctx.get('nota_promedio'):
         doc.add_paragraph(ctx['nota_promedio']).runs[0].italic = True
     doc.add_paragraph(ctx['nivel_global_texto'])
-    _tabla_grid(
+    tabla_dist = _tabla_grid(
         doc,
         ['Nivel de riesgo', 'Trabajadores', '%'],
         [[d['label'], d['count'], f"{d['pct']}%"] for d in ctx['distribucion']],
         familia='tercios_3',
     )
+    for fila, d in zip(tabla_dist.rows[1:], ctx['distribucion']):
+        _pintar_celda_nivel(fila.cells[0], d['key'])
     _add_grafica(doc, ctx.get('graficas', {}).get('distribucion'), width_cm=11)
 
     if ctx.get('acciones'):
@@ -1293,12 +1431,16 @@ def _add_informe_diagnostico_inf(doc, ctx):
         )
         p_t7.runs[0].italic = True
         geom.unir_con_siguiente(p_t7)
-        _tabla_grid(
+        tabla_t7 = _tabla_grid(
             doc,
             ['Nivel de riesgo', 'Acción requerida'],
             [[a['label'], a['accion']] for a in ctx['acciones']],
             familia='descripcion_2',
         )
+        # Semáforo por nivel en la columna "Nivel de riesgo" (las filas van en
+        # el mismo orden que ctx['acciones'], que ya trae la clave del nivel).
+        for fila, accion in zip(tabla_t7.rows[1:], ctx['acciones']):
+            _pintar_celda_nivel(fila.cells[0], accion['key'])
 
     graficas_categorias = ctx.get('graficas', {}).get('categorias', {})
     graficas_dominios = ctx.get('graficas', {}).get('dominios', {})
@@ -1309,12 +1451,12 @@ def _add_informe_diagnostico_inf(doc, ctx):
         p_rc = doc.add_paragraph(inf.INTRO_RANGOS_CATEGORIA)
         p_rc.runs[0].italic = True
         geom.unir_con_siguiente(p_rc)
-        _tabla_grid(
+        _pintar_encabezado_niveles(_tabla_grid(
             doc,
             ['Categoría'] + [NIVEL_LABEL_DOCX[n] for n in _niveles],
             [[r['nombre']] + [r['rangos'][n] for n in _niveles] for r in ctx['rangos_categoria']],
             familia='rangos_6',
-        )
+        ))
     _tabla_niveles_rd_inf(doc, ctx['report_data']['tablas']['categorias'], 'Categoría',
                           sufijo_nota=' ')
     for c in ctx['categorias_agregadas']:
@@ -1325,12 +1467,12 @@ def _add_informe_diagnostico_inf(doc, ctx):
         p_rd = doc.add_paragraph(inf.INTRO_RANGOS_DOMINIO)
         p_rd.runs[0].italic = True
         geom.unir_con_siguiente(p_rd)
-        _tabla_grid(
+        _pintar_encabezado_niveles(_tabla_grid(
             doc,
             ['Dominio'] + [NIVEL_LABEL_DOCX[n] for n in _niveles],
             [[r['nombre']] + [r['rangos'][n] for n in _niveles] for r in ctx['rangos_dominio']],
             familia='rangos_6',
-        )
+        ))
     _tabla_niveles_rd_inf(doc, ctx['report_data']['tablas']['dominios'], 'Dominio')
     for d in ctx['dominios_oficiales_agregados']:
         _add_grafica(doc, graficas_dominios.get(d['nombre']), width_cm=8)
@@ -1347,7 +1489,7 @@ def _add_informe_diagnostico_inf(doc, ctx):
     p_ar.runs[0].italic = True
     geom.unir_con_siguiente(p_ar)
     if areas['filas']:
-        _tabla_grid(
+        _pintar_encabezado_niveles(_tabla_grid(
             doc,
             ['Área', 'N válido', 'Nulo %', 'Bajo %', 'Medio %', 'Alto %', 'Muy alto %',
              'Medio o superior %', 'Alto o Muy alto %', 'Prioridad'],
@@ -1356,7 +1498,7 @@ def _add_informe_diagnostico_inf(doc, ctx):
              + [_fmt_pct(a['pct_medio_o_mas']), _fmt_pct(a['pct_alto_o_muy_alto']), f"{a['prioridad']}°"]
              for a in areas['filas']],
             familia='niveles_10',
-        )
+        ))
     else:
         doc.add_paragraph('No hay áreas con N suficiente para el análisis desagregado.')
     if areas['reservadas']:
@@ -1372,12 +1514,14 @@ def _add_informe_diagnostico_inf(doc, ctx):
     p_vi = doc.add_paragraph(viol['nota'])
     p_vi.runs[0].italic = True
     geom.unir_con_siguiente(p_vi)
-    _tabla_grid(
+    tabla_viol = _tabla_grid(
         doc,
         ['Nivel', 'N', '%'],
         [[f['label'], f['n'], _fmt_pct(f['pct'])] for f in viol['filas']],
         familia='tercios_3',
     )
+    for fila, f in zip(tabla_viol.rows[1:], viol['filas']):
+        _pintar_celda_nivel(fila.cells[0], f['nivel'])
     doc.add_paragraph(
         f"Denominador: {viol['denominador']} (N = {viol['n_valido']}). "
         f"Personal en Alto o Muy alto: {_fmt_pct(viol['pct_alto_o_muy_alto'])}."
@@ -1412,7 +1556,7 @@ def _add_conclusiones_inf(doc, ctx):
                             pct_moda=round(moda_n / n * 100, 1)), b)
                   for t, b in inf.CONCLUSION_10_1_P3])
     doc.add_paragraph()
-    _tabla_grid(
+    tabla_10_1 = _tabla_grid(
         doc,
         ['Muestra', 'Requieren Programa de intervención (M+A+MA)',
          'Prioridad interna (Alto+Muy alto)', 'Nivel predominante'],
@@ -1420,11 +1564,13 @@ def _add_conclusiones_inf(doc, ctx):
           f"{c['riesgo_alto']} ({c['pct_riesgo']}%)", nivel_label]],
         familia='conclusion_4',
     )
+    _pintar_celda_nivel(tabla_10_1.rows[1].cells[3], c['nivel_predominante'],
+                        align=WD_ALIGN_PARAGRAPH.CENTER)
 
     _heading(doc, '10.2. Análisis por categoría', level=3)
     geom.unir_con_siguiente(doc.add_paragraph(inf.CONCLUSION_10_2_INTRO))
     _add_conclusiones_tabla_rankeada(doc, 'Categoría', c['categorias_rankeadas'],
-                                     familia='rankeada_5')
+                                     familia='rankeada_5', diseno_informe=True)
 
     _heading(doc, '10.3. Análisis por dominio', level=3)
     geom.unir_con_siguiente(doc.add_paragraph(
@@ -1433,7 +1579,7 @@ def _add_conclusiones_inf(doc, ctx):
         'laboral que concentran mayor riesgo psicosocial.'
     ))
     _add_conclusiones_tabla_rankeada(doc, 'Dominio', c['dominios_rankeados'],
-                                     familia='rankeada_5')
+                                     familia='rankeada_5', diseno_informe=True)
 
     cat_top = c['categorias_rankeadas'][0]['nombre'] if c['categorias_rankeadas'] else '—'
     dom_top = c['dominios_rankeados'][0]['nombre'] if c['dominios_rankeados'] else '—'
@@ -1507,7 +1653,7 @@ def _add_anexo_tecnico_inf(doc, ctx):
         )
         p_bl.runs[0].italic = True
         geom.unir_con_siguiente(p_bl)
-        _simple_table(
+        _tabla_grid(
             doc,
             ['Clave', 'Bloque', 'Dominio oficial', 'Promedio'],
             [[dim['clave'], dim['nombre'], dim['dominio_oficial'],

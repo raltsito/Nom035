@@ -65,6 +65,10 @@ SALTILLO_INFORME_2026 = (
     / 'saltillo_informe_diagnostico_2026.pdf'
 )
 
+# Razón social única del corporativo: todas las plantas pertenecen a la misma
+# persona moral, por lo que §2.1 del informe no depende del tenant.
+RAZON_SOCIAL_CORPORATIVA = 'CONSORCIO INDUSTRIAL MEXICANO DE AUTOPARTES S. de R.L. de C.V.'
+
 # nombre de dominio oficial → categoría (5 grupos), derivado de la misma
 # jerarquía que usa el motor de calificación.
 _CATEGORIA_DE_DOMINIO = {dom: cat for cat, doms in _CATEGORIA_DOMINIOS for dom in doms}
@@ -1610,12 +1614,12 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
         'riesgo_tablas':         riesgo_tablas,
         # Recomendaciones derivadas de los dominios prioritarios (sustituye las genéricas)
         'recomendaciones':       _recomendaciones_desde_dominios(dominios_prioritarios),
-        # ---- Datos del centro de trabajo: SIEMPRE del tenant. Sin respaldos
-        # de otro cliente: si el tenant no define razón social se usa su
-        # propio nombre (hallazgo H-17 de la auditoría — un informe jamás
-        # debe salir con la razón social o el giro de otra empresa). ----
+        # ---- Datos del centro de trabajo: domicilio y giro SIEMPRE del
+        # tenant (hallazgo H-17 de la auditoría — un informe jamás debe salir
+        # con el domicilio o el giro de otra planta). La razón social es fija
+        # porque todas las plantas son la misma persona moral. ----
         'datos_centro_trabajo': {
-            'nombre':    getattr(tenant, 'razon_social', '') or tenant.nombre,
+            'nombre':    RAZON_SOCIAL_CORPORATIVA,
             'direccion': tenant.direccion,
             'giro':      tenant.giro or '—',
         },
