@@ -13,11 +13,13 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Colores de nivel de riesgo NOM-035, iguales a los usados en el resto de la
-# app (frontend `--nom-riesgo-*` y `reporte_psicologico.html`).
+# Colores de nivel de riesgo según la codificación visual de la NOM-035
+# (azul claro → verde → amarillo → ámbar → rojo). El rojo de la norma aparece
+# rasterizado como #FE0000; aquí se normaliza a #FF0000. Debe mantenerse
+# idéntica a `NIVEL_COLOR_DOCX` en docx_builder.py.
 NIVEL_COLOR = {
-    'nulo': '#10B981', 'bajo': '#84CC16', 'medio': '#F59E0B',
-    'alto': '#EF4444', 'muy_alto': '#7C3AED',
+    'nulo': '#9CE5F6', 'bajo': '#6BF56E', 'medio': '#FFFF00',
+    'alto': '#FFC000', 'muy_alto': '#FF0000',
 }
 NIVEL_LABEL = {
     'nulo': 'Nulo', 'bajo': 'Bajo', 'medio': 'Medio',

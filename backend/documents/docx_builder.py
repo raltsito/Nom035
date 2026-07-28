@@ -984,15 +984,16 @@ _TABLA_BANDA = 'F2F2F2'
 _TABLA_BORDE = 'D9D9D9'
 
 
-# Semáforo de nivel de riesgo (misma paleta que las gráficas de barras del
-# informe y que el frontend `--nom-riesgo-*`). La NOM-035 no define colores:
-# es una convención interna, aprobada por dirección jul-2026.
+# Semáforo de nivel de riesgo con la codificación visual de la NOM-035
+# (azul claro → verde → amarillo → ámbar → rojo). El rojo de la norma aparece
+# rasterizado como FE0000; aquí se normaliza a FF0000. Debe mantenerse
+# idéntica a `NIVEL_COLOR` en graficas.py.
 NIVEL_COLOR_DOCX = {
-    'nulo':     '10B981',
-    'bajo':     '84CC16',
-    'medio':    'F59E0B',
-    'alto':     'EF4444',
-    'muy_alto': '7C3AED',
+    'nulo':     '9CE5F6',
+    'bajo':     '6BF56E',
+    'medio':    'FFFF00',
+    'alto':     'FFC000',
+    'muy_alto': 'FF0000',
 }
 
 
