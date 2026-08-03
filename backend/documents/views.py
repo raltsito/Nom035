@@ -16,11 +16,20 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.permissions import IsSuperAdmin, IsTenantAdmin
+from core import paleta_riesgo as paleta
 from core import xlsx_styles as xs
 from core.confidencialidad import ETIQUETA_RESERVADO, grupo_reservado, umbral_confidencialidad
 from m00_onboarding.models import CicloNOM, Trabajador
 from m00_onboarding.views import _muestra
 from m05_questionnaires.models import Aplicacion, Pregunta, RespuestaPregunta
+from m06_results import matriz as mat
+from m06_results.matriz import (
+    COLUMNAS_CATEGORIAS,
+    COLUMNAS_DOMINIOS,
+    COLUMNAS_SECCIONES_GUIA_I,
+    construir_matriz,
+    construir_matriz_guia_i,
+)
 from m06_results.models import ResultadoAplicacion, ResultadoDominio
 from m06_results.scoring import (
     NOTA_DIMENSIONES,
@@ -815,6 +824,365 @@ def exportar_respuestas_excel(request):
     buf.seek(0)
 
     filename = f'respuestas_nom035_ciclo_{ciclo.anio}.xlsx'
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsTenantAdmin])
+def exportar_matriz_resultados_excel(request):
+    """Excel con la matriz individual completa: una fila por trabajador y una
+    columna por dominio oficial, categoría oficial y resultado final, cada
+    celda con la codificación de color del nivel de riesgo (Tabla 6, GR.III).
+
+    A diferencia de la vista previa en pantalla (que muestra solo los casos
+    más riesgosos), aquí se exporta SIEMPRE a todos los trabajadores."""
+    ciclo_id = request.query_params.get('ciclo_id')
+    if not ciclo_id:
+        return HttpResponse('ciclo_id requerido', status=400)
+
+    tenant = _tenant_para_ciclo(request, ciclo_id)
+    try:
+        ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
+    except CicloNOM.DoesNotExist:
+        return HttpResponse('Ciclo no encontrado', status=404)
+
+    filas, _total = construir_matriz(tenant, ciclo.id)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Matriz de resultados'
+    ws.sheet_view.showGridLines = False
+
+    cols_fijas = ['No. empleado', 'Trabajador', 'Área', 'Puesto']
+    n_fijas    = len(cols_fijas)
+    n_dom      = len(COLUMNAS_DOMINIOS)
+    n_cat      = len(COLUMNAS_CATEGORIAS)
+    n_cols     = n_fijas + n_dom + n_cat + 1
+    ultima     = get_column_letter(n_cols)
+
+    # Fila 1: título
+    ws.merge_cells(f'A1:{ultima}1')
+    c = ws.cell(row=1, column=1,
+                value=f'Matriz de resultados NOM-035 — {tenant.nombre} — Ciclo {ciclo.anio}')
+    c.fill = xs.fill(xs.NAVY)
+    c.font = xs.font(bold=True, color=xs.WHITE, size=13)
+    c.alignment = xs.center()
+    ws.row_dimensions[1].height = 26
+
+    # Fila 2: agrupadores (dominios / categorías / final)
+    grupos = [
+        (n_fijas + 1, n_fijas + n_dom, 'Dominios (10)', xs.ACCENT),
+        (n_fijas + n_dom + 1, n_fijas + n_dom + n_cat, 'Categorías (5)', xs.SUBHEAD),
+        (n_cols, n_cols, 'Final', xs.NAVY),
+    ]
+    for ini, fin, etiqueta, color in grupos:
+        if fin > ini:
+            ws.merge_cells(start_row=2, start_column=ini, end_row=2, end_column=fin)
+        cell = ws.cell(row=2, column=ini, value=etiqueta)
+        cell.fill = xs.fill(color)
+        cell.font = xs.font(bold=True, color=xs.WHITE, size=10)
+        cell.alignment = xs.center()
+        cell.border = xs.border()
+    for col in range(1, n_fijas + 1):
+        ws.cell(row=2, column=col).fill = xs.fill(xs.GRAY)
+
+    # Fila 3: encabezados de columna
+    headers = (
+        cols_fijas
+        + [d['nombre'] for d in COLUMNAS_DOMINIOS]
+        + [c['nombre'] for c in COLUMNAS_CATEGORIAS]
+        + ['Nivel de riesgo final']
+    )
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=h)
+        cell.fill = xs.fill(xs.NAVY)
+        cell.font = xs.font(bold=True, color=xs.WHITE, size=9)
+        cell.alignment = xs.center(wrap=True)
+        cell.border = xs.border()
+    ws.row_dimensions[3].height = 58
+
+    for width, letra in zip((14, 34, 22, 24), 'ABCD'):
+        ws.column_dimensions[letra].width = width
+    for i in range(n_fijas + 1, n_cols + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 15
+
+    ws.freeze_panes = ws.cell(row=4, column=n_fijas + 1)
+
+    def _pinta(cell, celda):
+        """Colorea la celda con el nivel de riesgo y muestra puntaje.
+
+        Usa la codificación visual de la NOM-035 (`core.paleta_riesgo`), la
+        misma del informe DOCX, con el texto en el tono que más contrasta."""
+        nivel = celda.get('categoria')
+        if not nivel or celda.get('puntaje_max') in (0, None):
+            cell.value = 'N/A'
+            cell.fill  = xs.fill(xs.GRAY)
+            cell.font  = xs.font(size=9, color=xs.SUBHEAD)
+        else:
+            fondo = paleta.NIVEL_COLOR.get(nivel, paleta.COLOR_SIN_CALIFICAR)
+            cell.value = f"{mat.ETIQUETAS.get(nivel, nivel)} ({celda['puntaje']})"
+            cell.fill  = xs.fill(fondo)
+            cell.font  = xs.font(bold=True, color=paleta.texto_contrastante(fondo), size=9)
+        cell.alignment = xs.center()
+        cell.border    = xs.border()
+
+    for i, fila in enumerate(filas, 1):
+        row = 3 + i
+        bg  = xs.LIGHT if i % 2 == 0 else xs.WHITE
+        fijos = [
+            fila['num_empleado'] or '—',
+            fila['trabajador_nombre'],
+            fila['trabajador_area'],
+            fila['trabajador_puesto'] or '—',
+        ]
+        for col, val in enumerate(fijos, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.fill      = xs.fill(bg)
+            cell.font      = xs.font(bold=(col == 2), size=9)
+            cell.alignment = xs.left()
+            cell.border    = xs.border()
+
+        for j, celda in enumerate(fila['dominios']):
+            _pinta(ws.cell(row=row, column=n_fijas + 1 + j), celda)
+        for j, celda in enumerate(fila['categorias']):
+            _pinta(ws.cell(row=row, column=n_fijas + n_dom + 1 + j), celda)
+        _pinta(ws.cell(row=row, column=n_cols), fila['final'])
+
+    if not filas:
+        ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=n_cols)
+        vacio = ws.cell(row=4, column=1,
+                        value='Sin diagnósticos calculados para este ciclo.')
+        vacio.alignment = xs.center()
+        vacio.font = xs.font(color=xs.SUBHEAD)
+
+    # Hoja de leyenda: codificación de color y nota metodológica
+    ws2 = wb.create_sheet('Leyenda')
+    ws2.sheet_view.showGridLines = False
+    ws2.column_dimensions['A'].width = 20
+    ws2.column_dimensions['B'].width = 96
+    titulo = ws2.cell(row=1, column=1, value='Codificación de niveles de riesgo')
+    titulo.font = xs.font(bold=True, size=12)
+    niveles_leyenda = [(n, mat.ETIQUETAS[n]) for n in paleta.DIST_KEYS]
+    niveles_leyenda.append(('sin_calificar', mat.ETIQUETAS['sin_calificar']))
+    for i, (nivel, etiqueta) in enumerate(niveles_leyenda, 2):
+        fondo = paleta.NIVEL_COLOR.get(nivel, paleta.COLOR_SIN_CALIFICAR)
+        c1 = ws2.cell(row=i, column=1, value=etiqueta)
+        c1.fill      = xs.fill(fondo)
+        c1.font      = xs.font(bold=True, color=paleta.texto_contrastante(fondo))
+        c1.alignment = xs.center()
+        c1.border    = xs.border()
+    nota = ws2.cell(row=len(niveles_leyenda) + 3, column=1, value=(
+        'Los niveles de dominio, categoría y resultado final se clasifican por '
+        'cuestionario individual con los puntos de corte de la Tabla 6 de la Guía '
+        'de Referencia III (NOM-035-STPS-2018). "N/A" indica que el dominio no '
+        'tuvo ítems aplicables para ese trabajador (preguntas condicionadas). '
+        'Este archivo contiene datos personales: trátese como confidencial.'
+    ))
+    nota.alignment = xs.left(wrap=True)
+    nota.font = xs.font(size=9, color=xs.SUBHEAD)
+    ws2.merge_cells(start_row=len(niveles_leyenda) + 3, start_column=1,
+                    end_row=len(niveles_leyenda) + 3, end_column=2)
+    ws2.row_dimensions[len(niveles_leyenda) + 3].height = 56
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f'matriz_resultados_nom035_ciclo_{ciclo.anio}.xlsx'
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsTenantAdmin])
+def exportar_matriz_guia_i_excel(request):
+    """Excel con la matriz completa de Guía I: una fila por trabajador, los
+    "Sí" de cada sección frente a su criterio (GR.I inciso b) y el dictamen
+    final, con la codificación de color de la interfaz.
+
+    Igual que la de Guía III, exporta SIEMPRE a todos los trabajadores; la
+    pantalla solo muestra los casos que requieren atención."""
+    ciclo_id = request.query_params.get('ciclo_id')
+    if not ciclo_id:
+        return HttpResponse('ciclo_id requerido', status=400)
+
+    tenant = _tenant_para_ciclo(request, ciclo_id)
+    try:
+        ciclo = CicloNOM.objects.get(id=ciclo_id, tenant=tenant)
+    except CicloNOM.DoesNotExist:
+        return HttpResponse('Ciclo no encontrado', status=404)
+
+    filas, _total = construir_matriz_guia_i(tenant, ciclo.id)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Guía I'
+    ws.sheet_view.showGridLines = False
+
+    cols_fijas = ['No. empleado', 'Trabajador', 'Área', 'Puesto']
+    n_fijas    = len(cols_fijas)
+    n_sec      = len(COLUMNAS_SECCIONES_GUIA_I)
+    n_cols     = n_fijas + n_sec + 1
+    ultima     = get_column_letter(n_cols)
+
+    ws.merge_cells(f'A1:{ultima}1')
+    c = ws.cell(row=1, column=1, value=(
+        f'Guía I — Acontecimientos traumáticos severos — {tenant.nombre} — Ciclo {ciclo.anio}'))
+    c.fill = xs.fill(xs.NAVY)
+    c.font = xs.font(bold=True, color=xs.WHITE, size=13)
+    c.alignment = xs.center()
+    ws.row_dimensions[1].height = 26
+
+    # Fila 2: agrupadores
+    for ini, fin, etiqueta, color in (
+        (n_fijas + 1, n_fijas + n_sec, 'Secciones (Sí alcanzados / criterio)', xs.ACCENT),
+        (n_cols, n_cols, 'Dictamen', xs.NAVY),
+    ):
+        if fin > ini:
+            ws.merge_cells(start_row=2, start_column=ini, end_row=2, end_column=fin)
+        cell = ws.cell(row=2, column=ini, value=etiqueta)
+        cell.fill = xs.fill(color)
+        cell.font = xs.font(bold=True, color=xs.WHITE, size=10)
+        cell.alignment = xs.center()
+        cell.border = xs.border()
+    for col in range(1, n_fijas + 1):
+        ws.cell(row=2, column=col).fill = xs.fill(xs.GRAY)
+
+    headers = (
+        cols_fijas
+        + [f"Sección {s['romano']} — {s['nombre']} (≥{s['criterio']})"
+           for s in COLUMNAS_SECCIONES_GUIA_I]
+        + ['Resultado']
+    )
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=h)
+        cell.fill = xs.fill(xs.NAVY)
+        cell.font = xs.font(bold=True, color=xs.WHITE, size=9)
+        cell.alignment = xs.center(wrap=True)
+        cell.border = xs.border()
+    ws.row_dimensions[3].height = 58
+
+    for width, letra in zip((14, 34, 22, 24), 'ABCD'):
+        ws.column_dimensions[letra].width = width
+    for i in range(n_fijas + 1, n_cols):
+        ws.column_dimensions[get_column_letter(i)].width = 22
+    ws.column_dimensions[ultima].width = 20
+
+    ws.freeze_panes = ws.cell(row=4, column=n_fijas + 1)
+
+    for i, fila in enumerate(filas, 1):
+        row = 3 + i
+        bg  = xs.LIGHT if i % 2 == 0 else xs.WHITE
+        fijos = [
+            fila['num_empleado'] or '—',
+            fila['trabajador_nombre'],
+            fila['trabajador_area'],
+            fila['trabajador_puesto'] or '—',
+        ]
+        for col, val in enumerate(fijos, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.fill      = xs.fill(bg)
+            cell.font      = xs.font(bold=(col == 2), size=9)
+            cell.alignment = xs.left()
+            cell.border    = xs.border()
+
+        for j, sec in enumerate(fila['secciones']):
+            cell = ws.cell(row=row, column=n_fijas + 1 + j)
+            if sec['positivos'] is None:
+                cell.value = 'Sin dato'
+                cell.fill  = xs.fill(xs.GRAY)
+                cell.font  = xs.font(size=9, color=xs.SUBHEAD)
+            else:
+                marca = ' ✔' if sec['cumple'] else ''
+                cell.value = f"{sec['positivos']} de {sec['total']}{marca}"
+                cell.fill  = xs.fill(xs.RIESGO.get(sec['categoria'], xs.GRAY))
+                cell.font  = xs.font(bold=True, color=xs.WHITE, size=9)
+            cell.alignment = xs.center()
+            cell.border    = xs.border()
+
+        final = fila['final']
+        cell = ws.cell(row=row, column=n_cols)
+        cell.value = mat.ETIQUETAS.get(final['categoria'], final['categoria'] or 'Sin dato')
+        # El dictamen no es un nivel de riesgo: rojo si requiere valoración,
+        # verde si no hay indicadores, gris si quedó sin clasificar.
+        color_final = {
+            'requiere_atencion': xs.RIESGO['alto'],
+            'sin_indicadores':   xs.RIESGO['nulo'],
+        }.get(final['categoria'], xs.RIESGO['sin_calificar'])
+        cell.fill      = xs.fill(color_final)
+        cell.font      = xs.font(bold=True, color=xs.WHITE, size=9)
+        cell.alignment = xs.center()
+        cell.border    = xs.border()
+
+    if not filas:
+        ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=n_cols)
+        vacio = ws.cell(row=4, column=1,
+                        value='Sin resultados de Guía I calculados para este ciclo.')
+        vacio.alignment = xs.center()
+        vacio.font = xs.font(color=xs.SUBHEAD)
+
+    ws2 = wb.create_sheet('Leyenda')
+    ws2.sheet_view.showGridLines = False
+    ws2.column_dimensions['A'].width = 24
+    ws2.column_dimensions['B'].width = 92
+    titulo = ws2.cell(row=1, column=1, value='Cómo leer esta matriz')
+    titulo.font = xs.font(bold=True, size=12)
+
+    leyenda = [
+        ('Requiere atención', xs.RIESGO['alto'],
+         'Reportó acontecimiento (Sección I) y alcanzó al menos uno de los criterios '
+         'de las secciones II, III o IV. Debe canalizarse a valoración clínica.'),
+        ('Sin indicadores', xs.RIESGO['nulo'],
+         'No se cumplen los criterios de la GR.I inciso b.'),
+        ('Sin calificar', xs.RIESGO['sin_calificar'],
+         'Cuestionario incompleto o inconsistente: no se clasifica, requiere revisión.'),
+        ('Criterio alcanzado', xs.RIESGO['alto'],
+         'La sección II, III o IV llegó a su número mínimo de "Sí" (✔).'),
+        ('Filtro de entrada', xs.RIESGO['medio'],
+         'Sección I con al menos un "Sí": hubo acontecimiento traumático severo. '
+         'Por sí sola no implica requerir atención.'),
+        ('Afirmativas insuficientes', xs.RIESGO['bajo'],
+         'Hay respuestas "Sí" pero no alcanzan el criterio de la sección.'),
+        ('Sin afirmativas', xs.RIESGO['nulo'], 'La sección no registró ningún "Sí".'),
+    ]
+    for i, (etiqueta, color, texto) in enumerate(leyenda, 2):
+        c1 = ws2.cell(row=i, column=1, value=etiqueta)
+        c1.fill      = xs.fill(color)
+        c1.font      = xs.font(bold=True, color=xs.WHITE)
+        c1.alignment = xs.center()
+        c1.border    = xs.border()
+        c2 = ws2.cell(row=i, column=2, value=texto)
+        c2.alignment = xs.left(wrap=True)
+        c2.font      = xs.font(size=9)
+        ws2.row_dimensions[i].height = 30
+
+    fila_nota = len(leyenda) + 3
+    nota = ws2.cell(row=fila_nota, column=1, value=(
+        'Criterios GR.I inciso b: Sección I ≥1 acontecimiento y al menos uno de '
+        'Sección II ≥1, Sección III ≥3 o Sección IV ≥2. Los colores por sección '
+        'describen el estado del criterio, NO un nivel de riesgo de la NOM-035 '
+        '(la Guía I no produce niveles). Este archivo contiene datos personales '
+        'de salud: trátese como confidencial.'
+    ))
+    nota.alignment = xs.left(wrap=True)
+    nota.font = xs.font(size=9, color=xs.SUBHEAD)
+    ws2.merge_cells(start_row=fila_nota, start_column=1, end_row=fila_nota, end_column=2)
+    ws2.row_dimensions[fila_nota].height = 60
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f'matriz_guia_i_nom035_ciclo_{ciclo.anio}.xlsx'
     response = HttpResponse(
         buf.read(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -1,0 +1,185 @@
+.card {
+  padding: var(--nom-space-5);
+  border-radius: var(--nom-radius-lg);
+  margin-bottom: var(--nom-space-6);
+}
+
+/* ---- Encabezado ---- */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--nom-space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--nom-space-4);
+}
+.headerText { min-width: 260px; flex: 1; }
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--nom-text-base);
+  font-weight: var(--nom-font-bold);
+  color: var(--nom-text);
+  letter-spacing: -0.015em;
+  margin-bottom: 4px;
+}
+.subtitle {
+  font-size: var(--nom-text-xs);
+  color: var(--nom-text-muted);
+  line-height: 1.5;
+  max-width: 72ch;
+}
+
+/* ---- Estados vacíos / carga ---- */
+.stateWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--nom-space-2);
+  padding: var(--nom-space-8) var(--nom-space-4);
+  color: var(--nom-text-muted);
+  font-size: var(--nom-text-sm);
+  text-align: center;
+}
+
+/* ---- Tabla ---- */
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--nom-border-solid);
+  border-radius: var(--nom-radius-md);
+}
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: var(--nom-text-xs);
+}
+
+.grupoRow .thGrupo {
+  background: var(--nom-bg);
+  color: var(--nom-text-muted);
+  font-size: 10px;
+  font-weight: var(--nom-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--nom-border-solid);
+}
+
+.thNivel {
+  padding: 8px 6px;
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text-muted);
+  background: var(--nom-surface);
+  border-bottom: 1.5px solid var(--nom-border-solid);
+  text-align: center;
+  vertical-align: bottom;
+  min-width: 88px;
+  line-height: 1.25;
+  cursor: help;
+}
+.thFinal { color: var(--nom-text); font-weight: var(--nom-font-bold); }
+
+/* Guía I: son 5 columnas en vez de 16, así que caben encabezados más anchos. */
+.tableAncha .thNivel { min-width: 150px; }
+
+/* Primera columna fija: el nombre siempre visible al desplazar. */
+.thTrab,
+.tdTrab {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--nom-surface);
+  text-align: left;
+  padding: 8px 12px;
+  min-width: 190px;
+  border-right: 1.5px solid var(--nom-border-solid);
+}
+.thTrab {
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text-muted);
+  border-bottom: 1.5px solid var(--nom-border-solid);
+  vertical-align: bottom;
+}
+.tdTrab {
+  border-bottom: 1px solid var(--nom-border-solid);
+  font-weight: var(--nom-font-regular);
+}
+.trabNombre {
+  display: block;
+  font-weight: var(--nom-font-semibold);
+  color: var(--nom-text);
+}
+.trabArea {
+  display: block;
+  font-size: 10px;
+  color: var(--nom-text-muted);
+}
+
+.celda {
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--nom-border-solid);
+  white-space: nowrap;
+  cursor: help;
+}
+.celdaNivel {
+  display: block;
+  font-weight: var(--nom-font-bold);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.celdaPuntaje {
+  display: block;
+  font-size: 10px;
+  opacity: 0.75;
+}
+.celdaNA {
+  color: var(--nom-text-muted);
+  background: repeating-linear-gradient(
+    45deg,
+    transparent, transparent 4px,
+    var(--nom-border-solid) 4px, var(--nom-border-solid) 5px
+  );
+  font-size: 10px;
+}
+
+.trClickable { cursor: pointer; }
+.trClickable:hover .celda { filter: brightness(0.97); }
+/* El tinte de hover va SOBRE una base opaca: la columna fija no puede ser
+   translucida o se transparentan las celdas desplazadas por debajo. */
+.trClickable:hover .tdTrab {
+  background: linear-gradient(var(--nom-accent-subtle), var(--nom-accent-subtle))
+              var(--nom-surface);
+}
+
+/* ---- Leyenda ---- */
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nom-space-4);
+  margin-top: var(--nom-space-3);
+  font-size: 11px;
+  color: var(--nom-text-muted);
+}
+.leyendaItem { display: inline-flex; align-items: center; gap: 6px; }
+.notaMetodologica {
+  margin-top: var(--nom-space-2);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--nom-text-muted);
+  max-width: 92ch;
+}
+.leyendaDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+@media (max-width: 720px) {
+  .thTrab, .tdTrab { min-width: 150px; }
+  .thNivel { min-width: 76px; }
+}

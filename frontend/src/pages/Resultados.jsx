@@ -8,6 +8,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { resultadosService, documentosService, fotosService } from '../services/resultados';
 import { ciclosService } from '../services/trabajadores';
+import MatrizGuiaI from '../components/resultados/MatrizGuiaI';
+import MatrizResultados from '../components/resultados/MatrizResultados';
 import ResultadosDashboard from '../components/resultados/ResultadosDashboard';
 import DashboardErrorBoundary from '../components/resultados/DashboardErrorBoundary';
 import { useAuth } from '../context/AuthContext';
@@ -169,8 +171,12 @@ export default function Resultados() {
 
   const openDetalle = async (r) => {
     if (r.dominios) { setDetalle(r); return; }
+    openDetallePorId(r.id);
+  };
+
+  const openDetallePorId = async (id) => {
     try {
-      const res = await resultadosService.get(r.id);
+      const res = await resultadosService.get(id);
       setDetalle(res.data.data);
     } catch {}
   };
@@ -268,6 +274,24 @@ export default function Resultados() {
           <AlertTriangle size={15} />
           Hay {pendienteCalculo} aplicacion(es) completada(s) sin diagnostico calculado. Presiona "Calcular diagnostico".
         </div>
+      )}
+
+      {/* ---- Matriz individual (dominio / categoria / final) ---- */}
+      {cicloId && (
+        <MatrizResultados
+          key={`matriz-${cicloId}-${dashKey}`}
+          cicloId={cicloId}
+          onSelect={openDetallePorId}
+        />
+      )}
+
+      {/* ---- Matriz de Guia I (secciones I-IV + dictamen) ---- */}
+      {cicloId && (
+        <MatrizGuiaI
+          key={`matriz-gi-${cicloId}-${dashKey}`}
+          cicloId={cicloId}
+          onSelect={openDetallePorId}
+        />
       )}
 
       {/* ---- Stats + distribucion ---- */}

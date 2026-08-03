@@ -16,6 +16,8 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor, Twips
 
+from core import paleta_riesgo
+
 from . import contenido_informe as inf
 from . import docx_geometry as geom
 
@@ -984,28 +986,16 @@ _TABLA_BANDA = 'F2F2F2'
 _TABLA_BORDE = 'D9D9D9'
 
 
-# Semáforo de nivel de riesgo con la codificación visual de la NOM-035
-# (azul claro → verde → amarillo → ámbar → rojo). El rojo de la norma aparece
-# rasterizado como FE0000; aquí se normaliza a FF0000. Debe mantenerse
-# idéntica a `NIVEL_COLOR` en graficas.py.
-NIVEL_COLOR_DOCX = {
-    'nulo':     '9CE5F6',
-    'bajo':     '6BF56E',
-    'medio':    'FFFF00',
-    'alto':     'FFC000',
-    'muy_alto': 'FF0000',
-}
+# Semáforo de nivel de riesgo con la codificación visual de la NOM-035:
+# definido una sola vez en core.paleta_riesgo y compartido con las gráficas
+# del informe y los Excel de la plataforma.
+NIVEL_COLOR_DOCX = dict(paleta_riesgo.NIVEL_COLOR)
 
 
 def _texto_contrastante(hex6):
-    """Negro o blanco, el que tenga mayor contraste sobre `hex6` (WCAG 2.1).
-    Con esta paleta el ámbar y el lima exigen texto negro; el morado, blanco."""
-    canales = [int(hex6[i:i + 2], 16) / 255 for i in (0, 2, 4)]
-    lineal = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in canales]
-    luminancia = 0.2126 * lineal[0] + 0.7152 * lineal[1] + 0.0722 * lineal[2]
-    contraste_negro = (luminancia + 0.05) / 0.05
-    contraste_blanco = 1.05 / (luminancia + 0.05)
-    return RGBColor(0, 0, 0) if contraste_negro >= contraste_blanco else RGBColor(0xFF, 0xFF, 0xFF)
+    """Negro o blanco, el que tenga mayor contraste sobre `hex6` (WCAG 2.1)."""
+    hexa = paleta_riesgo.texto_contrastante(hex6)
+    return RGBColor(*(int(hexa[i:i + 2], 16) for i in (0, 2, 4)))
 
 
 def _pintar_celda_nivel(cell, clave_nivel, align=WD_ALIGN_PARAGRAPH.LEFT):

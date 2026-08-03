@@ -56,12 +56,31 @@
   --nom-info:             #03C4CE;
   --nom-info-subtle:      rgba(3, 196, 206, 0.09);
 
-  /* --- Riesgos NOM-035 --- */
+  /* --- Riesgos NOM-035: paleta de interfaz (dashboard, chips, graficas) --- */
   --nom-riesgo-nulo:      #10B981;
   --nom-riesgo-bajo:      #84CC16;
   --nom-riesgo-medio:     #F59E0B;
   --nom-riesgo-alto:      #EF4444;
   --nom-riesgo-muy-alto:  #7C3AED;
+
+  /* --- Codificacion visual de la NOM-035 (la del informe DOCX) ---
+     Derivados de la paleta de core/paleta_riesgo.py (#9CE5F6, #6BF56E,
+     #FFFF00, #FFC000, #FF0000) para usarlos en pantalla con el mismo
+     tratamiento suave del resto de la interfaz: fondo tenue al 16% (la misma
+     opacidad que usa la matriz de Guia I) y texto del MISMO matiz oscurecido
+     hasta cumplir contraste WCAG AA. Los colores puros de la norma solo se
+     aplican como relleno solido en los entregables (DOCX y Excel), donde no
+     compiten con el resto de la UI. */
+  --nom-norma-nulo-bg:      rgba(156, 229, 246, 0.16);
+  --nom-norma-nulo-fg:      #0D738B;
+  --nom-norma-bajo-bg:      rgba(107, 245, 110, 0.16);
+  --nom-norma-bajo-fg:      #087C0B;
+  --nom-norma-medio-bg:     rgba(255, 255, 0, 0.16);
+  --nom-norma-medio-fg:     #707000;
+  --nom-norma-alto-bg:      rgba(255, 192, 0, 0.16);
+  --nom-norma-alto-fg:      #856400;
+  --nom-norma-muy-alto-bg:  rgba(255, 0, 0, 0.16);
+  --nom-norma-muy-alto-fg:  #BD0000;
 
   /* --- Tipografia --- */
   --nom-font-display:   'Plus Jakarta Sans', system-ui, sans-serif;
@@ -150,6 +169,15 @@
   --nom-text:             #E4EDF6;
   --nom-text-secondary:   #A4BBCF;
   --nom-text-muted:       #536F8A;
+
+  /* Codificacion NOM-035: sobre superficie oscura el texto se aclara en vez
+     de oscurecerse. El fondo tenue es el mismo rgba, compuesto sobre la
+     superficie oscura. */
+  --nom-norma-nulo-fg:      #9CE5F6;
+  --nom-norma-bajo-fg:      #6BF56E;
+  --nom-norma-medio-fg:     #FFFF00;
+  --nom-norma-alto-fg:      #FFC000;
+  --nom-norma-muy-alto-fg:  #FF5757;
 
   --nom-shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.28);
   --nom-shadow-md:  0 4px 16px rgba(0, 0, 0, 0.38);

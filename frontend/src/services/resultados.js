@@ -5,6 +5,8 @@ export const resultadosService = {
   get:               (id)          => api.get(`/resultados/${id}/`),
   calcular:          (data)        => api.post('/resultados/calcular/', data),
   resumen:           (params = {}) => api.get('/resultados/resumen/', { params }),
+  matriz:            (params = {}) => api.get('/resultados/matriz/', { params }),
+  matrizGuiaI:       (params = {}) => api.get('/resultados/matriz-guia-i/', { params }),
   dominiosAgregados: (params = {}) => api.get('/resultados/dominios-agregados/', { params }),
   atencionClinica:   (params = {}) => api.get('/resultados/atencion-clinica/', { params }),
 };
@@ -15,6 +17,13 @@ export const documentosService = {
     params: { ciclo_id: cicloId }, responseType: 'blob',
   }),
   exportarRespuestas:   (cicloId) => api.get('/documentos/respuestas-nom035/', {
+    params: { ciclo_id: cicloId }, responseType: 'blob',
+  }),
+  // Matrices individuales completas (todos los trabajadores, no solo la vista previa).
+  exportarMatriz:       (cicloId) => api.get('/documentos/matriz-resultados/', {
+    params: { ciclo_id: cicloId }, responseType: 'blob',
+  }),
+  exportarMatrizGuiaI:  (cicloId) => api.get('/documentos/matriz-guia-i/', {
     params: { ciclo_id: cicloId }, responseType: 'blob',
   }),
 };

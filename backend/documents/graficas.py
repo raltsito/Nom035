@@ -13,19 +13,13 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Colores de nivel de riesgo según la codificación visual de la NOM-035
-# (azul claro → verde → amarillo → ámbar → rojo). El rojo de la norma aparece
-# rasterizado como #FE0000; aquí se normaliza a #FF0000. Debe mantenerse
-# idéntica a `NIVEL_COLOR_DOCX` en docx_builder.py.
-NIVEL_COLOR = {
-    'nulo': '#9CE5F6', 'bajo': '#6BF56E', 'medio': '#FFFF00',
-    'alto': '#FFC000', 'muy_alto': '#FF0000',
-}
-NIVEL_LABEL = {
-    'nulo': 'Nulo', 'bajo': 'Bajo', 'medio': 'Medio',
-    'alto': 'Alto', 'muy_alto': 'Muy alto',
-}
-DIST_KEYS = ('nulo', 'bajo', 'medio', 'alto', 'muy_alto')
+from core import paleta_riesgo as paleta
+
+# Codificación visual de la NOM-035: definida una sola vez en
+# core.paleta_riesgo y compartida con el DOCX y los Excel.
+NIVEL_COLOR = {clave: paleta.con_gato(clave) for clave in paleta.DIST_KEYS}
+NIVEL_LABEL = dict(paleta.NIVEL_LABEL)
+DIST_KEYS = paleta.DIST_KEYS
 
 _CHART_COLORS = ['#C8102E', '#1A1A2E', '#555555', '#888888',
                   '#AAAAAA', '#BBBBBB', '#CCCCCC', '#DDDDDD']

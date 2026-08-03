@@ -19,6 +19,13 @@ from .models import (
     ResultadoDominio,
     ResultadoDominioOficial,
 )
+from .matriz import (
+    COLUMNAS_CATEGORIAS,
+    COLUMNAS_DOMINIOS,
+    COLUMNAS_SECCIONES_GUIA_I,
+    construir_matriz,
+    construir_matriz_guia_i,
+)
 from .serializers import ResultadoAplicacionSerializer, ResultadoListSerializer
 from .scoring import VERSION_MOTOR, calcular_resultado
 from .services import calcular_ciclo
@@ -199,6 +206,80 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 'total':       total_v,
                 'completadas': completadas_v,
             },
+        })
+
+    # ------------------------------------------------------------------
+    # GET /resultados/matriz/
+    # ------------------------------------------------------------------
+    @action(detail=False, methods=['get'], url_path='matriz')
+    def matriz(self, request):
+        """
+        Matriz individual: una fila por trabajador con su nivel de riesgo en
+        cada dominio oficial, cada categoría oficial y el resultado final
+        (Guía III). Se devuelve ordenada de mayor a menor riesgo; con `limite`
+        la vista previa pide solo los casos más riesgosos (el Excel de
+        /documentos/matriz-resultados/ entrega siempre a todos).
+        """
+        ciclo_id = request.query_params.get('ciclo_id')
+        if not ciclo_id:
+            return _wrap(None,
+                errors={'ciclo_id': ['Requerido.']},
+                status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limite = int(request.query_params.get('limite', 0)) or None
+        except ValueError:
+            limite = None
+
+        tenant = _tenant_para_ciclo(request, ciclo_id)
+        filas, total = construir_matriz(tenant, ciclo_id, limite=limite)
+
+        return _wrap(filas, {
+            'total':      total,
+            'mostrados':  len(filas),
+            'dominios':   COLUMNAS_DOMINIOS,
+            'categorias': COLUMNAS_CATEGORIAS,
+            'version_motor': VERSION_MOTOR,
+        })
+
+    # ------------------------------------------------------------------
+    # GET /resultados/matriz-guia-i/
+    # ------------------------------------------------------------------
+    @action(detail=False, methods=['get'], url_path='matriz-guia-i')
+    def matriz_guia_i(self, request):
+        """
+        Matriz individual de Guía I: una fila por trabajador con los "Sí" de
+        cada sección frente a su criterio (GR.I inciso b) y el dictamen final
+        (requiere atención clínica / sin indicadores). Ordenada por necesidad
+        de atención; `limite` recorta la vista previa.
+        """
+        ciclo_id = request.query_params.get('ciclo_id')
+        if not ciclo_id:
+            return _wrap(None,
+                errors={'ciclo_id': ['Requerido.']},
+                status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limite = int(request.query_params.get('limite', 0)) or None
+        except ValueError:
+            limite = None
+
+        tenant = _tenant_para_ciclo(request, ciclo_id)
+        filas, total = construir_matriz_guia_i(tenant, ciclo_id, limite=limite)
+        requieren = sum(1 for f in filas if f['final']['requiere_atencion'])
+
+        return _wrap(filas, {
+            'total':          total,
+            'mostrados':      len(filas),
+            'secciones':      COLUMNAS_SECCIONES_GUIA_I,
+            'requieren_atencion_en_vista': requieren,
+            'version_motor':  VERSION_MOTOR,
+            'nota_metodologica': (
+                'Guía de Referencia I: el dictamen es binario y se determina por '
+                'los criterios del inciso b (Sección I ≥1 y alguna de II ≥1, '
+                'III ≥3 o IV ≥2). Los colores por sección indican el estado del '
+                'criterio, no un nivel de riesgo de la NOM-035.'
+            ),
         })
 
     # ------------------------------------------------------------------

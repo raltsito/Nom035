@@ -279,6 +279,12 @@ def _invalidar(validacion, mensaje):
 # Guía I — Acontecimientos Traumáticos Severos
 # ---------------------------------------------------------------------------
 
+# Criterios GR.I inciso b: número mínimo de "Sí" con el que cada sección se
+# considera positiva. La Sección I (D1) es el filtro de entrada: basta un "Sí"
+# para que se haya reportado un acontecimiento traumático severo.
+CRITERIOS_GUIA_I = {'D1': 1, 'D2': 1, 'D3': 3, 'D4': 2}
+
+
 def _calcular_guia_i(aplicacion, respuestas):
     """GR.I incisos a y b. Un "Sí" faltante NUNCA se cuenta como "No": si la
     Sección I está incompleta —o si hubo acontecimiento y las secciones
@@ -339,10 +345,10 @@ def _calcular_guia_i(aplicacion, respuestas):
     if validacion['reactivos_fuera_de_rango']:
         _invalidar(validacion, 'Respuestas fuera del rango Sí/No.')
 
-    reporta_ats = seccion_i >= 1
-    cumple_ii   = seccion_ii >= 1
-    cumple_iii  = seccion_iii >= 3
-    cumple_iv   = seccion_iv >= 2
+    reporta_ats = seccion_i   >= CRITERIOS_GUIA_I['D1']
+    cumple_ii   = seccion_ii  >= CRITERIOS_GUIA_I['D2']
+    cumple_iii  = seccion_iii >= CRITERIOS_GUIA_I['D3']
+    cumple_iv   = seccion_iv  >= CRITERIOS_GUIA_I['D4']
     requiere_atencion = bool(reporta_ats and (cumple_ii or cumple_iii or cumple_iv))
 
     if not validacion['es_valido']:
