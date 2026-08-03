@@ -20,6 +20,7 @@ from core import paleta_riesgo
 
 from . import contenido_informe as inf
 from . import docx_geometry as geom
+from . import perfil_consultor
 
 # Plantilla del Informe Diagnóstico (formato aprobado por dirección jul-2026):
 # conserva estilos de Word (Grid Table 1 Light Accent 2, toc 1/3, etc.),
@@ -1726,6 +1727,7 @@ def build_informe_diagnostico_docx(ctx: dict) -> io.BytesIO:
     _add_datos_responsable_inf(doc, ctx)
     _add_anexo_tecnico_inf(doc, ctx)
     _add_anexos(doc, ctx, con_geometria=True)
+    perfil_consultor.agregar_a_docx(doc)
 
     # Control global de saltos: títulos con keep_with_next y viudas/huérfanas.
     geom.aplicar_control_saltos(doc)
