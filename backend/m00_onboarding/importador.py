@@ -296,7 +296,9 @@ def _norm_experiencia(value):
         return round(float(v), 1)
     except (ValueError, TypeError):
         pass
-    match = re.search(r'(\d+)[.\s]*a', v, re.IGNORECASE)
+    # 'a' cubre año/anio/ano/anos; 'year'/'yr' cubre a los trabajadores que
+    # contestan la duración en inglés ("5 years"), que si no caen en faltante.
+    match = re.search(r'(\d+)[.\s]*(?:a|y(?:ea)?r)', v, re.IGNORECASE)
     meses = re.search(r'(\d+)[.\s]*m', v, re.IGNORECASE)
     if match:
         years = int(match.group(1))
