@@ -318,8 +318,8 @@ class TestTocActualizado(FixturePruebaMixin, TestCase):
 class TestSinBypassPorNombre(FixturePruebaMixin, TestCase):
     """Ningún tenant recibe archivos fijos por su nombre."""
 
-    def test_tenant_llamado_san_luis_recibe_informe_dinamico(self):
-        for nombre in ('San Luis', 'Zapotitlan'):
+    def test_tenants_con_bypass_historico_reciben_informe_dinamico(self):
+        for nombre in ('San Luis', 'Zapotitlan', 'Saltillo'):
             self.tenant.nombre = nombre
             self.tenant.save(update_fields=['nombre'])
             try:
@@ -340,6 +340,7 @@ class TestSinBypassPorNombre(FixturePruebaMixin, TestCase):
         fuente = Path(__file__).with_name('views.py').read_text(encoding='utf-8')
         self.assertNotIn("== 'san luis'", fuente.lower())
         self.assertNotIn("== 'zapotitlan'", fuente.lower())
+        self.assertNotIn("== 'saltillo'", fuente.lower())
         self.assertNotIn('PLANTA Zapot.pdf', fuente)
 
 
