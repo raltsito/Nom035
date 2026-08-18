@@ -6,7 +6,8 @@ class Tenant(models.Model):
     nombre = models.CharField(max_length=200, verbose_name='Nombre del centro de trabajo')
     razon_social = models.CharField(
         max_length=300, blank=True, verbose_name='Razon social',
-        help_text='Razon social para informes. Si se deja vacia se usa el nombre del centro.')
+        help_text='Razon social para informes. Si se deja vacia se usa la razon social '
+                   'corporativa por defecto (CONSORCIO INDUSTRIAL MEXICANO DE AUTOPARTES).')
     rfc = models.CharField(max_length=13, unique=True, verbose_name='RFC')
     giro = models.CharField(max_length=200, verbose_name='Giro o actividad')
     num_trabajadores = models.PositiveIntegerField(verbose_name='Numero de trabajadores')

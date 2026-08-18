@@ -49,9 +49,10 @@ from .models import ReportePsicologico
 
 logger = logging.getLogger(__name__)
 
-# Razón social única del corporativo: todas las plantas pertenecen a la misma
-# persona moral, por lo que §2.1 del informe no depende del tenant.
-RAZON_SOCIAL_CORPORATIVA = 'CONSORCIO INDUSTRIAL MEXICANO DE AUTOPARTES S. de R.L. de C.V.'
+# Razón social por defecto cuando el tenant no tiene una propia capturada en
+# `Tenant.razon_social` (varias plantas de LEAR pertenecen a personas morales
+# distintas — confirmado por el cliente en "Razon Social (Varias Plantas).docx").
+RAZON_SOCIAL_CORPORATIVA = 'CONSORCIO INDUSTRIAL MEXICANO DE AUTOPARTES, S. DE R.L. DE C.V.'
 
 # nombre de dominio oficial → categoría (5 grupos), derivado de la misma
 # jerarquía que usa el motor de calificación.
@@ -1927,12 +1928,13 @@ def _build_psico_context(tenant, ciclo, resultados_qs, anonimo, informe_extendid
         'riesgo_tablas':         riesgo_tablas,
         # Recomendaciones derivadas de los dominios prioritarios (sustituye las genéricas)
         'recomendaciones':       _recomendaciones_desde_dominios(dominios_prioritarios),
-        # ---- Datos del centro de trabajo: domicilio y giro SIEMPRE del
-        # tenant (hallazgo H-17 de la auditoría — un informe jamás debe salir
-        # con el domicilio o el giro de otra planta). La razón social es fija
-        # porque todas las plantas son la misma persona moral. ----
+        # ---- Datos del centro de trabajo: domicilio, giro y razón social
+        # SIEMPRE del tenant (hallazgo H-17 de la auditoría — un informe
+        # jamás debe salir con datos de otra planta). La razón social usa la
+        # capturada en el tenant; si no hay una propia, cae al default
+        # corporativo (RAZON_SOCIAL_CORPORATIVA). ----
         'datos_centro_trabajo': {
-            'nombre':    RAZON_SOCIAL_CORPORATIVA,
+            'nombre':    tenant.razon_social or RAZON_SOCIAL_CORPORATIVA,
             'direccion': tenant.direccion,
             'giro':      tenant.giro or '—',
         },

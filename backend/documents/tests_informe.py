@@ -81,8 +81,10 @@ TEXTO_FIJO_MAESTRO = [
 ]
 
 # Datos de otras plantas que JAMÁS deben aparecer en el informe de PRUEBA.
-# La razón social corporativa NO entra en esta lista: todas las plantas son la
-# misma persona moral, así que §2.1 la lleva fija (views.RAZON_SOCIAL_CORPORATIVA).
+# La razón social corporativa NO entra en esta lista: el tenant PRUEBA no
+# tiene una razón social propia capturada, así que §2.1 cae al default
+# corporativo (views.RAZON_SOCIAL_CORPORATIVA) — otras plantas sí tienen la
+# suya propia desde tenants/migrations/0007_razon_social_plantas.py.
 DATOS_OTRAS_PLANTAS = [
     'San Luis Potosí', 'Circuito Exportación', 'Zona Industrial',
     'Zapotitlán', 'Zapotitlan', 'Tláhuac',
