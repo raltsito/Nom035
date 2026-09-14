@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { resultadosService } from '../services/resultados';
+import CardPromedioPlanta from '../components/resultados/charts/CardPromedioPlanta';
 import {
   Building2, Users, ClipboardCheck, Bell,
   TrendingUp, FileText, Shield,
@@ -39,7 +41,7 @@ function formatDateEs(d = new Date()) {
   return `${dias[d.getDay()]} · ${d.getDate()} de ${meses[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-async function loadTenantData() {
+async function loadTenantData(rol) {
   const [trabRes, ciclosRes, notifsRes, empresaRes] = await Promise.all([
     api.get('/trabajadores/?activos=1'),
     api.get('/ciclos/'),
@@ -70,7 +72,24 @@ async function loadTenantData() {
 
   const cicloLabel = ciclo ? `ciclo ${ciclo.anio}` : 'sin ciclo activo';
 
+  // Calificación Final del Centro de Trabajo — solo para tenant_admin
+  // (el endpoint dominios-agregados exige IsTenantAdmin) y solo si hay
+  // ciclo con Guía III calculada; nunca debe romper el resto del dashboard.
+  let calificacionFinal = null;
+  if (ciclo && rol === 'tenant_admin') {
+    try {
+      const domRes = await resultadosService.dominiosAgregados({ ciclo_id: ciclo.id });
+      calificacionFinal = {
+        pct:      domRes.data.meta?.promedio_planta_pct ?? null,
+        nMuestra: domRes.data.meta?.promedio_planta_n_muestra ?? null,
+      };
+    } catch {
+      calificacionFinal = null;
+    }
+  }
+
   return {
+    calificacionFinal,
     hero: {
       title:    tenantName || 'Tu empresa',
       eyebrow:  'Cumplimiento NOM-035-STPS-2018',
@@ -129,12 +148,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     let cancel = false;
-    const loader = isSuperAdmin ? loadSuperData : loadTenantData;
+    const loader = () => (isSuperAdmin ? loadSuperData() : loadTenantData(user?.rol));
     loader()
       .then((res) => { if (!cancel) setData(res); })
       .catch(() => { if (!cancel) setData({ hero: null, kpis: [] }); });
     return () => { cancel = true; };
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, user?.rol]);
 
   const hero = data?.hero;
   const kpis = data?.kpis;
@@ -207,6 +226,12 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      {!isSuperAdmin && data?.calificacionFinal && data.calificacionFinal.pct !== null && (
+        <div className={styles.calificacionFinalRow}>
+          <CardPromedioPlanta data={data.calificacionFinal} />
+        </div>
+      )}
 
       <div className={styles.kpiGrid}>
         {(kpis ?? Array(4).fill(null)).map((kpi, i) => (

@@ -249,6 +249,12 @@
 .heroSkelChips   { width: 220px; height: 22px; margin-top: 6px; border-radius: 999px; }
 
 /* ---- KPI Grid ---- */
+.calificacionFinalRow {
+  margin-bottom: var(--nom-space-8);
+  animation: nomFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.06s;
+}
+
 .kpiGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
