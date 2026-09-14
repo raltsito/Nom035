@@ -48,7 +48,7 @@ function modaDistribucion(dist) {
 // Procesamiento principal
 // ---------------------------------------------------------------------------
 
-function procesarDatos(resultados, resumen, dominiosAgregados, atencionClinica) {
+function procesarDatos(resultados, resumen, dominiosAgregados, atencionClinica, calificacionFinal) {
   const distIII = resumen.guia_iii?.distribucion ?? resumen.distribucion ?? {};
 
   // ---- Chart 1: Gauge de riesgo global (solo Guía III) -------------------
@@ -148,6 +148,7 @@ function procesarDatos(resultados, resumen, dominiosAgregados, atencionClinica) 
     areas,
     top3,
     atencionClinica: atencionClinica ?? [],
+    calificacionFinal,
     resumen,
   };
 }
@@ -180,8 +181,12 @@ export function useDashboardData(cicloId) {
       const resumen           = resumenRes.data.data  ?? {};
       const dominiosAgregados = dominiosRes.data.data ?? [];
       const atencionClinica   = atencionRes.data.data ?? [];
+      const calificacionFinal = {
+        pct:      dominiosRes.data.meta?.promedio_planta_pct ?? null,
+        nMuestra: dominiosRes.data.meta?.promedio_planta_n_muestra ?? null,
+      };
 
-      setData(procesarDatos(resultados, resumen, dominiosAgregados, atencionClinica));
+      setData(procesarDatos(resultados, resumen, dominiosAgregados, atencionClinica, calificacionFinal));
     } catch (e) {
       setError(e);
     } finally {

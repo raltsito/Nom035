@@ -312,10 +312,12 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Agrupar en memoria por clave de dominio
         dominio_map = {}
+        trabajadores_muestra = set()
         for rd in dominios_qs:
             clave  = rd.clave
             nombre = rd.nombre
             area   = rd.resultado.aplicacion.trabajador.area or 'Sin área'
+            trabajadores_muestra.add(rd.resultado.aplicacion.trabajador_id)
 
             if clave not in dominio_map:
                 dominio_map[clave] = {
@@ -384,16 +386,33 @@ class ResultadoViewSet(viewsets.ReadOnlyModelViewSet):
                 'por_area':         por_area,
             })
 
+        # ---- Calificación final del centro de trabajo (dato descriptivo) --
+        # Suma los puntos y puntos máximos crudos de TODOS los dominios antes
+        # de dividir (no promedia los pct_promedio ya reducidos), así cada
+        # trabajador/dominio pesa según sus reactivos realmente respondidos
+        # en vez de tratar los 10 dominios como si pesaran lo mismo.
+        # Se calcula sobre la MUESTRA (trabajadores con Guía III válida),
+        # no sobre el headcount total de la planta.
+        total_pt = sum(entry['pt'] for entry in dominio_map.values())
+        total_pm = sum(entry['pm'] for entry in dominio_map.values())
+        promedio_planta_pct = round(total_pt / total_pm * 100) if total_pm else 0
+
         return _wrap(resultado, {
             'total_dominios':          len(resultado),
             'version_motor':           VERSION_MOTOR,
             'umbral_confidencialidad': umbral_confidencialidad(),
             'es_resultado_oficial':    True,
+            'promedio_planta_pct':          promedio_planta_pct,
+            'promedio_planta_n_muestra':    len(trabajadores_muestra),
             'nota_metodologica': (
                 'Los niveles por dominio se clasifican por cuestionario individual '
                 '(Tabla 6, Guía de Referencia III). El puntaje promedio es un '
                 'estadístico descriptivo y no constituye un nivel de riesgo oficial. '
-                'Los grupos con n menor al umbral se reservan por confidencialidad.'
+                'Los grupos con n menor al umbral se reservan por confidencialidad. '
+                'La Calificación Final del Centro de Trabajo (meta.promedio_planta_pct) '
+                'es un estadístico descriptivo ponderado por reactivos respondidos, '
+                'calculado sobre la muestra (trabajadores con Guía III válida, no el '
+                'headcount total); no clasifica riesgo.'
             ),
         })
 

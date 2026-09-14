@@ -5,6 +5,7 @@ import GaugeRiesgo          from './charts/GaugeRiesgo';
 import CardTop3Dominios     from './charts/CardTop3Dominios';
 import RadarCategorias      from './charts/RadarCategorias';
 import BarDominios          from './charts/BarDominios';
+import CardPromedioPlanta   from './charts/CardPromedioPlanta'; // PRUEBA
 // import HeatmapDominiosAreas from './charts/HeatmapDominiosAreas'; // oculto temporalmente
 import BarDepartamentos     from './charts/BarDepartamentos';
 import StackedBarPoblacion  from './charts/StackedBarPoblacion';
@@ -41,6 +42,11 @@ export default function ResultadosDashboard({ cicloId }) {
 
   return (
     <div className={styles.bento}>
+      {/* ── Fila 0: Calificación Final del Centro de Trabajo — hero banner ── */}
+      <div className={styles.cellPromedioPlanta}>
+        <CardPromedioPlanta data={data.calificacionFinal} />
+      </div>
+
       {/* ── Fila 1: KPI global | Top3 dominios | Radar ── */}
       <div className={styles.cellGauge}>
         <GaugeRiesgo data={data.riesgoGlobal} />
