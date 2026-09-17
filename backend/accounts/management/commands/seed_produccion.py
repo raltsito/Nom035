@@ -241,6 +241,36 @@ TENANTS = [
     },
     {
         'tenant': {
+            'nombre':           'Agua Prieta',
+            'rfc':              'AGP010101AA1',
+            'giro':             'Manufactura',
+            'num_trabajadores': 100,
+        },
+        'admin': {
+            'username':   'aguaprieta',
+            'email':      'admin.aguaprieta@cliente.com',
+            'first_name': 'Admin',
+            'last_name':  'Agua Prieta',
+            'password':   'AgP#S0n0r4_25!',
+        },
+    },
+    {
+        'tenant': {
+            'nombre':           'NEAPCO',
+            'rfc':              'NEA010101AA1',
+            'giro':             'Manufactura',
+            'num_trabajadores': 100,
+        },
+        'admin': {
+            'username':   'neapco',
+            'email':      'admin.neapco@cliente.com',
+            'first_name': 'Admin',
+            'last_name':  'Neapco',
+            'password':   'Ne4pc0@Mx_25!',
+        },
+    },
+    {
+        'tenant': {
             'nombre':           'PRUEBA',
             'rfc':              'PRU010101AA1',
             'giro':             'Pruebas',
