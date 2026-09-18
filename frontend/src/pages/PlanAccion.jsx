@@ -1,25 +1,16 @@
 import Overlay from '../components/ui/Overlay';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ClipboardList, Plus, FileDown, Loader2, X,
   ChevronDown, Pencil, Trash2, AlertTriangle,
-  CheckCircle2, Clock, CircleDot, Ban,
+  CheckCircle2, Clock, CircleDot, Ban, GanttChartSquare,
 } from 'lucide-react';
 import { planAccionService, accionesService } from '../services/planAccion';
 import { ciclosService } from '../services/trabajadores';
+import GanttChart from '../components/GanttChart';
 import styles from './PlanAccion.module.css';
 
 // --- Config chips ---
-const TIPO_CFG = {
-  preventiva: { label: 'Preventiva',      color: 'var(--nom-accent)',   bg: 'var(--nom-accent-subtle)' },
-  correctiva: { label: 'Correctiva',      color: 'var(--nom-danger)',   bg: 'var(--nom-danger-subtle)' },
-  mejora:     { label: 'Mejora continua', color: '#7c3aed',             bg: 'rgba(124,58,237,0.10)' },
-};
-const PRIO_CFG = {
-  alta:  { label: 'Alta',  color: 'var(--nom-danger)',   bg: 'var(--nom-danger-subtle)' },
-  media: { label: 'Media', color: '#d97706',             bg: 'rgba(245,158,11,0.10)' },
-  baja:  { label: 'Baja',  color: 'var(--nom-text-muted)', bg: 'var(--nom-bg-subtle)' },
-};
 const ESTADO_CFG = {
   pendiente:   { label: 'Pendiente',   icon: CircleDot,    color: 'var(--nom-text-muted)', bg: 'var(--nom-bg-subtle)' },
   en_progreso: { label: 'En progreso', icon: Clock,        color: '#d97706',               bg: 'rgba(245,158,11,0.10)' },
@@ -29,9 +20,10 @@ const ESTADO_CFG = {
 
 const EMPTY_PLAN   = { ciclo: '', descripcion: '' };
 const EMPTY_ACCION = {
-  descripcion: '', tipo: 'preventiva', factor_riesgo: '',
-  responsable: '', fecha_limite: '', prioridad: 'media',
-  estado: 'pendiente', avance_notas: '',
+  descripcion: '', factor_riesgo: '', departamento: '',
+  responsable: '', fecha_inicio: '', fecha_limite: '',
+  estado: 'pendiente', fecha_validacion: '', fecha_completado: '',
+  avance_notas: '',
 };
 
 function Chip({ map, val }) {
@@ -43,6 +35,37 @@ function Chip({ map, val }) {
       {c.label}
     </span>
   );
+}
+
+function fmtFecha(value) {
+  if (!value) return '—';
+  return new Date(`${value}T00:00:00`).toLocaleDateString('es-MX');
+}
+
+// Agrupa las acciones por seccion del programa (lo que precede " — " en
+// factor_riesgo, p.ej. "II.- COMITE MULTIDISCIPLINARIO — Conformacion")
+// para dibujar un Gantt por fase en vez de una barra por cada accion.
+function buildGanttPhases(acciones) {
+  const groups = new Map();
+  for (const a of acciones) {
+    const key = (a.factor_riesgo || 'Sin categoria').split('—')[0].trim() || 'Sin categoria';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(a);
+  }
+  const phases = [];
+  for (const [label, items] of groups) {
+    const starts = items.map(a => a.fecha_inicio || a.fecha_limite).filter(Boolean);
+    const ends   = items.map(a => a.fecha_completado || a.fecha_limite).filter(Boolean);
+    if (!starts.length || !ends.length) continue;
+    phases.push({
+      label,
+      start: starts.reduce((min, d) => (d < min ? d : min)),
+      end:   ends.reduce((max, d) => (d > max ? d : max)),
+      total: items.length,
+      completadas: items.filter(a => a.estado === 'completado').length,
+    });
+  }
+  return phases;
 }
 
 export default function PlanAccion() {
@@ -89,6 +112,8 @@ export default function PlanAccion() {
 
   useEffect(() => { fetchPlan(); }, [fetchPlan]);
 
+  const ganttPhases = useMemo(() => buildGanttPhases(acciones), [acciones]);
+
   // --- Modals ---
   const openCreatePlan = () => {
     setForm({ ...EMPTY_PLAN, ciclo: cicloId });
@@ -113,14 +138,16 @@ export default function PlanAccion() {
 
   const openEditAccion = (a) => {
     setAForm({
-      descripcion:   a.descripcion,
-      tipo:          a.tipo,
-      factor_riesgo: a.factor_riesgo || '',
-      responsable:   a.responsable,
-      fecha_limite:  a.fecha_limite,
-      prioridad:     a.prioridad,
-      estado:        a.estado,
-      avance_notas:  a.avance_notas || '',
+      descripcion:      a.descripcion,
+      factor_riesgo:    a.factor_riesgo || '',
+      departamento:     a.departamento || '',
+      responsable:      a.responsable,
+      fecha_inicio:     a.fecha_inicio || '',
+      fecha_limite:     a.fecha_limite,
+      estado:           a.estado,
+      fecha_validacion: a.fecha_validacion || '',
+      fecha_completado: a.fecha_completado || '',
+      avance_notas:     a.avance_notas || '',
     });
     setFormErr('');
     setEditTarget(a);
@@ -154,7 +181,13 @@ export default function PlanAccion() {
     e.preventDefault();
     setSaving(true); setFormErr('');
     try {
-      const payload = { ...aForm, plan: plan.id };
+      const payload = {
+        ...aForm,
+        plan: plan.id,
+        fecha_inicio:     aForm.fecha_inicio || null,
+        fecha_validacion: aForm.fecha_validacion || null,
+        fecha_completado: aForm.fecha_completado || null,
+      };
       if (editTarget) {
         await accionesService.update(editTarget.id, payload);
       } else {
@@ -214,7 +247,7 @@ export default function PlanAccion() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Plan de Accion</h1>
-          <p className={styles.subtitle}>Medidas correctivas y preventivas para reducir factores de riesgo psicosocial</p>
+          <p className={styles.subtitle}>Programa de intervencion NOM-035: acciones, responsables y fechas comprometidas</p>
         </div>
         <div className={styles.headerActions}>
           {ciclos.length > 0 && (
@@ -294,6 +327,21 @@ export default function PlanAccion() {
             </div>
           </div>
 
+          {/* Gantt */}
+          {ganttPhases.length > 0 && (
+            <>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>
+                  <GanttChartSquare size={18} strokeWidth={1.75} />
+                  Cronograma
+                </h2>
+              </div>
+              <div className={`${styles.ganttCard} nom-card`}>
+                <GanttChart phases={ganttPhases} />
+              </div>
+            </>
+          )}
+
           {/* Actions section */}
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>
@@ -319,13 +367,15 @@ export default function PlanAccion() {
               <table className={styles.table}>
                 <thead className={styles.thead}>
                   <tr>
-                    <th>Descripcion</th>
-                    <th>Tipo</th>
-                    <th>Factor</th>
+                    <th>Actividad</th>
+                    <th>Factor / Problema</th>
+                    <th>Departamento</th>
                     <th>Responsable</th>
-                    <th>Fecha limite</th>
-                    <th>Prioridad</th>
+                    <th>Fecha inicio</th>
+                    <th>Fecha compromiso</th>
                     <th>Estado</th>
+                    <th>Fecha validacion</th>
+                    <th>Fecha termino</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -338,15 +388,17 @@ export default function PlanAccion() {
                           <div className={styles.notasText}>{a.avance_notas}</div>
                         )}
                       </td>
-                      <td><Chip map={TIPO_CFG}    val={a.tipo} /></td>
                       <td className={styles.tdMuted}>{a.factor_riesgo || '—'}</td>
+                      <td className={styles.tdMuted}>{a.departamento || '—'}</td>
                       <td className={styles.tdMuted}>{a.responsable}</td>
+                      <td className={styles.tdMuted}>{fmtFecha(a.fecha_inicio)}</td>
                       <td className={`${styles.tdMuted} ${a.vencida ? styles.vencida : ''}`}>
-                        {new Date(a.fecha_limite + 'T00:00:00').toLocaleDateString('es-MX')}
+                        {fmtFecha(a.fecha_limite)}
                         {a.vencida && <span className={styles.vencidaTag}>Vencida</span>}
                       </td>
-                      <td><Chip map={PRIO_CFG}   val={a.prioridad} /></td>
                       <td><Chip map={ESTADO_CFG} val={a.estado} /></td>
+                      <td className={styles.tdMuted}>{fmtFecha(a.fecha_validacion)}</td>
+                      <td className={styles.tdMuted}>{fmtFecha(a.fecha_completado)}</td>
                       <td>
                         <div className={styles.rowActions}>
                           <button className={styles.rowBtn} onClick={() => openEditAccion(a)} title="Editar">
@@ -414,10 +466,10 @@ export default function PlanAccion() {
             <form onSubmit={handleSaveAccion} className={styles.modalForm}>
               <div className={styles.formGrid}>
                 <div className={`${styles.field} ${styles.fieldFull}`}>
-                  <label className={styles.label}>Descripcion de la medida *</label>
+                  <label className={styles.label}>Actividad / contramedida *</label>
                   <textarea
                     className="nom-input"
-                    placeholder="Describe la accion o medida a implementar..."
+                    placeholder="Describe la actividad o contramedida a implementar..."
                     value={aForm.descripcion}
                     onChange={e => setAForm(f => ({ ...f, descripcion: e.target.value }))}
                     rows={2}
@@ -427,46 +479,22 @@ export default function PlanAccion() {
                 </div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Tipo *</label>
-                  <div className={styles.selectWrap} style={{ position: 'relative', maxWidth: '100%' }}>
-                    <ChevronDown size={14} className={styles.selectIcon} />
-                    <select
-                      className={styles.select}
-                      style={{ width: '100%', paddingLeft: '14px' }}
-                      value={aForm.tipo}
-                      onChange={e => setAForm(f => ({ ...f, tipo: e.target.value }))}
-                    >
-                      <option value="preventiva">Preventiva</option>
-                      <option value="correctiva">Correctiva</option>
-                      <option value="mejora">Mejora continua</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Prioridad *</label>
-                  <div className={styles.selectWrap} style={{ position: 'relative', maxWidth: '100%' }}>
-                    <ChevronDown size={14} className={styles.selectIcon} />
-                    <select
-                      className={styles.select}
-                      style={{ width: '100%', paddingLeft: '14px' }}
-                      value={aForm.prioridad}
-                      onChange={e => setAForm(f => ({ ...f, prioridad: e.target.value }))}
-                    >
-                      <option value="alta">Alta</option>
-                      <option value="media">Media</option>
-                      <option value="baja">Baja</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Factor de riesgo</label>
+                  <label className={styles.label}>Factor de riesgo / Problema</label>
                   <input
                     className="nom-input"
                     placeholder="Ej. Carga de trabajo, liderazgo..."
                     value={aForm.factor_riesgo}
                     onChange={e => setAForm(f => ({ ...f, factor_riesgo: e.target.value }))}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Departamento</label>
+                  <input
+                    className="nom-input"
+                    placeholder="Ej. RRHH, EHS..."
+                    value={aForm.departamento}
+                    onChange={e => setAForm(f => ({ ...f, departamento: e.target.value }))}
                   />
                 </div>
 
@@ -477,17 +505,6 @@ export default function PlanAccion() {
                     placeholder="Nombre o area responsable"
                     value={aForm.responsable}
                     onChange={e => setAForm(f => ({ ...f, responsable: e.target.value }))}
-                    required
-                  />
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Fecha limite *</label>
-                  <input
-                    className="nom-input"
-                    type="date"
-                    value={aForm.fecha_limite}
-                    onChange={e => setAForm(f => ({ ...f, fecha_limite: e.target.value }))}
                     required
                   />
                 </div>
@@ -510,8 +527,49 @@ export default function PlanAccion() {
                   </div>
                 </div>
 
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha de inicio</label>
+                  <input
+                    className="nom-input"
+                    type="date"
+                    value={aForm.fecha_inicio}
+                    onChange={e => setAForm(f => ({ ...f, fecha_inicio: e.target.value }))}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha compromiso *</label>
+                  <input
+                    className="nom-input"
+                    type="date"
+                    value={aForm.fecha_limite}
+                    onChange={e => setAForm(f => ({ ...f, fecha_limite: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha de validacion</label>
+                  <input
+                    className="nom-input"
+                    type="date"
+                    value={aForm.fecha_validacion}
+                    onChange={e => setAForm(f => ({ ...f, fecha_validacion: e.target.value }))}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Fecha de termino</label>
+                  <input
+                    className="nom-input"
+                    type="date"
+                    value={aForm.fecha_completado}
+                    onChange={e => setAForm(f => ({ ...f, fecha_completado: e.target.value }))}
+                  />
+                </div>
+
                 <div className={`${styles.field} ${styles.fieldFull}`}>
-                  <label className={styles.label}>Notas de avance</label>
+                  <label className={styles.label}>Comentarios</label>
                   <textarea
                     className="nom-input"
                     placeholder="Comentarios sobre el progreso o evidencias..."

@@ -1,0 +1,32 @@
+.wrap { display: flex; flex-direction: column; gap: var(--nom-space-3); }
+
+.empty {
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--nom-space-10);
+  color: var(--nom-text-muted);
+  font-size: var(--nom-text-sm);
+  background: var(--nom-bg-subtle);
+  border: 1.5px dashed var(--nom-border-solid);
+  border-radius: var(--nom-radius-xl);
+}
+
+.legend { display: flex; gap: var(--nom-space-5); justify-content: flex-end; padding-right: var(--nom-space-2); }
+.legendItem { display: inline-flex; align-items: center; gap: 6px; font-size: var(--nom-text-xs); color: var(--nom-text-muted); }
+.legendDot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+.tooltip {
+  padding: 10px 14px;
+  border-radius: var(--nom-radius-lg);
+  background: var(--nom-glass-bg);
+  backdrop-filter: var(--nom-glass-blur);
+  -webkit-backdrop-filter: var(--nom-glass-blur);
+  border: 1px solid var(--nom-border-solid);
+  box-shadow: var(--nom-shadow-lg, 0 8px 24px rgba(0,0,0,0.12));
+  font-size: var(--nom-text-xs);
+  max-width: 240px;
+}
+.tooltipLabel { font-weight: var(--nom-font-semibold); color: var(--nom-text); margin-bottom: 3px; font-size: var(--nom-text-sm); }
+.tooltipRange { color: var(--nom-text-muted); margin-bottom: 6px; }
+.tooltipRow   { display: flex; align-items: center; gap: 6px; color: var(--nom-text-secondary); }
+.tooltipDot   { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.tooltipPct   { margin-top: 4px; font-weight: var(--nom-font-bold); color: var(--nom-success); }

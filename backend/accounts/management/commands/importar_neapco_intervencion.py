@@ -117,20 +117,35 @@ class Command(BaseCommand):
             )
             self.stdout.write(('Creado' if plan_creado else 'Ya existia') + f' PlanAccion (id={plan.id})')
 
-            existentes_accion = set(
-                AccionMedida.objects.filter(plan=plan)
-                .values_list('descripcion', 'fecha_limite')
-            )
+            existentes_accion = {
+                (am.descripcion, am.fecha_limite): am
+                for am in AccionMedida.objects.filter(plan=plan)
+            }
             nuevas_acciones = 0
+            actualizadas_acciones = 0
             for a in acciones:
                 key = (a['descripcion'], a['fecha_limite'])
-                if key in existentes_accion:
+                existente = existentes_accion.get(key)
+                if existente is None:
+                    nuevas_acciones += 1
+                    if apply_changes:
+                        AccionMedida.objects.create(tenant=tenant, plan=plan, **a)
                     continue
-                nuevas_acciones += 1
-                if apply_changes:
-                    AccionMedida.objects.create(tenant=tenant, plan=plan, **a)
-            self.stdout.write(f'AccionMedida: {nuevas_acciones} nuevas (de {len(acciones)} filas), '
-                               f'{len(acciones) - nuevas_acciones} ya existian')
+                # Backfill de campos agregados despues de la primera corrida
+                # (fecha_inicio / departamento) sobre filas ya importadas.
+                cambios = {
+                    k: v for k, v in a.items()
+                    if k in ('fecha_inicio', 'departamento') and not getattr(existente, k)
+                }
+                if cambios:
+                    actualizadas_acciones += 1
+                    if apply_changes:
+                        for k, v in cambios.items():
+                            setattr(existente, k, v)
+                        existente.save(update_fields=list(cambios))
+            self.stdout.write(f'AccionMedida: {nuevas_acciones} nuevas, {actualizadas_acciones} actualizadas '
+                               f'(de {len(acciones)} filas), '
+                               f'{len(acciones) - nuevas_acciones - actualizadas_acciones} sin cambios')
 
             existentes_difusion = set(
                 ActividadDifusion.objects.filter(tenant=tenant, ciclo=ciclo)
@@ -199,21 +214,17 @@ class Command(BaseCommand):
             completado = status_val == '100'
 
             factor_riesgo = f'{section} — {sub_label}' if sub_label else section
-            notas = []
             fi = _to_date(fecha_inicio)
-            if fi:
-                notas.append(f'Fecha de inicio original: {fi.isoformat()}')
-            if _clean_text(depto):
-                notas.append(f'Departamento: {_clean_text(depto)}')
 
             acciones.append(dict(
                 descripcion=descripcion,
                 factor_riesgo=factor_riesgo[:300],
+                departamento=_clean_text(depto)[:200],
                 responsable=_clean_text(nombre)[:200],
+                fecha_inicio=fi,
                 fecha_limite=fecha_limite,
                 estado='completado' if completado else 'pendiente',
                 fecha_completado=fecha_limite if completado else None,
-                avance_notas='. '.join(notas),
             ))
 
         wb.close()

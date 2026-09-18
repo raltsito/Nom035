@@ -12,9 +12,10 @@ class AccionMedidaSerializer(serializers.ModelSerializer):
         model  = AccionMedida
         fields = (
             'id', 'plan', 'descripcion', 'tipo', 'tipo_label',
-            'factor_riesgo', 'responsable', 'fecha_limite',
+            'factor_riesgo', 'departamento', 'responsable',
+            'fecha_inicio', 'fecha_limite',
             'prioridad', 'prioridad_label', 'estado', 'estado_label',
-            'avance_notas', 'fecha_completado', 'vencida',
+            'avance_notas', 'fecha_validacion', 'fecha_completado', 'vencida',
             'creado_en', 'actualizado_en',
         )
         read_only_fields = ('id', 'tipo_label', 'prioridad_label', 'estado_label', 'vencida', 'creado_en', 'actualizado_en')

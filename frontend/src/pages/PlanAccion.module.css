@@ -101,6 +101,9 @@
 }
 .clearFilter:hover { opacity: 0.75; }
 
+/* ---- Gantt ---- */
+.ganttCard { padding: var(--nom-space-5) var(--nom-space-5) var(--nom-space-4); }
+
 /* ---- Empty acciones ---- */
 .emptyAcciones {
   display: flex; flex-direction: column; align-items: center; gap: var(--nom-space-3);
@@ -112,7 +115,7 @@
 
 /* ---- Table ---- */
 .tableWrap { overflow-x: auto; border-radius: var(--nom-radius-xl); border: 1px solid var(--nom-border-solid); }
-.table { width: 100%; border-collapse: collapse; min-width: 780px; }
+.table { width: 100%; border-collapse: collapse; min-width: 1080px; }
 .thead th {
   padding: 12px 14px; background: var(--nom-bg-subtle);
   font-size: var(--nom-text-xs); font-weight: var(--nom-font-semibold);
